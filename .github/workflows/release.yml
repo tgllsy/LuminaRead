@@ -170,10 +170,19 @@ jobs:
         working-directory: android
         run: |
           set -e
-          # setup-gradle 会注入 PATH/GRADLE_HOME，双路径兜底避免 command not found
-          GRADLE_BIN="${GRADLE_HOME:+$GRADLE_HOME/bin/gradle}"
-          [ -x "$GRADLE_BIN" ] || GRADLE_BIN="$(command -v gradle)"
+          # 优先使用 setup-gradle provisioned 的 Gradle 8.5，防止被 runner 系统环境中的 Gradle 9.x 劫持
+          GRADLE_BIN="$(find /home/runner/work/_temp/ "${RUNNER_TEMP:-/tmp}" -path "*/gradle-8.5/bin/gradle" 2>/dev/null | head -n 1)"
+          if [ ! -x "$GRADLE_BIN" ]; then
+            GRADLE_BIN="$(find /home/runner /opt /usr -path "*/gradle-8.5*/bin/gradle" 2>/dev/null | head -n 1)"
+          fi
+          if [ ! -x "$GRADLE_BIN" ]; then
+            GRADLE_BIN="${GRADLE_HOME:+$GRADLE_HOME/bin/gradle}"
+          fi
+          if [ ! -x "$GRADLE_BIN" ]; then
+            GRADLE_BIN="$(command -v gradle)"
+          fi
           echo "Using gradle: $GRADLE_BIN"
+          "$GRADLE_BIN" --version
           "$GRADLE_BIN" assembleDebug --no-daemon
 
       - name: Rename APK
