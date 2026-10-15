@@ -16,6 +16,8 @@ permissions:
 
 env:
   GH_TOKEN: ${{ github.token }}
+  # init/finalize job 无 checkout 步骤，gh 需显式指定目标仓库
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   init:
