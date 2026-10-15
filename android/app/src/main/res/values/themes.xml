@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.LuminaRead" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#0f172a</item>
+        <item name="android:navigationBarColor">#0f172a</item>
+        <item name="android:windowBackground">#0f172a</item>
+    </style>
+</resources>

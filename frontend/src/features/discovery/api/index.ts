@@ -1,0 +1,1 @@
+export { discoveryApi } from './discoveryApi'

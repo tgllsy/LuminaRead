@@ -1,0 +1,1 @@
+export { searchStatsApi } from './searchStatsApi'

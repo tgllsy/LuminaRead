@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+node_modules/
+
+# Runtime database, books, covers & caches
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Compiled binary (Linux ELF build output)
+/luminaread
+
+# Environment & OS files
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Rust target
+target/
+
+# Build output
+dist/
+*.apk
+build.log

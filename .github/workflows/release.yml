@@ -1,0 +1,242 @@
+name: Release Multi-Platform Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version tag (e.g. v1.3.0，需以 v 开头)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  init:
+    name: Initialize Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.init.outputs.version }}
+    steps:
+      - name: Create / Reset Release
+        id: init
+        run: |
+          # tag 推送时取 tag 名；手动触发时取输入值
+          VERSION="${{ inputs.version || github.ref_name }}"
+          if [[ "$VERSION" != v* ]]; then
+            echo "::error::版本号必须以 v 开头 (如 v1.3.0)，当前为: $VERSION"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # 覆盖式发布：同名 Release 已存在则先删除（保留同名 tag，不影响 checkout）
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Deleting existing release: $VERSION"
+            gh release delete "$VERSION" --yes
+          fi
+          gh release create "$VERSION" \
+            --title "LuminaRead $VERSION" \
+            --notes "🚀 LuminaRead $VERSION 多平台并行构建中..." \
+            --target "$GITHUB_SHA"
+
+  build-desktop:
+    name: Build Desktop (Linux / Windows / macOS ARM64)
+    needs: [init]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.init.outputs.version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build Frontend Static Assets
+        run: |
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm run build
+          ls -lh dist/
+
+      - name: Setup Rust & Cross-Compile Toolchains
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            curl ca-certificates zip gzip tar \
+            python3 python3-pip \
+            build-essential pkg-config linux-libc-dev \
+            musl-tools gcc-mingw-w64-x86-64
+
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+          # 仅编译主流 Linux MUSL、Windows 以及 Apple Silicon (M 系列)，裁剪老款 Intel Mac
+          rustup target add \
+            x86_64-unknown-linux-musl \
+            x86_64-pc-windows-gnu \
+            aarch64-apple-darwin
+
+          pip3 install --break-system-packages cargo-zigbuild || pip3 install cargo-zigbuild
+
+      - name: Build Desktop Binaries
+        run: |
+          export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+          ROOT_DIR="$(pwd)"
+          DIST_DIR="$ROOT_DIR/dist"
+          rm -rf "$DIST_DIR" && mkdir -p "$DIST_DIR"
+
+          package_release() {
+            local platform="$1" bin_src="$2" bin_name="$3"
+            local pkg_name="luminaread_${VERSION}_${platform}"
+            local stage_dir="$DIST_DIR/$pkg_name"
+
+            mkdir -p "$stage_dir"
+            cp "$bin_src" "$stage_dir/$bin_name"
+            chmod +x "$stage_dir/$bin_name"
+            sed -e 's|data_dir = ".*"|data_dir = "./data"|' \
+                -e 's|db_path = ".*"|db_path = "./data/luminaread.db"|' \
+                "$ROOT_DIR/config.toml" > "$stage_dir/config.toml"
+            if [ -f "$ROOT_DIR/README.md" ]; then
+              cp "$ROOT_DIR/README.md" "$stage_dir/README.md"
+            fi
+
+            ( cd "$DIST_DIR" && zip -r -9 "${pkg_name}.zip" "$pkg_name" )
+            rm -rf "$stage_dir"
+            gh release upload "$VERSION" "$DIST_DIR/${pkg_name}.zip" --clobber
+            echo "Uploaded: ${pkg_name}.zip"
+          }
+
+          cd "$ROOT_DIR/backend"
+
+          echo "=== [1/3] Building Linux (x86_64-unknown-linux-musl) ==="
+          cargo zigbuild --release --bin luminaread --target x86_64-unknown-linux-musl || \
+            cargo build --release --bin luminaread --target x86_64-unknown-linux-musl
+          package_release "linux_amd64" "target/x86_64-unknown-linux-musl/release/luminaread" "luminaread"
+
+          echo "=== [2/3] Building Windows (x86_64-pc-windows-gnu) ==="
+          cargo build --release --bin luminaread --target x86_64-pc-windows-gnu || \
+            cargo zigbuild --release --bin luminaread --target x86_64-pc-windows-gnu
+          package_release "windows_amd64" "target/x86_64-pc-windows-gnu/release/luminaread.exe" "luminaread.exe"
+
+          echo "=== [3/3] Building macOS Apple Silicon (aarch64-apple-darwin) ==="
+          # 生成 CoreFoundation stub 以满足 zig 交叉链接 macOS 目标
+          mkdir -p /tmp/macos-aarch64/CoreFoundation.framework
+          cat << 'EOF' > /tmp/cf_stub.c
+          void CFRelease(void *cf) {}
+          void *CFTimeZoneCopySystem(void) { return 0; }
+          void *CFTimeZoneGetName(void *tz) { return 0; }
+          void CFTimeZoneResetSystem(void) {}
+          long CFStringGetLength(void *s) { return 0; }
+          const char *CFStringGetCStringPtr(void *s, unsigned int enc) { return 0; }
+          long CFStringGetBytes(void *s, long loc, long len, unsigned int enc, unsigned char loss, unsigned char *buf, long max, long *used) { return 0; }
+          EOF
+          python3 -m ziglang cc -target aarch64-macos -dynamiclib \
+            -Wl,-install_name,/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation \
+            -o /tmp/macos-aarch64/CoreFoundation.framework/CoreFoundation /tmp/cf_stub.c
+
+          CARGO_PROFILE_RELEASE_STRIP=none \
+            RUSTFLAGS="-C link-arg=-F/tmp/macos-aarch64" \
+            cargo zigbuild --release --bin luminaread --target aarch64-apple-darwin
+          package_release "darwin_arm64" "target/aarch64-apple-darwin/release/luminaread" "luminaread"
+
+  build-android:
+    name: Build Android (ARM64 APK)
+    needs: [init]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.init.outputs.version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build Frontend Static Assets
+        run: |
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Setup Rust Android Target
+        run: rustup target add aarch64-linux-android
+
+      - name: Install Android NDK
+        run: yes | sdkmanager --install "ndk;26.1.10909125" >/dev/null
+
+      - name: Build Native Library (libluminaread.so)
+        working-directory: backend
+        run: |
+          set -e
+          NDK_BIN="$ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang"
+          export CXX_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang++"
+          export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android24-clang"
+
+          # Android 端需要 cdylib 动态库 (桌面端仍使用 rlib，此处仅 CI 内临时修改)
+          sed -i 's/crate-type = .*/crate-type = ["cdylib", "rlib"]/' Cargo.toml
+          cargo build --lib --target aarch64-linux-android --release
+
+          mkdir -p ../android/app/src/main/jniLibs/arm64-v8a
+          cp target/aarch64-linux-android/release/libluminaread.so \
+             ../android/app/src/main/jniLibs/arm64-v8a/libluminaread.so
+
+      - name: Setup Gradle 8.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.5"
+
+      - name: Assemble APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK to Release
+        run: |
+          APK_NAME="luminaread_${VERSION}_android.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
+          gh release upload "$VERSION" "$APK_NAME" --clobber
+          echo "Uploaded: $APK_NAME"
+
+  finalize:
+    name: Finalize Release (Checksums & Summary)
+    needs: [init, build-desktop, build-android]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.init.outputs.version }}
+    steps:
+      - name: Generate Unified Checksums & Publish Notes
+        run: |
+          WORKDIR="$(mktemp -d)"
+          gh release download "$VERSION" --dir "$WORKDIR" --clobber \
+            --pattern '*.zip' --pattern '*.apk'
+
+          ( cd "$WORKDIR" && sha256sum *.zip *.apk > checksums.txt )
+          cat "$WORKDIR/checksums.txt"
+          gh release upload "$VERSION" "$WORKDIR/checksums.txt" --clobber
+
+          BODY=$(printf "LuminaRead %s 全平台单文件与移动端发布版。\n\n### 包含特性\n- 前端静态资源（Gzip 预压缩）全量内嵌至单一可执行文件\n- 内置 SQLite 与 Rustls 静态链接，零外部运行时依赖\n- 包含 Android 单机脱机离线 APK 安装包（ARM64 原生内核）\n\n### 平台产物\n- **Android (ARM64 Standalone APK)**: \`luminaread_%s_android.apk\`\n- **Linux (x86_64 Static MUSL)**: \`luminaread_%s_linux_amd64.zip\`\n- **Windows (x86_64 Standalone EXE)**: \`luminaread_%s_windows_amd64.zip\`\n- **macOS (Apple Silicon M-series arm64)**: \`luminaread_%s_darwin_arm64.zip\`\n\n### 校验清单\n详见资产列表中的 \`checksums.txt\`。" "$VERSION" "$VERSION" "$VERSION" "$VERSION" "$VERSION")
+
+          gh release edit "$VERSION" --title "LuminaRead $VERSION" --notes "$BODY"
+          echo "Release $VERSION finalized successfully!"

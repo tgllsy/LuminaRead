@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta
+      name="description"
+      content="LuminaRead (阅境) — 本地多端 Web 读书系统，内置全网搜书一键下载、SQLite FTS5 秒级全文检索与防剧透 AI 伴读"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="阅境" />
+    <link rel="manifest" href="/manifest.json" />
+    <!-- 开源中文阅读字体切片 WebFont CDN 预连接与样式引入（解决 Android APK / 移动端设备缺乏宋体/楷体字库导致切换无效的问题） -->
+    <link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin />
+    <link rel="preconnect" href="https://fonts.loli.net" crossorigin />
+    <link rel="preconnect" href="https://gstatic.loli.net" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-screen-webfont/1.7.0/style.min.css" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" crossorigin="anonymous" />
+    <title>阅境 LuminaRead — 本地多端沉浸阅读与全网搜书工作台</title>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-amber-200 selection:text-slate-900">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

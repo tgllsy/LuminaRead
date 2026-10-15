@@ -1,0 +1,427 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    font-family: "Inter Variable", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    overflow-anchor: none;
+  }
+
+  /* 彻底解决 iOS / 移动端在聚焦输入框时页面被浏览器自动强制局部放大的问题 */
+  @media screen and (max-width: 768px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+/* Explicit high-specificity Reader Font Families (prevents Tailwind utility overrides) */
+.reader-font-kaiti,
+.reader-font-kaiti p,
+.reader-font-kaiti h1,
+.reader-font-kaiti h2,
+.reader-font-kaiti blockquote,
+.reader-font-kaiti mark,
+.reader-font-kaiti span:not(.reader-ui-badge),
+.reader-font-kaiti div:not(.reader-ui-badge) {
+  font-family: "LXGW WenKai Screen", "LXGW WenKai GB Screen", "LXGW WenKai", "STKaiti", "华文楷体", "KaiTi", "楷体", "Kaiti SC", "DFKai-SB", "FZKai-Z03S", "AR PL UKai CN", cursive, serif !important;
+}
+
+.reader-font-serif,
+.reader-font-serif p,
+.reader-font-serif h1,
+.reader-font-serif h2,
+.reader-font-serif blockquote,
+.reader-font-serif mark,
+.reader-font-serif span:not(.reader-ui-badge),
+.reader-font-serif div:not(.reader-ui-badge) {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "思源宋体", "Songti SC", "宋体-简", "STSong", "华文宋体", "SimSun", "宋体", "NSimSun", Georgia, "Times New Roman", serif !important;
+}
+
+.reader-font-sans,
+.reader-font-sans p,
+.reader-font-sans h1,
+.reader-font-sans h2,
+.reader-font-sans blockquote,
+.reader-font-sans mark,
+.reader-font-sans span:not(.reader-ui-badge),
+.reader-font-sans div:not(.reader-ui-badge) {
+  font-family: "Noto Sans SC", "Source Han Sans SC", "思源黑体", "PingFang SC", "苹方-简", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", "WenQuanYi Micro Hei", system-ui, -apple-system, sans-serif !important;
+}
+
+.reader-font-fangsong,
+.reader-font-fangsong p,
+.reader-font-fangsong h1,
+.reader-font-fangsong h2,
+.reader-font-fangsong blockquote,
+.reader-font-fangsong mark,
+.reader-font-fangsong span:not(.reader-ui-badge),
+.reader-font-fangsong div:not(.reader-ui-badge) {
+  font-family: "FangSong", "仿宋", "STFangsong", "华文仿宋", "FangSong_GB2312", "仿宋_GB2312", "FZFangSong-Z02S", "Songti SC", "SimSun", "宋体", serif !important;
+}
+
+.reader-font-system-sans,
+.reader-font-system-sans p,
+.reader-font-system-sans h1,
+.reader-font-system-sans h2,
+.reader-font-system-sans blockquote,
+.reader-font-system-sans mark,
+.reader-font-system-sans span:not(.reader-ui-badge),
+.reader-font-system-sans div:not(.reader-ui-badge) {
+  font-family: system-ui, -apple-system, "PingFang SC", "苹方-简", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", "Segoe UI", Roboto, "Helvetica Neue", sans-serif !important;
+}
+
+.reader-font-kaiti-classic,
+.reader-font-kaiti-classic p,
+.reader-font-kaiti-classic h1,
+.reader-font-kaiti-classic h2,
+.reader-font-kaiti-classic blockquote,
+.reader-font-kaiti-classic mark,
+.reader-font-kaiti-classic span:not(.reader-ui-badge),
+.reader-font-kaiti-classic div:not(.reader-ui-badge) {
+  font-family: "STKaiti", "华文楷体", "KaiTi", "楷体", "STXingkai", "华文行楷", "Kaiti SC", "BiauKai", "DFKai-SB", "FZKai-Z03S", cursive, serif !important;
+}
+
+.reader-font-mono,
+.reader-font-mono p,
+.reader-font-mono h1,
+.reader-font-mono h2,
+.reader-font-mono blockquote,
+.reader-font-mono mark,
+.reader-font-mono span:not(.reader-ui-badge),
+.reader-font-mono div:not(.reader-ui-badge) {
+  font-family: "JetBrains Mono Variable", "JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, "Noto Sans SC", monospace !important;
+}
+
+/* Preserve clean UI font and zero text-indent on inline badges/buttons inside reading canvas */
+.reader-ui-badge,
+.reader-ui-badge * {
+  font-family: "Inter Variable", -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", sans-serif !important;
+  text-indent: 0 !important;
+  letter-spacing: normal !important;
+}
+
+/* Preserve monospace font for code blocks inside reading canvas */
+.reader-article-canvas pre,
+.reader-article-canvas code:not(.reader-ui-badge),
+.reader-article-canvas kbd {
+  font-family: "JetBrains Mono Variable", "JetBrains Mono", Consolas, monospace !important;
+}
+
+/* Prevent paragraph first-line text-indent from leaking into inline-flex / inline-block child elements */
+.reader-article-canvas p * {
+  text-indent: 0;
+}
+
+/* 保证中文首行缩进 2em 稳定生效 */
+.reader-para-indent {
+  text-indent: 2em;
+}
+
+/* 出版物级首字下沉 (Drop Cap) */
+.reader-drop-cap {
+  text-indent: 0 !important;
+}
+
+.reader-drop-cap::first-letter {
+  float: left;
+  font-size: 3em;
+  line-height: 0.85;
+  padding-right: 0.12em;
+  padding-top: 0.04em;
+  margin-right: 0.06em;
+  font-weight: bold;
+  font-family: inherit;
+  color: inherit;
+}
+
+/* Prevent browser scroll anchoring from jumping to bottom on chapter change */
+.reader-article-canvas,
+.reader-article-canvas * {
+  overflow-anchor: none;
+}
+
+/* 中文两端对齐、严格避头尾禁则与现代标点排版优化（彻底规避 halt/palt 双重扣减造成的符号与文字重叠） */
+.reader-article-canvas p,
+.reader-article-canvas div[data-para-index],
+.reader-article-canvas div[data-paragraph-index] {
+  text-align: justify;
+  text-align-last: left;
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+  /* 仅保留标准字偶距(kern)及安全的上下文标点挤压(chws)，彻底废止 halt/palt 互斥特性 */
+  font-feature-settings: "chws" 1, "kern" 1;
+  -webkit-font-feature-settings: "chws" 1, "kern" 1;
+  text-spacing-trim: normal;
+}
+
+/* E-Ink Electronic Paper High-Contrast Zero-Animation Mode */
+.eink-mode,
+.eink-mode *,
+html.eink-mode,
+html.eink-mode * {
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  text-shadow: none !important;
+}
+
+html.eink-mode {
+  filter: grayscale(100%) contrast(150%) !important;
+}
+
+/* Page Turn Slide & 3D Curl Paper Animations */
+@keyframes readerPageSlideNext {
+  0% {
+    opacity: 0.85;
+    transform: translate3d(32px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes readerPageSlidePrev {
+  0% {
+    opacity: 0.85;
+    transform: translate3d(-32px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-turn-slide-next {
+  animation: readerPageSlideNext 220ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+.page-turn-slide-prev {
+  animation: readerPageSlidePrev 220ms cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity;
+}
+
+@keyframes readerPageCurlNext {
+  0% {
+    opacity: 0.82;
+    transform: perspective(1600px) rotateY(-50deg) scale(0.975);
+    box-shadow: -28px 0 38px rgba(0, 0, 0, 0.28), inset 20px 0 26px rgba(0, 0, 0, 0.12);
+  }
+  50% {
+    opacity: 0.94;
+    box-shadow: -14px 0 22px rgba(0, 0, 0, 0.15), inset 10px 0 16px rgba(0, 0, 0, 0.06);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1600px) rotateY(0deg) scale(1);
+    box-shadow: none;
+  }
+}
+
+@keyframes readerPageCurlPrev {
+  0% {
+    opacity: 0.82;
+    transform: perspective(1600px) rotateY(50deg) scale(0.975);
+    box-shadow: 28px 0 38px rgba(0, 0, 0, 0.28), inset -20px 0 26px rgba(0, 0, 0, 0.12);
+  }
+  50% {
+    opacity: 0.94;
+    box-shadow: 14px 0 22px rgba(0, 0, 0, 0.15), inset -10px 0 16px rgba(0, 0, 0, 0.06);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1600px) rotateY(0deg) scale(1);
+    box-shadow: none;
+  }
+}
+
+@keyframes dualPageFlipNext {
+  0% {
+    transform: perspective(2200px) rotateY(0deg);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+  30% {
+    filter: drop-shadow(-14px 0 20px rgba(0, 0, 0, 0.22));
+  }
+  70% {
+    filter: drop-shadow(-20px 0 28px rgba(0, 0, 0, 0.24));
+  }
+  100% {
+    transform: perspective(2200px) rotateY(-180deg);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+}
+
+@keyframes dualPageFlipPrev {
+  0% {
+    transform: perspective(2200px) rotateY(0deg);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+  30% {
+    filter: drop-shadow(14px 0 20px rgba(0, 0, 0, 0.22));
+  }
+  70% {
+    filter: drop-shadow(20px 0 28px rgba(0, 0, 0, 0.24));
+  }
+  100% {
+    transform: perspective(2200px) rotateY(180deg);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+}
+
+.dual-leaf-turn-next {
+  transform-origin: 0% 50%;
+  animation: dualPageFlipNext 360ms cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+  will-change: transform, filter;
+  transform-style: preserve-3d;
+}
+
+.dual-leaf-turn-prev {
+  transform-origin: 100% 50%;
+  animation: dualPageFlipPrev 360ms cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
+  will-change: transform, filter;
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+@keyframes readerSingleCurlOut {
+  0% {
+    transform: perspective(1600px) rotateY(0deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.96;
+    box-shadow: -18px 0 28px rgba(0, 0, 0, 0.24);
+  }
+  100% {
+    transform: perspective(1600px) rotateY(-82deg);
+    box-shadow: -28px 0 38px rgba(0, 0, 0, 0.28);
+    opacity: 0;
+  }
+}
+
+@keyframes readerSingleCurlIn {
+  0% {
+    transform: perspective(1600px) rotateY(-82deg);
+    box-shadow: -28px 0 38px rgba(0, 0, 0, 0.28);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.96;
+    box-shadow: -16px 0 24px rgba(0, 0, 0, 0.2);
+  }
+  100% {
+    transform: perspective(1600px) rotateY(0deg);
+    box-shadow: none;
+    opacity: 1;
+  }
+}
+
+.page-turn-single-curl-out {
+  transform-origin: left center;
+  animation: readerSingleCurlOut 320ms cubic-bezier(0.22, 0.9, 0.35, 1) forwards;
+  will-change: transform, box-shadow, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.page-turn-single-curl-in {
+  transform-origin: left center;
+  animation: readerSingleCurlIn 320ms cubic-bezier(0.22, 0.9, 0.35, 1) forwards;
+  will-change: transform, box-shadow, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.page-turn-curl-next {
+  transform-origin: left center;
+  animation: readerSingleCurlIn 320ms cubic-bezier(0.22, 0.9, 0.35, 1);
+  will-change: transform, box-shadow, opacity;
+}
+
+.page-turn-curl-prev {
+  transform-origin: left center;
+  animation: readerSingleCurlOut 320ms cubic-bezier(0.22, 0.9, 0.35, 1);
+  will-change: transform, box-shadow, opacity;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+/* Modern High-Performance DOM Containment for Long Chapters */
+.reader-para-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 90px;
+}
+
+.reader-block-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
+/* 出版级沉浸跟读逐句高亮：保证高对比度、字迹极清、多主题自然融入 */
+.reader-tts-active-sentence {
+  background-color: rgba(27, 136, 238, 0.12) !important;
+  border-bottom: 2px solid rgba(27, 136, 238, 0.6);
+  color: inherit !important;
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 1px 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  box-shadow: 0 1px 4px rgba(27, 136, 238, 0.12);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+/* 深色模式下的柔光跟读 */
+.dark .reader-tts-active-sentence,
+[data-theme='dark'] .reader-tts-active-sentence {
+  background-color: rgba(59, 130, 246, 0.22) !important;
+  border-bottom: 2px solid rgba(96, 165, 250, 0.8);
+  color: #f1f5f9 !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.25);
+}
+
+/* E-Ink 墨水屏专属极致模式：纯黑白、零过渡动画、无半透明与阴影、高对比 */
+.eink-mode, .eink-mode * {
+  animation: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+.eink-mode { background-color: #ffffff !important; color: #000000 !important; }
+.eink-mode .reader-article-body { color: #000000 !important; }
+

@@ -1,0 +1,19 @@
+pub mod ai_handler;
+pub mod book_handler;
+pub mod library_handler;
+pub mod reader_handler;
+pub mod search_handler;
+pub mod source_handler;
+pub mod stats_handler;
+pub mod tts_handler;
+pub mod upload_handler;
+
+pub use ai_handler::*;
+pub use book_handler::*;
+pub use library_handler::*;
+pub use reader_handler::*;
+pub use search_handler::*;
+pub use source_handler::*;
+pub use stats_handler::*;
+pub use tts_handler::*;
+pub use upload_handler::*;

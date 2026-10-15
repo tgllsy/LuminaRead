@@ -1,0 +1,65 @@
+# ============================================================================
+# LuminaRead (阅境) 生产环境配置文件
+# 启动方式: ./luminaread -c config.toml (默认自动加载当前目录或程序同级 config.toml)
+# 查看命令行参数: ./luminaread --help
+# ============================================================================
+
+[server]
+# 监听网卡地址 (0.0.0.0 允许局域网/远程访问，127.0.0.1 仅限本机访问)
+host = "0.0.0.0"
+# 监听端口
+port = 3456
+# 后端 HTTP API 路由前缀 (默认 "/api"，可修改为如 "/v1/api")
+api_prefix = "/api"
+# 前端请求后端的基准 URL (默认留空表示同源访问，前后端分离时可填如 "http://127.0.0.1:3456")
+api_base_url = ""
+# 日志级别: trace | debug | info | warn | error
+log_level = "info"
+# 单次最大上传文件体积限制 (单位: MB)
+max_upload_mb = 100
+# 是否优先读取外部 dist_dir 静态目录 (false = 默认使用编译内嵌的前端静态资源)
+prefer_external_dist = false
+
+[storage]
+# 数据存储根目录 (相对于程序工作目录，也可填写绝对路径)
+data_dir = "./data"
+# SQLite 数据库文件路径 (留空则默认使用 <data_dir>/luminaread.db)
+db_path = "./data/luminaread.db"
+# 外部前端静态文件目录 (仅当 prefer_external_dist = true 时生效)
+dist_dir = "./frontend/dist"
+
+[network]
+# 外部请求 HTTP/HTTPS 代理接口地址 (用于 Google 翻译、外网书源检索等，无需代理可设为空 "")
+proxy_url = ""
+# 网络连接超时时间 (秒)
+connect_timeout_secs = 5
+# 请求最大超时时间 (秒)
+request_timeout_secs = 15
+
+[endpoints]
+# --- 翻译服务接口 ---
+google_translate_url = "https://clients5.google.com/translate_a/t"
+mymemory_translate_url = "https://api.mymemory.translated.net/get"
+youdao_translate_url = "https://fanyi.youdao.com/translate"
+
+# --- TTS 语音合成服务接口 ---
+edge_tts_ws_url = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1"
+google_tts_url = "https://translate.google.com/translate_tts"
+baidu_tts_url = "https://fanyi.baidu.com/gettts"
+youdao_tts_url = "https://dict.youdao.com/dictvoice"
+custom_tts_url = ""
+default_tts_voice = "zh-CN-XiaoxiaoNeural"
+
+# --- 外部知识库联动接口 (可选，留空则关闭该联动功能) ---
+lifeos_api_url = ""
+
+# --- 开放书源检索接口 ---
+zlib_url = "https://z-library.sk"
+annas_archive_url = "https://annas-archive.org"
+gutenberg_url = "https://gutendex.com"
+openlibrary_url = "https://openlibrary.org"
+archive_org_url = "https://archive.org"
+standard_opds_url = "https://standardebooks.org/opds"
+calibre_opds_url = "https://opds.calibre-ebook.com"
+wikisource_api_url = "https://zh.wikisource.org/w/api.php"
+libgen_url = "https://libgen.li"

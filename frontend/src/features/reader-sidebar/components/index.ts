@@ -1,0 +1,6 @@
+export { SidebarHeader } from './SidebarHeader'
+export { TocTab } from './TocTab'
+export { SearchInBookTab } from './SearchInBookTab'
+export { HighlightsTab } from './HighlightsTab'
+export { MindmapView } from './MindmapView'
+export { BookmarksTab } from './BookmarksTab'
