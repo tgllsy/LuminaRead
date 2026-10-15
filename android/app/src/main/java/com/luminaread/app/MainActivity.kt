@@ -139,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         s.allowFileAccess = true
         s.allowContentAccess = true
         s.cacheMode = WebSettings.LOAD_DEFAULT
+        s.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
         webView.webViewClient = object : WebViewClient() {
             override fun onReceivedError(view: WebView?, req: WebResourceRequest?, err: WebResourceError?) {
