@@ -197,12 +197,12 @@ export function getThemeClasses(theme: string = 'parchment') {
   const isGreen = theme === 'green' || theme === 'sepia_green'
 
   const surfaceCls = isDark
-    ? 'bg-[#181b22]/98 text-slate-100 border-slate-800/90 shadow-[0_-16px_48px_rgba(0,0,0,0.65)]'
+    ? 'bg-[#181b22] text-slate-100 border-slate-800/90 shadow-[0_-16px_48px_rgba(0,0,0,0.65)]'
     : isSepia
-    ? 'bg-[#f8f3e8]/98 text-[#2c241b] border-[#e6dcc8] shadow-[0_-16px_48px_rgba(60,42,20,0.16)]'
+    ? 'bg-[#f8f3e8] text-[#2c241b] border-[#e6dcc8] shadow-[0_-16px_48px_rgba(60,42,20,0.16)]'
     : isGreen
-    ? 'bg-[#eaf2ec]/98 text-[#1e2d24] border-[#cfe0d4] shadow-[0_-16px_48px_rgba(25,55,35,0.14)]'
-    : 'bg-white/98 text-slate-900 border-slate-200/90 shadow-[0_-16px_48px_rgba(15,23,42,0.14)]'
+    ? 'bg-[#eaf2ec] text-[#1e2d24] border-[#cfe0d4] shadow-[0_-16px_48px_rgba(25,55,35,0.14)]'
+    : 'bg-white text-slate-900 border-slate-200/90 shadow-[0_-16px_48px_rgba(15,23,42,0.14)]'
 
   const cardBgCls = isDark
     ? 'bg-slate-800/65 border-slate-700/70'

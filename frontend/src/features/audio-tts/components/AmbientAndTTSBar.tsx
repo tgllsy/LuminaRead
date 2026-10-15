@@ -199,7 +199,7 @@ export const AmbientAndTTSBar: React.FC<AmbientAndTTSBarProps> = (props) => {
   const currentSpokenText = ctrl.activeSentenceSnippet || paragraphs[currentParaIdx] || paragraphs[0] || chapterTitle || bookTitle
 
   return (
-    <div data-no-hud-toggle="true" onClick={onClose} className="fixed inset-0 z-50 sm:bg-black/30 sm:backdrop-blur-[2px] flex items-end sm:items-center justify-center sm:p-4 select-none animate-in fade-in duration-150">
+    <div data-no-hud-toggle="true" onClick={onClose} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center sm:p-4 select-none animate-in fade-in duration-150">
       <div onClick={(e) => e.stopPropagation()} className={`relative w-full h-full sm:h-auto sm:max-h-[88vh] sm:max-w-md sm:rounded-3xl sm:border flex flex-col justify-between overflow-hidden transition-colors ${themeCls.surfaceCls}`}>
         <TtsHeader
           onClose={onClose} onExitTts={() => { ctrl.stopTTS(); amb.stopAmbientAudio(); amb.setAmbientPreset('off'); onActiveParagraphChange(null); onClose() }}

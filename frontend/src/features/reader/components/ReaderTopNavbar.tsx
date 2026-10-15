@@ -193,7 +193,7 @@ const MobileFloatingNavbar: React.FC<ReaderTopNavbarProps & { isDark: boolean; o
       onClick={(e) => e.stopPropagation()}
       className={`lg:hidden fixed top-0 inset-x-0 z-50 border-b backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] pt-[env(safe-area-inset-top,0px)] transition-all duration-200 ${
         immersiveHudVisible || showTypography ? 'translate-y-0 opacity-100 pointer-events-auto' : '-translate-y-full opacity-0 pointer-events-none'
-      } ${isDark ? 'bg-[#1c1c1e]/98 border-white/[0.08] text-[#f2f2f7]' : 'bg-white/98 border-black/[0.06] text-[#1e1f22]'}`}
+      } ${isDark ? 'bg-[#1c1c1e]/95 border-white/[0.08] text-[#f2f2f7]' : 'bg-white/95 border-black/[0.06] text-[#1e1f22]'}`}
     >
       <div className="max-w-4xl mx-auto px-4 h-13 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">

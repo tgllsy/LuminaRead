@@ -138,8 +138,8 @@ export function calculateDesktopPopoverPosition(
 
 export function getSurfaceClass(isDark: boolean): string {
   return isDark
-    ? 'bg-[#1c1c1e]/98 text-slate-100 border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)]'
-    : 'bg-white/98 text-slate-900 border-slate-200/90 shadow-[0_12px_36px_rgba(15,23,42,0.16)]'
+    ? 'bg-[#1c1c1e] text-slate-100 border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)]'
+    : 'bg-white text-slate-900 border-slate-200/90 shadow-[0_12px_36px_rgba(15,23,42,0.16)]'
 }
 
 export function getPillButtonClass(isDark: boolean): string {
