@@ -656,7 +656,7 @@ impl AppConfig {
     pub fn apply_json_patch(&mut self, patch: &Value) {
         let get_str = |obj: &Value, key: &str| obj.get(key).and_then(|v| v.as_str()).map(|s| s.to_string());
         let get_u64 = |obj: &Value, key: &str| obj.get(key).and_then(|v| v.as_u64());
-        let get_bool = |obj: &Value, key: &str| obj.get(key).and_then(|v| v.as_bool());
+        let _get_bool = |obj: &Value, key: &str| obj.get(key).and_then(|v| v.as_bool());
 
         let srv = patch.get("server").unwrap_or(patch);
         if let Some(v) = get_str(srv, "host") { self.host = v; }

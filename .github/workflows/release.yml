@@ -135,14 +135,20 @@ jobs:
         with:
           workspaces: backend
 
-      - name: Install Android NDK
-        run: yes | sdkmanager --install "ndk;26.1.10909125" >/dev/null
+      - uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26b
+          link-to-sdk: true
 
       - name: Build native library (libluminaread.so)
         working-directory: backend
         run: |
           set -e
-          NDK_BIN="$ANDROID_HOME/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          NDK_PATH="${{ steps.setup-ndk.outputs.ndk-path }}"
+          [ -d "$NDK_PATH" ] || NDK_PATH="$ANDROID_NDK_HOME"
+          [ -d "$NDK_PATH" ] || NDK_PATH="$ANDROID_HOME/ndk/26.1.10909125"
+          NDK_BIN="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin"
           export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang"
           export CXX_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang++"
           export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"

@@ -205,12 +205,14 @@ impl ConversationRepository for SqliteConversationRepository {
                 let mut stmt = conn.prepare(
                     "SELECT * FROM ai_conversations WHERE book_id = ? ORDER BY is_pinned DESC, updated_at DESC, created_at DESC"
                 )?;
-                stmt.query_map(params![f], conv_map)?.filter_map(|r| r.ok()).collect()
+                let res: Vec<_> = stmt.query_map(params![f], conv_map)?.filter_map(|r| r.ok()).collect();
+                res
             } else {
                 let mut stmt = conn.prepare(
                     "SELECT * FROM ai_conversations ORDER BY is_pinned DESC, updated_at DESC, created_at DESC"
                 )?;
-                stmt.query_map([], conv_map)?.filter_map(|r| r.ok()).collect()
+                let res: Vec<_> = stmt.query_map([], conv_map)?.filter_map(|r| r.ok()).collect();
+                res
             };
 
             let hl_map = |r: &rusqlite::Row| -> rusqlite::Result<serde_json::Value> {
@@ -245,7 +247,8 @@ impl ConversationRepository for SqliteConversationRepository {
                      WHERE h.book_id = ?
                      ORDER BY h.updated_at DESC, h.created_at DESC"
                 )?;
-                stmt.query_map(params![f], hl_map)?.filter_map(|r| r.ok()).collect()
+                let res: Vec<_> = stmt.query_map(params![f], hl_map)?.filter_map(|r| r.ok()).collect();
+                res
             } else {
                 let mut stmt = conn.prepare(
                     "SELECT h.*, b.title AS book_title, b.author AS book_author, b.cover_url, b.cover_color, b.category
@@ -253,7 +256,8 @@ impl ConversationRepository for SqliteConversationRepository {
                      LEFT JOIN books b ON b.id = h.book_id
                      ORDER BY h.updated_at DESC, h.created_at DESC"
                 )?;
-                stmt.query_map([], hl_map)?.filter_map(|r| r.ok()).collect()
+                let res: Vec<_> = stmt.query_map([], hl_map)?.filter_map(|r| r.ok()).collect();
+                res
             };
 
             let bm_map = |r: &rusqlite::Row| -> rusqlite::Result<serde_json::Value> {
@@ -281,7 +285,8 @@ impl ConversationRepository for SqliteConversationRepository {
                      WHERE bm.book_id = ?
                      ORDER BY bm.created_at DESC"
                 )?;
-                stmt.query_map(params![f], bm_map)?.filter_map(|r| r.ok()).collect()
+                let res: Vec<_> = stmt.query_map(params![f], bm_map)?.filter_map(|r| r.ok()).collect();
+                res
             } else {
                 let mut stmt = conn.prepare(
                     "SELECT bm.*, b.title AS book_title, b.author AS book_author, b.cover_url, b.cover_color
@@ -289,7 +294,8 @@ impl ConversationRepository for SqliteConversationRepository {
                      LEFT JOIN books b ON b.id = bm.book_id
                      ORDER BY bm.created_at DESC"
                 )?;
-                stmt.query_map([], bm_map)?.filter_map(|r| r.ok()).collect()
+                let res: Vec<_> = stmt.query_map([], bm_map)?.filter_map(|r| r.ok()).collect();
+                res
             };
 
             let mut active_books = std::collections::HashSet::new();

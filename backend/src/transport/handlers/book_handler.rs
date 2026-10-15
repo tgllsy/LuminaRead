@@ -95,7 +95,7 @@ pub async fn get_pdf_page(
     State(state): State<AppState>,
 ) -> Response {
     // Sanitize book ID to prevent URL-encoded path traversal (%2e%2e%2f)
-    if id.contains('/') || id.contains('\\') || id.contains("..") || sanitize_path(&id).is_none() {
+    if id.contains('/') || id.contains('\\') || id.contains("..") || sanitize_path(&state.config.pdf_cache_dir, &id).is_none() {
         return StatusCode::BAD_REQUEST.into_response();
     }
 
