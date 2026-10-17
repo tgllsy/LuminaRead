@@ -9,6 +9,7 @@ export {
   SpeedPickerModal,
   TimerPickerModal,
   ParagraphPickerModal,
+  BlackGoldTheaterModal,
 } from './components'
 
 export {
@@ -55,6 +56,8 @@ export {
 export {
   createGaplessAudioDeckPool,
 } from './helpers/gaplessAudioDeck'
+
+export { AmbientAudioEngine } from './helpers/ambientAudioEngine'
 
 export {
   DEFAULT_VOICES,

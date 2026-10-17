@@ -13,6 +13,7 @@ export interface DualSpreadTurnLeafProps {
   currentChapter: BookChapter
   progressPercent: number
   renderParagraph: (item: number | PageSliceItem, targetChIdx: number) => React.ReactNode
+  customAngle?: number | null
 }
 
 export const DualSpreadTurnLeaf: React.FC<DualSpreadTurnLeafProps> = ({
@@ -26,12 +27,33 @@ export const DualSpreadTurnLeaf: React.FC<DualSpreadTurnLeafProps> = ({
   currentChapter,
   progressPercent,
   renderParagraph,
+  customAngle = null,
 }) => {
   const isNext = direction === 'next'
-  const leafAnimClass = isNext ? 'dual-leaf-turn-next' : 'dual-leaf-turn-prev'
+  const isInteractive = typeof customAngle === 'number'
+  const leafAnimClass = isInteractive
+    ? ''
+    : isNext
+    ? 'dual-leaf-turn-next'
+    : 'dual-leaf-turn-prev'
+
   const leafPositionClass = isNext
     ? 'left-1/2 right-0 w-1/2'
     : 'left-0 right-1/2 w-1/2'
+
+  const interactiveStyle: React.CSSProperties = isInteractive
+    ? {
+        transform: `perspective(2400px) rotateY(${customAngle}deg)`,
+        transformOrigin: isNext ? '0% 50%' : '100% 50%',
+        willChange: 'transform, box-shadow',
+        transformStyle: 'preserve-3d',
+        transition: 'none',
+        boxShadow:
+          isNext
+            ? `-${Math.min(32, Math.abs(customAngle) * 0.18)}px 12px 34px rgba(0,0,0,${Math.min(0.32, Math.abs(customAngle) / 400)})`
+            : `${Math.min(32, Math.abs(customAngle) * 0.18)}px 12px 34px rgba(0,0,0,${Math.min(0.32, Math.abs(customAngle) / 400)})`,
+      }
+    : {}
 
   const themePageClass = THEME_STYLES[typography.theme]?.page || 'bg-white text-slate-900'
 
@@ -51,6 +73,7 @@ export const DualSpreadTurnLeaf: React.FC<DualSpreadTurnLeafProps> = ({
   return (
     <div
       aria-hidden="true"
+      style={interactiveStyle}
       className={`absolute top-0 bottom-0 ${leafPositionClass} ${leafAnimClass} z-30 pointer-events-none select-none`}
     >
       {/* 1. FRONT FACE (Visible initially from 0deg to ~90deg) */}

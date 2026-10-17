@@ -29,6 +29,8 @@ interface TtsDrawersLayerProps {
   ttsRate: number
   ambientPreset: AmbientPreset
   ambientVolume: number
+  ambientEnabled?: boolean
+  onToggleAmbientEnabled?: () => void
   sleepMode: SleepTimerMode
   onSelectParagraph: (idx: number) => void
   onSelectVoice: (vId: string) => void
@@ -53,6 +55,8 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
   ttsRate,
   ambientPreset,
   ambientVolume,
+  ambientEnabled,
+  onToggleAmbientEnabled,
   sleepMode,
   onSelectParagraph,
   onSelectVoice,
@@ -149,6 +153,8 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
         pillIdleCls={themeCls.pillIdleCls}
       >
         <AmbientMixerModal
+          ambientEnabled={ambientEnabled}
+          onToggleEnabled={onToggleAmbientEnabled}
           ambientPreset={ambientPreset}
           ambientVolume={ambientVolume}
           onSelectPreset={onSelectPreset}

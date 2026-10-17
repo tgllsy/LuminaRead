@@ -1,4 +1,4 @@
-export type VoiceCategory = 'recommended' | 'podcast' | 'flagship' | 'dialect' | 'all'
+export type VoiceCategory = 'recommended' | 'flagship' | 'drama' | 'podcast' | 'dialect' | 'bilingual' | 'all'
 
 export type SleepTimerMode = 'off' | '15' | '30' | '45' | '60' | 'chapter_end'
 
@@ -10,7 +10,17 @@ export type ActiveTtsDrawer =
   | 'sleep'
   | 'paragraphs'
 
-export type AmbientPreset = 'off' | 'rain' | 'fire' | 'study' | 'wind'
+export type AmbientPreset =
+  | 'off'
+  | 'rain'
+  | 'fire'
+  | 'wind'
+  | 'study'
+  | 'waves'
+  | 'cafe'
+  | 'pink_noise'
+  | 'white_noise'
+  | 'brown_noise'
 
 export type ReaderTheme =
   | 'light'
@@ -26,7 +36,7 @@ export interface NeuralVoiceOption {
   name: string
   shortName: string
   badge: string
-  category?: 'flagship' | 'podcast' | 'dialect' | 'bilingual'
+  category?: 'flagship' | 'podcast' | 'dialect' | 'bilingual' | 'drama'
   provider?: string
   recommended?: boolean
   gender: 'female' | 'male'
@@ -89,8 +99,10 @@ export interface AmbientSoundConfig {
   id: AmbientPreset
   name: string
   description: string
-  cutoffFrequency: number
-  whiteRatio: number
+  audioSrc?: string
+  category?: 'nature' | 'scene' | 'noise'
+  cutoffFrequency?: number
+  whiteRatio?: number
 }
 
 export interface VoicesApiResponse {

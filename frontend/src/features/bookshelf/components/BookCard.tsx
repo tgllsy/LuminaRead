@@ -59,12 +59,12 @@ export const BookCard: React.FC<BookCardProps> = ({
       className={`group flex flex-col active:scale-[0.98] transition-transform ${isImporting ? 'cursor-wait' : isError ? 'cursor-default' : 'cursor-pointer'}`}
     >
       <div
-        className={`aspect-[3/4] w-full rounded-lg sm:rounded-xl p-3 text-white flex flex-col justify-between shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all duration-200 select-none relative overflow-hidden ${
+        className={`aspect-[3/4.2] w-full rounded-2xl p-3.5 text-white flex flex-col justify-between shadow-[0_4px_16px_rgba(15,23,42,0.08)] transition-all duration-200 select-none relative overflow-hidden ${
           isError
             ? 'ring-2 ring-rose-500/90 shadow-rose-500/15'
             : isImporting
             ? 'ring-2 ring-[#1b88ee]/80 shadow-blue-500/15'
-            : 'group-hover:shadow-[0_12px_26px_rgba(15,23,42,0.16)] group-hover:-translate-y-1'
+            : 'group-hover:shadow-[0_12px_24px_rgba(15,23,42,0.14)] group-hover:-translate-y-1'
         }`}
         style={{ backgroundColor: book.cover_color || '#1e3a8a' }}
       >
@@ -77,18 +77,32 @@ export const BookCard: React.FC<BookCardProps> = ({
             className="absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300"
           />
         )}
-        <div className="absolute inset-y-0 left-0 w-2.5 bg-gradient-to-r from-black/25 via-white/10 to-transparent z-20 pointer-events-none" />
 
         <BookCardOverlays
           book={book} isImporting={isImporting} isError={isError} importPct={importPct}
           onOpenOrganize={onOpenOrganize} onDeleteBook={onDeleteBook}
         />
 
-        <div className="flex items-center justify-between text-[9px] font-mono opacity-75">
+        <div className="flex items-center justify-between text-[9px] font-mono opacity-80 z-20">
           <span className="uppercase">{book.format}</span>
         </div>
-        <div className="font-serif font-bold text-xs sm:text-sm leading-snug line-clamp-3 my-auto">{book.title}</div>
-        <div className="text-[10px] opacity-80 truncate">{book.author}</div>
+        <div className="font-serif font-bold text-xs sm:text-sm leading-snug line-clamp-3 my-auto z-20">{book.title}</div>
+        <div className="text-[10px] opacity-80 truncate z-20">{book.author}</div>
+
+        {!isImporting && !isError && (
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1 z-20 pointer-events-none">
+            {book.status === 'finished' ? (
+              <span className="text-emerald-400 font-bold">✓ 已读完</span>
+            ) : pct > 0 ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>{pct}%</span>
+              </>
+            ) : (
+              <span className="text-slate-300">未读</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-2.5 space-y-0.5 px-0.5">

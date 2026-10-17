@@ -7,6 +7,7 @@ import {
   Sun,
   Moon,
   Headphones,
+  Languages,
 } from 'lucide-react'
 import type { ReaderTypography } from '../types'
 import type { WeReadBottomTab } from '../../reader-controls'
@@ -27,6 +28,9 @@ interface DesktopFloatingToolbarProps {
   isTtsActive: boolean
   isTtsPlaying: boolean
   isTtsAmbientActive: boolean
+  onToggleChinese?: () => void
+  onToggleBilingual?: () => void
+  bilingualLoading?: boolean
 }
 
 export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
@@ -45,16 +49,25 @@ export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
   isTtsActive,
   isTtsPlaying,
   isTtsAmbientActive,
+  onToggleChinese,
+  onToggleBilingual,
+  bilingualLoading = false,
 }) => {
   const isDark = typography.theme === 'dark'
+  const variant = typography.chineseVariant
+  const isVariantActive = Boolean(variant && variant !== 'original')
   const baseBtnClass = isDark
     ? 'bg-[#242428]/90 border-white/10 text-slate-200 hover:bg-[#303036]'
     : 'bg-white/95 border-slate-200/90 text-slate-700 hover:text-[#1b88ee]'
 
+  const isDockedRight = drawerOpen && dockSide === 'right'
+
   return (
     <aside
       data-no-hud-toggle="true"
-      className="hidden lg:flex fixed right-4 xl:right-8 top-1/2 -translate-y-1/2 z-30 flex-col gap-2 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-none py-1"
+      className={`hidden lg:flex fixed top-1/2 -translate-y-1/2 z-30 flex-col gap-1.5 max-h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1 transition-all duration-300 ${
+        isDockedRight ? 'right-[335px] lg:right-[365px] xl:right-[395px]' : 'right-4 xl:right-8'
+      }`}
     >
       {/* 1. 目录 (TOC) */}
       <button
@@ -95,7 +108,7 @@ export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
       <button
         type="button"
         onClick={() => onOpenDrawerTab('search')}
-        className={`w-12 h-12 rounded-full shadow-md border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 ${
+        className={`w-12 h-12 rounded-full shadow-md border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 cursor-pointer ${
           drawerOpen && drawerTab === 'search'
             ? 'bg-[#1b88ee] border-[#1b88ee] text-white'
             : baseBtnClass
@@ -106,7 +119,70 @@ export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
         <span className="text-[10px] font-medium leading-none">搜索</span>
       </button>
 
-      {/* 4. 双栏分页 / 上下滚动 */}
+      {/* 4. 繁简正反面：正面“简”，反面“繁”，点击 3D 翻面 */}
+      {onToggleChinese && (
+        <button
+          type="button"
+          onClick={onToggleChinese}
+          className={`w-12 h-12 rounded-full shadow-md border backdrop-blur-md flex items-center justify-center transition-transform hover:scale-105 cursor-pointer relative [perspective:500px] overflow-hidden ${baseBtnClass}`}
+          title={`繁简正反面切换（正面:简 / 反面:繁，当前: ${variant === 'traditional' ? '繁体' : variant === 'simplified' ? '简体' : '原文'}，点击翻面）`}
+        >
+          <div
+            style={{
+              transform: variant === 'traditional' ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              transformStyle: 'preserve-3d',
+              transition: 'transform 0.42s cubic-bezier(0.34, 1.45, 0.64, 1)',
+            }}
+            className="w-full h-full relative"
+          >
+            {/* 正面：简 */}
+            <div
+              className={`absolute inset-0 flex flex-col items-center justify-center backface-hidden rounded-full ${
+                variant === 'simplified' ? 'bg-[#1b88ee] text-white' : ''
+              }`}
+            >
+              <span className="font-serif font-black text-sm leading-none select-none">简</span>
+              <span className="text-[9px] font-sans opacity-70 scale-90 leading-none mt-0.5 select-none">
+                {variant === 'simplified' ? '已转' : '正'}
+              </span>
+            </div>
+
+            {/* 背面：繁 (180deg) */}
+            <div
+              style={{ transform: 'rotateY(180deg)' }}
+              className={`absolute inset-0 flex flex-col items-center justify-center backface-hidden rounded-full ${
+                variant === 'traditional' ? 'bg-[#1b88ee] text-white' : 'bg-amber-500/10 text-amber-600'
+              }`}
+            >
+              <span className="font-serif font-black text-sm leading-none select-none">繁</span>
+              <span className="text-[9px] font-sans opacity-70 scale-90 leading-none mt-0.5 select-none">
+                {variant === 'traditional' ? '已转' : '反'}
+              </span>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* 5. 双语对照 / 翻译 */}
+      {onToggleBilingual && (
+        <button
+          type="button"
+          onClick={onToggleBilingual}
+          className={`w-12 h-12 rounded-full shadow-md border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 cursor-pointer ${
+            typography.bilingualMode
+              ? 'bg-[#1b88ee] border-[#1b88ee] text-white'
+              : baseBtnClass
+          }`}
+          title={bilingualLoading ? '段落双语翻译中...' : '段落级双语翻译与对照'}
+        >
+          <Languages className="w-4 h-4" />
+          <span className="text-[10px] font-medium leading-none">
+            {bilingualLoading ? '翻译中' : '双语'}
+          </span>
+        </button>
+      )}
+
+      {/* 6. 双栏分页 / 上下滚动 */}
       <button
         type="button"
         onClick={onToggleLayoutMode}

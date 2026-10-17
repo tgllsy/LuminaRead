@@ -1,5 +1,6 @@
 import React from 'react'
 import type { HighlightItem } from '../types'
+import { BilingualMarkdownRenderer } from './BilingualMarkdownRenderer'
 
 interface ParagraphNoteCalloutsProps {
   notesWithContent: HighlightItem[]
@@ -31,11 +32,7 @@ export const ParagraphNoteCallouts: React.FC<ParagraphNoteCalloutsProps> = ({
         </div>
       ))}
 
-      {bilingualText && (
-        <div className="mt-2 ml-4 sm:ml-8 pl-3 border-l-2 border-blue-500/40 text-xs sm:text-sm leading-relaxed opacity-75">
-          {bilingualText}
-        </div>
-      )}
+      {bilingualText && <BilingualMarkdownRenderer bilingualText={bilingualText} />}
     </>
   )
 }

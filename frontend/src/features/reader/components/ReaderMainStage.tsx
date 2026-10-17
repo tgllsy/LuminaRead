@@ -56,6 +56,12 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
 
   const isPdfPageCanvas = book.format === 'pdf' && c.pdf.pdfMode === 'page_canvas'
   const isPaged = (isDualSpread || c.typo.typography.continuousScroll === false) && !isPdfPageCanvas
+  const isPinnedDock = Boolean(c.vp.isSidebarPinned && c.vp.canPinSidebar && c.overlays.drawerOpen)
+  const pinnedPadding = isPinnedDock
+    ? c.vp.sidebarDockSide === 'left'
+      ? 'lg:pl-[360px] xl:pl-[380px]'
+      : 'lg:pr-[360px] xl:pr-[380px]'
+    : ''
 
   return (
     <div
@@ -65,44 +71,19 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
           : 'flex-1 flex items-start justify-center w-full relative'
       }
     >
-      {c.vp.sidebarDockSide === 'left' && (
-        <Suspense fallback={null}>
-          <SidebarDrawer
-            isOpen={c.overlays.drawerOpen}
-            activeTab={c.overlays.drawerTab}
-            onTabChange={c.overlays.setDrawerTab}
-            onClose={() => c.overlays.setDrawerOpen(false)}
-            book={book}
-            toc={toc}
-            currentChapterIndex={c.bc.chapterIndex}
-            highlights={highlights}
-            bookmarks={bookmarks}
-            initialSearchQuery={c.overlays.drawerSearchInit}
-            isPinned={c.vp.isSidebarPinned}
-            canPin={c.vp.canPinSidebar}
-            onTogglePin={c.vp.toggleSidebarPin}
-            dockSide={c.vp.sidebarDockSide}
-            onToggleDockSide={c.vp.toggleSidebarDock}
-            theme={c.typo.typography.theme}
-            onSelectChapter={c.handleSelectChapter}
-            onDeleteHighlight={c.hl.handleDeleteHighlight}
-            onDeleteBookmark={c.bm.handleDeleteBookmark}
-          />
-        </Suspense>
-      )}
       <main
         onClick={(e) => {
           if (e.target === e.currentTarget && (isPaged || isPdfPageCanvas)) {
             c.gest.handleScreenHotzoneClick(e)
           }
         }}
-        className={
+        className={`${pinnedPadding} transition-all duration-300 ${
           isPaged
             ? 'flex-1 min-w-0 h-full flex flex-col items-center justify-center px-0 sm:px-6 py-0 sm:py-3 relative overflow-hidden'
             : isPdfPageCanvas
             ? 'flex-1 min-w-0 flex flex-col items-center px-0 sm:px-4 py-0 sm:py-3 relative'
             : 'flex-1 min-w-0 flex flex-col items-center px-0 sm:px-6 py-0 sm:py-6 relative'
-        }
+        }`}
       >
         <ReaderArticleCanvas
           articleRef={c.articleRef}
@@ -198,9 +179,8 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
           }}
         />
       </main>
-      {c.vp.sidebarDockSide !== 'left' && (
-        <Suspense fallback={null}>
-          <SidebarDrawer
+      <Suspense fallback={null}>
+        <SidebarDrawer
             isOpen={c.overlays.drawerOpen}
             activeTab={c.overlays.drawerTab}
             onTabChange={c.overlays.setDrawerTab}
@@ -222,7 +202,6 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
             onDeleteBookmark={c.bm.handleDeleteBookmark}
           />
         </Suspense>
-      )}
     </div>
   )
 }

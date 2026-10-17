@@ -15,6 +15,8 @@ import {
   ReaderModalsLayer, ReaderLoadingFallback, ReaderMainStage,
 } from './components'
 import { stopLocalTts } from '../audio-tts/helpers/globalTtsCoordinator'
+import { HeaderTtsIsland } from '../../app/components/HeaderTtsIsland'
+import { useTypographyStore } from '../../stores/typographyStore'
 
 function useReaderCoreData(props: ReaderWorkspaceProps) {
   const { activeBookId, isHidden = false, openTtsModalNonce = 0, onChapterChange, jumpTarget, openTabBookIds, allBooks, onSwitchBookTab, onCloseBookTab, onBookStateUpdated } = props
@@ -104,13 +106,14 @@ function useReaderWorkspaceController(props: ReaderWorkspaceProps) {
     pdfSpreadMode: pdf.pdfSpreadMode,
     onJumpToPdfPage: pdf.setPdfCanvasPage,
   })
+  const isDualSpread = typo.effectiveLayoutMode === 'dual' && !(bc.contentData?.book.format === 'pdf' && pdf.pdfMode === 'page_canvas')
   const gest = useReaderGestures({
     onPageTurnScreen: handlePageTurnScreen,
     setShowTypography: overlays.setShowTypography,
     eInkMode: typo.typography.eInkMode,
     isHidden,
+    isDualSpread,
   })
-  const isDualSpread = typo.effectiveLayoutMode === 'dual' && !(bc.contentData?.book.format === 'pdf' && pdf.pdfMode === 'page_canvas')
   const readingEst = useReadingEstimate({
     currentChapter: activeChapterObj, paragraphs,
     currentParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex ?? 0,
@@ -159,6 +162,11 @@ const ReaderWorkspaceFloatingBars: React.FC<{
   c: ReturnType<typeof useReaderWorkspaceController>
   highlightsCount: number
 }> = ({ c, highlightsCount }) => {
+  const toggleChineseVariant = useTypographyStore((s) => s.toggleChineseVariant)
+  const handleToggleChinese = useCallback(() => {
+    toggleChineseVariant(`${c.bc.contentData?.book.title || ''}${c.activeChapterObj.title}`)
+  }, [toggleChineseVariant, c.bc.contentData?.book.title, c.activeChapterObj.title])
+
   return (
     <>
       <DesktopFloatingToolbar
@@ -173,6 +181,9 @@ const ReaderWorkspaceFloatingBars: React.FC<{
         onOpenCopilot={() => { c.overlays.setShowTypography(false); c.overlays.setCopilotModal((p) => ({ isOpen: !p.isOpen, mode: 'spoiler_free_recap', text: '' })) }}
         onOpenTTS={() => { c.overlays.setShowTypography(false); c.overlays.setShowAmbientTTS((v) => !v) }} highlightsCount={highlightsCount}
         isTtsActive={c.tts.ttsAudioStatus.active || c.tts.ttsActivePara !== null} isTtsPlaying={c.tts.ttsAudioStatus.playing} isTtsAmbientActive={c.tts.ttsAudioStatus.ambientActive}
+        onToggleChinese={handleToggleChinese}
+        onToggleBilingual={() => c.typo.setTypography((p) => ({ ...p, bilingualMode: !p.bilingualMode }))}
+        bilingualLoading={c.bil.bilingualLoading}
       />
       <ReaderBottomBar
         typography={c.typo.typography} isScrolling={c.gest.isScrolling} immersiveHudVisible={c.gest.immersiveHudVisible}
@@ -224,6 +235,12 @@ export const ReaderWorkspace: React.FC<ReaderWorkspaceProps> = (props) => {
       {!isHidden && (c.typo.typography.brightness ?? 100) < 100 && (
         <div style={{ opacity: Math.min(0.65, ((100 - (c.typo.typography.brightness ?? 100)) / 100) * 0.75) }} className="fixed inset-0 bg-black pointer-events-none z-[45] transition-opacity" />
       )}
+      {!isHidden && (
+        <HeaderTtsIsland
+          floating={true}
+          onOpenTheater={() => c.overlays.setShowAmbientTTS(true)}
+        />
+      )}
       <ReaderTopNavbar
         book={book} chapterTitle={c.activeChapterObj.title} chapterIndex={c.bc.chapterIndex} totalChapters={chapters.length} progressPercent={progressPercent} typography={c.typo.typography}
         openTabBooks={c.openTabBooks} onSwitchBookTab={onSwitchBookTab} onCloseBookTab={onCloseBookTab} onBackToShelf={onBackToShelf}
@@ -233,6 +250,7 @@ export const ReaderWorkspace: React.FC<ReaderWorkspaceProps> = (props) => {
         immersiveHudVisible={c.gest.immersiveHudVisible} showTypography={c.overlays.showTypography} onOpenImmersiveHud={() => c.gest.setImmersiveHudVisible(true)}
         onOpenSearch={() => c.openDrawerTab('search')} onOpenNotes={() => c.openDrawerTab('notes')} hasHighlights={highlights.length > 0}
         readingEstimateText={c.readingEst.formattedText}
+        onOpenTTS={() => c.overlays.setShowAmbientTTS(true)}
       />
       <ReaderMainStage c={c} book={book} chapters={chapters} highlights={highlights} bookmarks={bookmarks} toc={toc} totalPdfPages={totalPdfPages} isDualSpread={isDualSpread} progressPercent={progressPercent} themeStyle={themeStyle} readingEstimateText={c.readingEst.formattedText} isHidden={isHidden} />
       <ReaderWorkspaceFloatingBars c={c} highlightsCount={highlights.length} />

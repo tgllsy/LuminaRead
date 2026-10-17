@@ -26,7 +26,9 @@ export const VoicePickerModal: React.FC<VoicePickerModalProps> = ({
   const filteredVoices = voices.filter((v) => {
     if (voiceCategory === 'all') return true
     if (voiceCategory === 'recommended') return Boolean(v.recommended)
-    if (voiceCategory === 'flagship') return v.category === 'flagship' || v.category === 'bilingual'
+    if (voiceCategory === 'drama') return v.category === 'drama' || v.id.startsWith('drama-')
+    if (voiceCategory === 'bilingual') return v.category === 'bilingual' || v.lang.startsWith('en')
+    if (voiceCategory === 'flagship') return v.category === 'flagship' && !v.id.startsWith('drama-')
     return v.category === voiceCategory
   })
 

@@ -1,5 +1,5 @@
 import React from 'react'
-import { AlertTriangle, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Trash2, X, UploadCloud } from 'lucide-react'
 import type { BookSummary, JumpTarget, BookshelfViewMode, UploadAlertItem } from '../types'
 import { BookCard } from './BookCard'
 import { BookListItem } from './BookListItem'
@@ -59,6 +59,18 @@ export const BookGrid: React.FC<BookGridProps> = ({
               onDeleteBook={onDeleteBook}
             />
           ))}
+
+          {/* Upload Placeholder Tile */}
+          <div
+            onClick={onTriggerUpload}
+            className="aspect-[3/4.2] w-full border-2 border-dashed border-slate-300 hover:border-[#1b88ee] rounded-2xl flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-all hover:bg-blue-50/30 group select-none"
+          >
+            <div className="w-9 h-9 rounded-full bg-slate-100 group-hover:bg-blue-100 text-slate-400 group-hover:text-[#1b88ee] flex items-center justify-center mb-1.5 transition-colors">
+              <UploadCloud className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-700 group-hover:text-[#1b88ee]">导入电子书</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">EPUB / PDF / TXT</span>
+          </div>
         </div>
       ) : (
         <div className="space-y-2.5 pt-2">

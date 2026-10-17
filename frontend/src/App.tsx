@@ -15,7 +15,7 @@ import { GlobalListeningCapsule } from './app/components/GlobalListeningCapsule'
  * 顶级路由全屏页面契约: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources'
  * 包含核心导航入口: 笔记 · 问书
  */
-export type AppNavPage = 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes'
+export type AppNavPage = 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' | 'tts'
 
 function lazyWithRetry<T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -57,6 +57,9 @@ const GlobalSearchModal = lazyWithRetry(() =>
 )
 const NotesAndAICenterView = lazyWithRetry(() =>
   import('./features/notes').then((m) => ({ default: m.NotesAndAICenterView }))
+)
+const BlackGoldTheaterModal = lazyWithRetry(() =>
+  import('./features/audio-tts').then((m) => ({ default: m.BlackGoldTheaterModal }))
 )
 
 function useAppActions() {
@@ -219,6 +222,17 @@ const AppPageRouter: React.FC<{
           />
         </React.Suspense>
       )}
+
+      {activePage === 'tts' && (
+        <React.Suspense fallback={<LoadingFallback message="加载听书大剧场..." />}>
+          <BlackGoldTheaterModal
+            isOpen={true}
+            onClose={() => onSelectPage('shelf')}
+            onOpenReader={(bookId) => onOpenBook({ bookId, chapterIndex: 0 })}
+            books={books}
+          />
+        </React.Suspense>
+      )}
     </>
   )
 }
@@ -251,7 +265,15 @@ export const App: React.FC = () => {
       )}
 
       <div className={nav.isReaderOpen ? 'hidden' : 'min-h-screen bg-[#f7f8fa] flex flex-col'}>
-        <DesktopHeader activePage={nav.activePage as NavPage} onSelectPage={nav.setActivePage} onOpenSearch={() => handleOpenGlobalSearch('')} />
+        <DesktopHeader
+          activePage={nav.activePage as NavPage}
+          onSelectPage={nav.setActivePage}
+          onOpenSearch={() => handleOpenGlobalSearch('')}
+          onTriggerUpload={() => {
+            const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+            input?.click()
+          }}
+        />
         <main className="flex-1 flex flex-col w-full min-w-0 overflow-x-hidden pb-16 md:pb-0">
           <ErrorBoundary name={`Page:${nav.activePage}`}>
             <AppPageRouter
@@ -269,6 +291,7 @@ export const App: React.FC = () => {
             status={tts.audioStatus} checkpoint={tts.checkpoint} bookTitle={books.find((b) => b.id === (tts.audioStatus.bookId || nav.activeBookId))?.title}
             dismissed={tts.listeningCapsuleDismissed} onResumeListening={handleResumeGlobalListening}
             onTogglePlayPause={tts.triggerTogglePlayPause} onDismiss={handleDismissCapsule}
+            onOpenTheater={() => nav.setActivePage('tts')}
           />
         )}
       </div>

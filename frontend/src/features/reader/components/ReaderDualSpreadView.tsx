@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useRef } from 'react'
 import { BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { PageSpread, ReaderTypography, BookSummary, BookChapter, PageSliceItem } from '../types'
 import { FONT_FAMILY_MAP, FONT_CLASS_MAP } from '../constants'
 import { DualSpreadTurnLeaf } from './DualSpreadTurnLeaf'
+import { useDualSpreadInteractiveFlip } from '../hooks/useDualSpreadInteractiveFlip'
 
 interface ReaderDualSpreadViewProps {
   typography: ReaderTypography
@@ -39,59 +40,76 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
   const currentSpread = paginatedSpreads[clampedSpreadIndex] || paginatedSpreads[0]
   const isFirstSpread = clampedSpreadIndex <= 0
   const isLastSpread = clampedSpreadIndex >= paginatedSpreads.length - 1
-
-  const [turningState, setTurningState] = useState<{
-    direction: 'prev' | 'next'
-    turningSpread: PageSpread
-    targetSpread: PageSpread
-  } | null>(null)
-  const [slideDir, setSlideDir] = useState<'prev' | 'next' | null>(null)
-  const prevSpreadRef = useRef(clampedSpreadIndex)
-
   const animType = typography.eInkMode ? 'instant' : (typography.pageTurnAnimation || 'curl')
+  const leftColRef = useRef<HTMLDivElement>(null)
+  const rightColRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (clampedSpreadIndex !== prevSpreadRef.current) {
-      const dir = clampedSpreadIndex > prevSpreadRef.current ? 'next' : 'prev'
-      const oldSpread = paginatedSpreads[prevSpreadRef.current]
-      const newSpread = paginatedSpreads[clampedSpreadIndex]
-      prevSpreadRef.current = clampedSpreadIndex
+  const {
+    turningState,
+    slideDir,
+    interactiveFlip,
+    startDrag,
+    moveDrag,
+    endDrag,
+  } = useDualSpreadInteractiveFlip({
+    clampedSpreadIndex,
+    paginatedSpreads,
+    isFirstSpread,
+    isLastSpread,
+    animType,
+    onPageTurnScreen,
+  })
 
-      if (animType === 'curl' && oldSpread && newSpread) {
-        setTurningState({ direction: dir, turningSpread: oldSpread, targetSpread: newSpread })
-        const timer = setTimeout(() => setTurningState(null), 360)
-        return () => clearTimeout(timer)
-      } else if (animType === 'slide') {
-        setSlideDir(dir)
-        const timer = setTimeout(() => setSlideDir(null), 300)
-        return () => clearTimeout(timer)
-      }
+  const activeLeaf = interactiveFlip || turningState
+  const baseLeftSpread = activeLeaf
+    ? (activeLeaf.direction === 'next' ? activeLeaf.turningSpread : activeLeaf.targetSpread)
+    : currentSpread
+  const baseRightSpread = activeLeaf
+    ? (activeLeaf.direction === 'next' ? activeLeaf.targetSpread : activeLeaf.turningSpread)
+    : currentSpread
+
+  const leftColSlideClass = slideDir === 'prev' ? 'page-turn-slide-prev' : ''
+  const rightColSlideClass = slideDir === 'next' ? 'page-turn-slide-next' : ''
+
+  const handleColumnFallbackTurn = (side: 'left' | 'right') => {
+    if (typeof window !== 'undefined') {
+      const sel = window.getSelection()
+      if (sel && !sel.isCollapsed && sel.toString().trim().length >= 2) return
     }
-  }, [clampedSpreadIndex, animType, paginatedSpreads])
-
-  // When turning 3D leaf, background columns show the stationary underlying pages
-  const baseLeftSpread = turningState
-    ? (turningState.direction === 'next' ? turningState.turningSpread : turningState.targetSpread)
-    : currentSpread
-  const baseRightSpread = turningState
-    ? (turningState.direction === 'next' ? turningState.targetSpread : turningState.turningSpread)
-    : currentSpread
-
-  const containerSlideClass = slideDir ? (slideDir === 'next' ? 'page-turn-slide-next' : 'page-turn-slide-prev') : ''
+    onPageTurnScreen(side === 'right' ? 'next' : 'prev')
+  }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden relative">
+    <div
+      onMouseMove={(e) => moveDrag(e.clientX, e.clientY)}
+      onMouseUp={(e) => endDrag(e.clientX, handleColumnFallbackTurn)}
+      onTouchMove={(e) => e.touches.length === 1 && moveDrag(e.touches[0].clientX, e.touches[0].clientY)}
+      onTouchEnd={(e) => e.changedTouches.length === 1 && endDrag(e.changedTouches[0].clientX, handleColumnFallbackTurn)}
+      className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden relative select-text cursor-grab active:cursor-grabbing"
+    >
       <div
-        key={turningState ? 'spread-turning' : `spread-${clampedSpreadIndex}`}
+        key={activeLeaf ? 'spread-leaf-active' : `spread-${clampedSpreadIndex}`}
         style={{
           fontSize: `${typography.fontSize}px`,
           lineHeight: typography.lineHeight,
           fontFamily: FONT_FAMILY_MAP[typography.fontFamily],
         }}
-        className={`${fontClass} ${containerSlideClass} flex-1 min-h-0 grid grid-cols-2 gap-8 xl:gap-12 items-stretch overflow-hidden relative`}
+        className={`${fontClass} flex-1 min-h-0 grid grid-cols-2 gap-8 xl:gap-12 items-stretch overflow-hidden relative [perspective:2600px] [transform-style:preserve-3d]` }
       >
         {/* Left Page Column */}
-        <div className="flex flex-col justify-between h-full min-h-0 overflow-hidden pr-1">
+        <div
+          ref={leftColRef}
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, a, [data-no-hud-toggle]')) return
+            startDrag(e.clientX, e.clientY, 'left', leftColRef.current?.offsetWidth || 400)
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 1 && !(e.target as HTMLElement).closest('button, a, [data-no-hud-toggle]')) {
+              startDrag(e.touches[0].clientX, e.touches[0].clientY, 'left', leftColRef.current?.offsetWidth || 400)
+            }
+          }}
+          className={`${leftColSlideClass} flex flex-col justify-between h-full min-h-0 overflow-hidden pr-1 relative`}
+        >
           <div className="mb-2 flex items-center justify-between text-[11px] font-sans opacity-40 select-none shrink-0">
             <span className="truncate max-w-[260px]">{book.title}</span>
             {book.format === 'pdf' && (
@@ -109,7 +127,7 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
             )}
           </div>
           <div className="flex-1 min-h-0 overflow-hidden pb-1">
-            {clampedSpreadIndex === 0 && !turningState && (
+            {clampedSpreadIndex === 0 && !activeLeaf && (
               <h1 className="text-lg xl:text-xl font-bold tracking-tight mb-3 pb-2 border-b border-current/10">
                 {currentChapter.title}
               </h1>
@@ -119,7 +137,19 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
         </div>
 
         {/* Right Page Column */}
-        <div className="flex flex-col justify-between h-full min-h-0 overflow-hidden pl-1">
+        <div
+          ref={rightColRef}
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).closest('button, a, [data-no-hud-toggle]')) return
+            startDrag(e.clientX, e.clientY, 'right', rightColRef.current?.offsetWidth || 400)
+          }}
+          onTouchStart={(e) => {
+            if (e.touches.length === 1 && !(e.target as HTMLElement).closest('button, a, [data-no-hud-toggle]')) {
+              startDrag(e.touches[0].clientX, e.touches[0].clientY, 'right', rightColRef.current?.offsetWidth || 400)
+            }
+          }}
+          className={`${rightColSlideClass} flex flex-col justify-between h-full min-h-0 overflow-hidden pl-1 relative`}
+        >
           <div className="mb-2 flex items-center justify-between text-[11px] font-sans opacity-40 select-none shrink-0">
             <span className="truncate max-w-[260px]">{currentChapter.title}</span>
             <span className="font-mono">{progressPercent}%</span>
@@ -161,12 +191,13 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
           )}
         </div>
 
-        {/* 3D Realistic Page-Turn Leaf Overlay */}
-        {turningState && (
+        {/* 3D Realistic Page-Turn Leaf Overlay (支持手势拖拽与定住悬停) */}
+        {activeLeaf && (
           <DualSpreadTurnLeaf
-            direction={turningState.direction}
-            turningSpread={turningState.turningSpread}
-            targetSpread={turningState.targetSpread}
+            direction={activeLeaf.direction}
+            turningSpread={activeLeaf.turningSpread}
+            targetSpread={activeLeaf.targetSpread}
+            customAngle={'angle' in activeLeaf ? (activeLeaf as { angle: number }).angle : null}
             chapterIndex={chapterIndex}
             typography={typography}
             fontClass={fontClass}

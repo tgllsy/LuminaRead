@@ -4,6 +4,7 @@ import { filterAndSearchBooks, extractUniqueCategories } from './helpers'
 import { useBookshelfFilter, useLibraries, useBookOperations } from './hooks'
 import {
   BookshelfHeader,
+  BookshelfHeroCard,
   LibraryTabBar,
   CategoryPills,
   BookGrid,
@@ -154,7 +155,12 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
         onChange={(e) => { if (e.target.files?.length) { const files = Array.from(e.target.files); e.target.value = ''; triggerUploadWithFiles(files) } }}
         className="hidden"
       />
-      <div className="mb-3.5 sm:mb-6"><DailyReviewCard onJumpToHighlight={onOpenBook} onOpenNotesHub={onOpenNotesHub} /></div>
+      <BookshelfHeroCard
+        books={mergedBooks}
+        onOpenBook={onOpenBook}
+        onOpenNotesHub={onOpenNotesHub}
+      />
+      <div className="mb-4"><DailyReviewCard onJumpToHighlight={onOpenBook} onOpenNotesHub={onOpenNotesHub} /></div>
       <BookshelfHeader
         totalBooksCount={mergedBooks.length} statusFilter={filter.statusFilter} viewMode={filter.viewMode} localFilterText={filter.localFilterText}
         onStatusFilterChange={filter.setStatusFilter} onViewModeChange={filter.setViewMode} onFilterTextChange={filter.setLocalFilterText}

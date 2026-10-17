@@ -247,52 +247,88 @@ html.eink-mode {
   }
 }
 
+/* 彻底屏蔽任何滚动条的实用类（防水平与垂直溢出条伪影） */
+.scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 @keyframes dualPageFlipNext {
   0% {
-    transform: perspective(2200px) rotateY(0deg);
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+    transform: perspective(2400px) rotateY(0deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
   30% {
-    filter: drop-shadow(-14px 0 20px rgba(0, 0, 0, 0.22));
+    transform: perspective(2400px) rotateY(-55deg) rotateZ(-0.6deg);
+    box-shadow: -16px 12px 32px rgba(0, 0, 0, 0.22);
   }
   70% {
-    filter: drop-shadow(-20px 0 28px rgba(0, 0, 0, 0.24));
+    transform: perspective(2400px) rotateY(-125deg) rotateZ(0.6deg);
+    box-shadow: -22px 14px 36px rgba(0, 0, 0, 0.25);
   }
   100% {
-    transform: perspective(2200px) rotateY(-180deg);
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+    transform: perspective(2400px) rotateY(-180deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
 }
 
 @keyframes dualPageFlipPrev {
   0% {
-    transform: perspective(2200px) rotateY(0deg);
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+    transform: perspective(2400px) rotateY(0deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
   30% {
-    filter: drop-shadow(14px 0 20px rgba(0, 0, 0, 0.22));
+    transform: perspective(2400px) rotateY(55deg) rotateZ(0.6deg);
+    box-shadow: 16px 12px 32px rgba(0, 0, 0, 0.22);
   }
   70% {
-    filter: drop-shadow(20px 0 28px rgba(0, 0, 0, 0.24));
+    transform: perspective(2400px) rotateY(125deg) rotateZ(-0.6deg);
+    box-shadow: 22px 14px 36px rgba(0, 0, 0, 0.25);
   }
   100% {
-    transform: perspective(2200px) rotateY(180deg);
-    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+    transform: perspective(2400px) rotateY(180deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
   }
 }
 
 .dual-leaf-turn-next {
   transform-origin: 0% 50%;
-  animation: dualPageFlipNext 360ms cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
-  will-change: transform, filter;
+  animation: dualPageFlipNext 420ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+  will-change: transform, box-shadow;
   transform-style: preserve-3d;
+  contain: paint;
 }
 
 .dual-leaf-turn-prev {
   transform-origin: 100% 50%;
-  animation: dualPageFlipPrev 360ms cubic-bezier(0.25, 0.9, 0.35, 1) forwards;
-  will-change: transform, filter;
+  animation: dualPageFlipPrev 420ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+  will-change: transform, box-shadow;
   transform-style: preserve-3d;
+  contain: paint;
+}
+
+/* 拟真折页卷边（Dog-ear Curl）悬停与定住动画 */
+.peel-dogear-next {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 46px), calc(100% - 46px) 100%, 0 100%);
+  transition: clip-path 260ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.peel-dogear-next.peel-active {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 72px), calc(100% - 72px) 100%, 0 100%);
+}
+
+.peel-dogear-prev {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 46px 100%, 0 calc(100% - 46px));
+  transition: clip-path 260ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.peel-dogear-prev.peel-active {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 72px 100%, 0 calc(100% - 72px));
 }
 
 .backface-hidden {
@@ -426,4 +462,78 @@ html.eink-mode {
 }
 .eink-mode { background-color: #ffffff !important; color: #000000 !important; }
 .eink-mode .reader-article-body { color: #000000 !important; }
+
+/* 出版级双语对照 Markdown 格式排版渲染样式 */
+.reader-bilingual-markdown {
+  font-family: inherit;
+}
+.reader-bilingual-markdown p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+  text-indent: 0 !important;
+}
+.reader-bilingual-markdown p:first-child {
+  margin-top: 0;
+}
+.reader-bilingual-markdown p:last-child {
+  margin-bottom: 0;
+}
+.reader-bilingual-markdown strong {
+  font-weight: 700;
+  color: inherit;
+}
+.reader-bilingual-markdown em {
+  font-style: italic;
+  color: inherit;
+}
+.reader-bilingual-markdown code {
+  font-family: "JetBrains Mono Variable", monospace !important;
+  font-size: 0.88em;
+  padding: 0.15em 0.35em;
+  border-radius: 0.3em;
+  background-color: rgba(125, 125, 125, 0.12);
+  color: inherit;
+}
+.reader-bilingual-markdown sup.bilingual-sup,
+.reader-bilingual-markdown sup {
+  font-size: 0.72em;
+  font-weight: 700;
+  color: #1b88ee;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 0.15em;
+  margin-right: 0.15em;
+  user-select: text;
+}
+.dark .reader-bilingual-markdown sup.bilingual-sup,
+.dark .reader-bilingual-markdown sup {
+  color: #60a5fa;
+}
+.reader-bilingual-markdown ul,
+.reader-bilingual-markdown ol {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+  padding-left: 1.25rem;
+  text-indent: 0 !important;
+}
+.reader-bilingual-markdown ul {
+  list-style-type: disc;
+}
+.reader-bilingual-markdown ol {
+  list-style-type: decimal;
+}
+.reader-bilingual-markdown li {
+  margin-top: 0.15rem;
+  margin-bottom: 0.15rem;
+  text-indent: 0 !important;
+}
+.reader-bilingual-markdown blockquote {
+  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba(27, 136, 238, 0.4);
+  font-style: italic;
+  opacity: 0.85;
+}
 

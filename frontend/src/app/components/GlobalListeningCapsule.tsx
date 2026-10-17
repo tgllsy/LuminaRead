@@ -10,17 +10,17 @@ interface GlobalListeningCapsuleProps {
   onResumeListening: (openReaderModal: boolean) => void
   onTogglePlayPause: () => void
   onDismiss: () => void
+  onOpenTheater?: () => void
 }
 
 function formatCapsuleSubtitle(status: TtsAudioStatus, checkpoint: TtsCheckpoint | null): string {
   if (status.active) {
-    const stateText = status.playing ? '正在伴读' : status.paused ? '已暂停' : '环境音伴读'
     const chText = status.chapterTitle || `第 ${(status.chapterIndex ?? 0) + 1} 章`
     const paraText = typeof status.paragraphIndex === 'number' ? ` · 第 ${status.paragraphIndex + 1} 段` : ''
-    return `${stateText} · ${chText}${paraText}`
+    return `${status.playing ? '正在伴读' : '已暂停'} · ${chText}${paraText}`
   }
   if (checkpoint) {
-    return `上次听至：${checkpoint.chapterTitle || `第 ${checkpoint.chapterIndex + 1} 章`} · 第 ${checkpoint.paragraphIndex + 1} 段`
+    return `上次听至：${checkpoint.chapterTitle || `第 ${checkpoint.chapterIndex + 1} 章`}`
   }
   return ''
 }
@@ -30,40 +30,50 @@ export const GlobalListeningCapsule: React.FC<GlobalListeningCapsuleProps> = ({
   checkpoint,
   bookTitle,
   dismissed,
-  onResumeListening,
   onTogglePlayPause,
   onDismiss,
+  onOpenTheater,
 }) => {
   if (dismissed || !status.active) return null
   const title = status.bookTitle || checkpoint?.bookTitle || bookTitle || '阅境全局伴读'
   const subtitle = formatCapsuleSubtitle(status, checkpoint)
 
+  const handleOpen = () => {
+    if (onOpenTheater) {
+      onOpenTheater()
+    }
+  }
+
   return (
-    <aside className="fixed right-4 bottom-20 md:bottom-7 z-40 flex items-center gap-2 select-none">
-      <div className="flex items-center gap-2 pl-3.5 pr-1.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-slate-200/85 shadow-[0_8px_28px_rgba(15,23,42,0.14)]">
-        <button
-          type="button"
-          onClick={() => onResumeListening(true)}
-          className="text-left min-w-0 max-w-[180px] sm:max-w-[230px] pr-1 group cursor-pointer"
-          title="点击进入听书页面"
-        >
-          <div className="text-xs font-bold text-slate-800 truncate group-hover:text-emerald-700 transition-colors">
+    <aside
+      onClick={handleOpen}
+      className="fixed bottom-18 md:bottom-7 inset-x-3 md:inset-x-auto md:right-6 z-40 h-13 md:h-12 bg-slate-900/95 backdrop-blur-md rounded-2xl md:rounded-full px-3.5 py-1.5 shadow-2xl flex items-center justify-between text-white border border-slate-700/80 cursor-pointer hover:border-slate-500 transition-all select-none"
+      title="点击展开全屏听书大剧场"
+    >
+      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+        <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+          <Headphones className={`w-4 h-4 ${status.playing ? 'animate-pulse' : ''}`} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-[280px]">
             {title ? `《${title}》` : '阅境全局伴读'}
           </div>
-          <div className="text-[10px] text-slate-500 truncate">{subtitle || '点击继续听书'}</div>
-        </button>
+          <div className="text-[10px] text-slate-400 truncate">{subtitle || '轻点展开听书剧场'}</div>
+        </div>
+      </div>
 
+      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
           onClick={onTogglePlayPause}
-          title={status.active && status.playing ? '暂停伴读' : '继续播放'}
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer ${
-            status.active && status.playing
-              ? 'bg-emerald-700 text-white shadow-[0_4px_14px_rgba(4,120,87,0.3)]'
-              : 'bg-slate-900 hover:bg-emerald-700 text-white'
+          title={status.playing ? '暂停伴读' : '继续播放'}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+            status.playing
+              ? 'bg-emerald-500 text-white shadow-sm'
+              : 'bg-white/20 hover:bg-white/30 text-white'
           }`}
         >
-          {status.active && status.playing ? (
+          {status.playing ? (
             <Pause className="w-3.5 h-3.5 fill-current" />
           ) : (
             <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
@@ -72,32 +82,9 @@ export const GlobalListeningCapsule: React.FC<GlobalListeningCapsuleProps> = ({
 
         <button
           type="button"
-          onClick={() => onResumeListening(true)}
-          title="打开听书控制面板"
-          className={`w-9 h-9 rounded-full flex flex-col items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer ${
-            status.active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
-          }`}
-        >
-          {status.active && status.playing ? (
-            <div className="flex items-end gap-[2px] h-3 mb-0.5">
-              <span className="w-[2px] h-2 bg-current rounded-full animate-pulse" />
-              <span className="w-[2px] h-3 bg-current rounded-full animate-bounce" />
-              <span className="w-[2px] h-1.5 bg-current rounded-full animate-pulse" />
-            </div>
-          ) : (
-            <Headphones className="w-3.5 h-3.5" />
-          )}
-          <span className="text-[9px] font-bold leading-none">听</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDismiss()
-          }}
+          onClick={onDismiss}
           title="收起胶囊"
-          className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors ml-0.5 cursor-pointer"
+          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
         >
           <X className="w-3.5 h-3.5" />
         </button>

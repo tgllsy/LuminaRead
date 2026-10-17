@@ -5,7 +5,7 @@ import type {
   PlayParagraphRequest, TtsAudioStatus, TtsCheckpoint, HighlightItem, EntityWikiModalState,
 } from '../types'
 import { TypographyPanel, type WeReadBottomTab } from '../../reader-controls'
-import { AmbientAndTTSBar } from '../../audio-tts'
+import { AmbientAndTTSBar } from '../../audio-tts/components/AmbientAndTTSBar'
 import { SelectionPopover } from '../../reader-controls'
 import { EntityWikiPopover } from './EntityWikiPopover'
 import { useEntityWikiState } from '../hooks/useEntityWikiState'

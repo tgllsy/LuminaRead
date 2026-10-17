@@ -51,7 +51,7 @@ export const ParagraphActionBadges: React.FC<ParagraphActionBadgesProps> = ({
         </span>
       )}
 
-      {canSpeak && !isRefDivider && !isTtsActive && (
+      {canSpeak && !isRefDivider && !isTtsActive && isListeningMode && (
         <button
           type="button"
           data-no-hud-toggle="true"

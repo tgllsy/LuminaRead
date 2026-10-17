@@ -1,4 +1,5 @@
 export { BookshelfHeader } from './BookshelfHeader'
+export { BookshelfHeroCard } from './BookshelfHeroCard'
 export { LibraryTabBar } from './LibraryTabBar'
 export { CategoryPills } from './CategoryPills'
 export { BookCard } from './BookCard'

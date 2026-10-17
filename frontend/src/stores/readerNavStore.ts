@@ -15,17 +15,17 @@ function getInitialState() {
   let activeBookId: string | null = null
   let chapterIndex = 0
   let jumpTarget: JumpTarget | null = null
-  let activePage: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' = 'shelf'
+  let activePage: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' | 'tts' = 'shelf'
 
   // 1. Try URL Query (?book=xxx&ch=0&tab=xxx)
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search)
     const tabParam = params.get('tab')
-    const validPages: Array<'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes'> = [
-      'shelf', 'discovery', 'search', 'stats', 'sources', 'notes',
+    const validPages: Array<'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' | 'tts'> = [
+      'shelf', 'discovery', 'search', 'stats', 'sources', 'notes', 'tts',
     ]
-    if (tabParam && validPages.includes(tabParam as 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes')) {
-      activePage = tabParam as 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes'
+    if (tabParam && validPages.includes(tabParam as any)) {
+      activePage = tabParam as any
     }
 
     const bookParam = params.get('book')
@@ -74,7 +74,7 @@ interface ReaderNavState {
   jumpTarget: JumpTarget | null
   openTabBookIds: string[]
   tabChapters: Record<string, number>
-  activePage: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes'
+  activePage: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' | 'tts'
 
   // Actions
   openBook: (target: JumpTarget, pushHistory?: boolean) => void
@@ -82,7 +82,7 @@ interface ReaderNavState {
   switchBookTab: (bookId: string) => void
   closeBookTab: (bookId: string) => void
   setChapterIndex: (chIdx: number, replaceHistory?: boolean) => void
-  setActivePage: (page: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes') => void
+  setActivePage: (page: 'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' | 'tts') => void
   syncFromBrowserUrl: () => void
 }
 

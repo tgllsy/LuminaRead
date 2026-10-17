@@ -5,9 +5,35 @@ interface UseReaderGesturesOptions {
   setShowTypography: (v: boolean) => void
   eInkMode?: boolean
   isHidden?: boolean
+  isDualSpread?: boolean
 }
 
-export function useReaderGestures({ onPageTurnScreen, setShowTypography, eInkMode, isHidden }: UseReaderGesturesOptions) {
+export function resolveHotzoneAction(
+  clientX: number,
+  innerWidth: number,
+  isDualSpread?: boolean,
+  eInkMode?: boolean
+): 'prev' | 'next' | 'menu' {
+  const ratio = clientX / innerWidth
+  if (isDualSpread) {
+    if (ratio <= 0.48) return 'prev'
+    if (ratio >= 0.52) return 'next'
+    return 'menu'
+  }
+  const leftBound = eInkMode ? 0.35 : 0.30
+  const rightBound = eInkMode ? 0.65 : 0.70
+  if (ratio < leftBound) return 'prev'
+  if (ratio > rightBound) return 'next'
+  return 'menu'
+}
+
+export function useReaderGestures({
+  onPageTurnScreen,
+  setShowTypography,
+  eInkMode,
+  isHidden,
+  isDualSpread,
+}: UseReaderGesturesOptions) {
   const [immersiveHudVisible, setImmersiveHudVisible] = useState(false)
   const [isScrolling, setIsScrolling] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
@@ -53,37 +79,27 @@ export function useReaderGestures({ onPageTurnScreen, setShowTypography, eInkMod
     if (dt < 600 && Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.8) {
       if (typeof window !== 'undefined') {
         const sel = window.getSelection()
-        if (sel && !sel.isCollapsed && sel.toString().trim().length >= 2) {
-          return
-        }
+        if (sel && !sel.isCollapsed && sel.toString().trim().length >= 2) return
       }
       lastSwipeTimeRef.current = Date.now()
-      if (dx < 0) onPageTurnScreen('next')
-      else onPageTurnScreen('prev')
+      onPageTurnScreen(dx < 0 ? 'next' : 'prev')
     }
   }
 
-  // 经典三分屏热区点击（左 30% 上一页，右 30% 下一页，中 40% 呼出菜单；墨水屏模式为 35%/35%/30%）
   const handleScreenHotzoneClick = (e: React.MouseEvent | { clientX: number }) => {
     if (Date.now() - lastSwipeTimeRef.current < 450) return
     if (typeof window !== 'undefined') {
       const sel = window.getSelection()
       if (sel && !sel.isCollapsed && sel.toString().trim().length >= 2) return
     }
-    const ratio = e.clientX / window.innerWidth
-    const leftBound = eInkMode ? 0.35 : 0.30
-    const rightBound = eInkMode ? 0.65 : 0.70
-
-    if (ratio < leftBound) {
-      onPageTurnScreen('prev')
-    } else if (ratio > rightBound) {
-      onPageTurnScreen('next')
-    } else {
+    const action = resolveHotzoneAction(e.clientX, window.innerWidth, isDualSpread, eInkMode)
+    if (action === 'prev') onPageTurnScreen('prev')
+    else if (action === 'next') onPageTurnScreen('next')
+    else {
       setImmersiveHudVisible((v) => !v)
       setShowTypography(false)
     }
   }
-
 
   return {
     immersiveHudVisible,

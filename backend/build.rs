@@ -28,6 +28,11 @@ fn guess_mime(path: &Path) -> &'static str {
         "otf" => "font/otf",
         "wasm" => "application/wasm",
         "txt" | "md" => "text/plain; charset=utf-8",
+        "mp3" => "audio/mpeg",
+        "wav" => "audio/wav",
+        "ogg" => "audio/ogg",
+        "m4a" => "audio/mp4",
+        "aac" => "audio/aac",
         _ => "application/octet-stream",
     }
 }

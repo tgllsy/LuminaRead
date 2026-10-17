@@ -1,0 +1,2585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阅境 (LuminaRead) - 全端高保真重构原型系统</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#1b88ee',
+              600: '#136ec2',
+              700: '#0f5497',
+            },
+            paper: {
+              white: '#ffffff',
+              warm: '#fbf0d9',
+              green: '#cce8cf',
+              sepia: '#f5ebd7',
+              dark: '#1c1d22',
+              oled: '#0a0a0c',
+            }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', '"Source Han Serif SC"', 'SimSun', 'serif'],
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          boxShadow: {
+            'book': '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            'book-hover': '0 20px 35px -5px rgba(27, 136, 238, 0.25), 0 10px 15px -5px rgba(0, 0, 0, 0.1)',
+            'floating': '0 20px 40px -10px rgba(15, 23, 42, 0.15)',
+            'subtle': '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.7); }
+    
+    /* Device frames */
+    .mobile-frame {
+      width: 393px;
+      height: 852px;
+      border-radius: 48px;
+      box-shadow: 0 0 0 12px #1e293b, 0 0 0 14px #334155, 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+      background: #ffffff;
+      flex-shrink: 0;
+      transform: translate3d(0, 0, 0); /* 强制锁定子元素包含块 */
+      isolation: isolate;
+    }
+    .mobile-island {
+      width: 120px;
+      height: 30px;
+      background: #000000;
+      border-radius: 20px;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+    }
+    .desktop-frame {
+      width: 100%;
+      max-width: 1240px;
+      height: 840px;
+      border-radius: 16px;
+      box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+      position: relative;
+      overflow: hidden;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      transform: translate3d(0, 0, 0); /* 强制锁定子元素包含块 */
+      isolation: isolate;
+    }
+    
+    /* Book spine 3D effect */
+    .book-cover-3d {
+      position: relative;
+      transform-style: preserve-3d;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .book-cover-3d:hover {
+      transform: translateY(-6px) scale(1.02);
+    }
+    .book-cover-3d::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 8px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.4) 100%);
+      z-index: 10;
+      border-radius: 4px 0 0 4px;
+    }
+    
+    /* Realistic book page texture */
+    .page-sepia {
+      background-color: #f7f1e3;
+      background-image: radial-gradient(#ece1cb 1px, transparent 0);
+      background-size: 24px 24px;
+    }
+    .page-warm {
+      background-color: #faf6ed;
+    }
+    
+    /* Animation utilities */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 3s infinite ease-in-out;
+    }
+
+    /* 2026 Next-Gen Realistic Book Gutter Spine Shadow */
+    .book-spine-gutter {
+      position: relative;
+    }
+    .book-spine-gutter::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 42px;
+      transform: translateX(-50%);
+      background: linear-gradient(90deg, 
+        rgba(0, 0, 0, 0) 0%, 
+        rgba(92, 64, 40, 0.03) 25%, 
+        rgba(60, 40, 20, 0.10) 50%, 
+        rgba(92, 64, 40, 0.03) 75%, 
+        rgba(0, 0, 0, 0) 100%
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Edge Page Turn Invisible Hover Zones */
+    .page-flip-zone {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 68px;
+      z-index: 25;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .page-flip-zone.left {
+      left: 0;
+    }
+    .page-flip-zone.left:hover {
+      opacity: 1;
+      background: linear-gradient(90deg, rgba(120, 90, 60, 0.07), transparent);
+    }
+    .page-flip-zone.right {
+      right: 0;
+    }
+    .page-flip-zone.right:hover {
+      opacity: 1;
+      background: linear-gradient(270deg, rgba(120, 90, 60, 0.07), transparent);
+    }
+
+    /* 2026 Ghost Ambient Margin Note */
+    .ghost-margin-note {
+      position: absolute;
+      right: -250px;
+      width: 230px;
+      opacity: 0.82;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ghost-margin-note:hover {
+      opacity: 1;
+      transform: translateX(-8px) scale(1.02);
+      box-shadow: 0 16px 32px -8px rgba(30, 20, 10, 0.12);
+    }
+
+    /* Floating Micro HUD Island (Non-blocking reader control) */
+    .floating-hud-island {
+      animation: floatSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes floatSlideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none overflow-x-hidden">
+
+  <!-- ==================== TOP GLOBAL TOOLBAR & SWITCHER ==================== -->
+  <header class="bg-slate-950 border-b border-slate-800 sticky top-0 z-50 flex flex-col">
+    <!-- Top Row: Brand & Viewport Mode Controls -->
+    <div class="px-6 py-2.5 flex items-center justify-between border-b border-slate-800/80">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-sky-400 text-white flex items-center justify-center font-serif font-bold text-base shadow-md shadow-brand-500/30">
+          阅
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-black text-white text-base tracking-tight">阅境 LuminaRead</span>
+          <span class="text-[10px] text-brand-400 px-2 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20 font-bold uppercase tracking-wider">全端重构原型系统</span>
+        </div>
+      </div>
+
+      <!-- Center Status Hint -->
+      <div class="hidden md:flex items-center gap-2 text-xs text-slate-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="text-slate-300 font-medium">当前视图：</span>
+        <span id="current-page-indicator" class="text-white font-bold bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 font-mono">1. 书架主页 (按停留频次重构)</span>
+      </div>
+
+      <!-- Right Device Mode Switcher -->
+      <div class="flex items-center gap-2.5">
+        <div class="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center gap-1 text-xs shadow-inner">
+          <button onclick="setDeviceView('split')" id="btn-mode-split" class="mode-btn px-3 py-1.5 rounded-lg font-semibold transition-all bg-brand-500 text-white flex items-center gap-1.5">
+            <i data-lucide="columns" class="w-3.5 h-3.5"></i> 双端同屏对比
+          </button>
+          <button onclick="setDeviceView('desktop')" id="btn-mode-desktop" class="mode-btn px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5">
+            <i data-lucide="monitor" class="w-3.5 h-3.5"></i> 电脑端 (1240px)
+          </button>
+          <button onclick="setDeviceView('mobile')" id="btn-mode-mobile" class="mode-btn px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5">
+            <i data-lucide="smartphone" class="w-3.5 h-3.5"></i> 手机端 (393px)
+          </button>
+        </div>
+
+        <div class="h-4 w-px bg-slate-800"></div>
+
+        <!-- Quick Theme Toggle for Prototype Canvas -->
+        <button onclick="toggleCanvasTheme()" class="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs flex items-center gap-1" title="切换原型背景深浅">
+          <i data-lucide="sun-moon" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Row: Horizontal Scrollable Page Selector Ribbon (绝不遮挡) -->
+    <div class="px-6 py-1.5 bg-slate-900/90 flex items-center gap-1 overflow-x-auto text-xs whitespace-nowrap">
+      <span class="text-[11px] font-bold text-slate-500 mr-2 shrink-0 uppercase tracking-wider flex items-center gap-1"><i data-lucide="compass" class="w-3.5 h-3.5 text-brand-400"></i>页面导航:</span>
+      <button onclick="switchPage('shelf')" id="btn-page-shelf" class="page-tab-btn px-3 py-1 rounded-lg font-bold transition-all bg-brand-500 text-white shadow-sm flex items-center gap-1.5 shrink-0">
+        <i data-lucide="book-open" class="w-3.5 h-3.5"></i> 1.书架主页 (重构)
+      </button>
+      <button onclick="switchPage('reader')" id="btn-page-reader" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="book" class="w-3.5 h-3.5"></i> 2.沉浸阅读 (2026)
+      </button>
+      <button onclick="switchPage('typography')" id="btn-page-typography" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="type" class="w-3.5 h-3.5"></i> 3.实时排版工作台
+      </button>
+      <button onclick="switchPage('sidebar')" id="btn-page-sidebar" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="list-tree" class="w-3.5 h-3.5"></i> 4.目录与书签抽屉
+      </button>
+      <button onclick="switchPage('copilot')" id="btn-page-copilot" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> 5.AI深度伴读副屏
+      </button>
+      <button onclick="switchPage('notes')" id="btn-page-notes" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="highlighter" class="w-3.5 h-3.5 text-amber-500"></i> 6.笔记·知识库
+      </button>
+      <button onclick="switchPage('discovery')" id="btn-page-discovery" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="compass" class="w-3.5 h-3.5"></i> 7.全网找书发现
+      </button>
+      <button onclick="switchPage('search')" id="btn-page-search" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="search" class="w-3.5 h-3.5"></i> 8.全文秒搜 (⌘K)
+      </button>
+      <button onclick="switchPage('stats')" id="btn-page-stats" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i> 9.阅读统计热力图
+      </button>
+      <button onclick="switchPage('sources')" id="btn-page-sources" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="sliders" class="w-3.5 h-3.5"></i> 10.书源与镜像配置
+      </button>
+      <button onclick="switchPage('tts')" id="btn-page-tts" class="page-tab-btn px-3 py-1 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1.5 shrink-0">
+        <i data-lucide="headphones" class="w-3.5 h-3.5 text-emerald-400"></i> 11.听书中心 (黑金剧场)
+      </button>
+      <button onclick="switchPage('hierarchy')" id="btn-page-hierarchy" class="page-tab-btn px-3 py-1 rounded-lg font-bold transition-all bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 hover:text-white border border-amber-500/40 flex items-center gap-1.5 shrink-0 shadow-sm">
+        <i data-lucide="layers" class="w-3.5 h-3.5 text-amber-400"></i> 12.停留频次重构全景架构
+      </button>
+    </div>
+  </header>
+
+
+  <!-- Mobile Dropdown Selector (visible on small screens) -->
+  <div class="lg:hidden bg-slate-950/80 px-4 py-2 border-b border-slate-800 flex items-center justify-between">
+    <label class="text-xs text-slate-400">选择页面：</label>
+    <select onchange="switchPage(this.value)" class="bg-slate-900 text-xs text-white border border-slate-700 rounded-lg px-2.5 py-1.5">
+      <option value="shelf">1. 书架主页 (按停留频次重构)</option>
+      <option value="reader">2. 沉浸阅读 (2026)</option>
+      <option value="typography">3. 排版调色</option>
+      <option value="sidebar">4. 目录划线</option>
+      <option value="copilot">5. AI 伴读</option>
+      <option value="notes">6. 笔记中心</option>
+      <option value="discovery">7. 全网找书</option>
+      <option value="search">8. 全文秒搜</option>
+      <option value="stats">9. 阅读统计</option>
+      <option value="sources">10. 书源配置</option>
+      <option value="tts">11. 听书中心 (TTS)</option>
+      <option value="hierarchy">12. 停留频次重构全景架构</option>
+    </select>
+  </div>
+
+  <!-- ==================== MAIN CANVAS WORKSPACE ==================== -->
+  <main id="main-canvas" class="flex-1 p-6 lg:p-10 flex items-center justify-center overflow-auto bg-slate-950 transition-colors">
+    <div id="stage-container" class="flex flex-col xl:flex-row items-center justify-center gap-12 w-full max-w-[1720px] transition-all">
+
+      <!-- ============================================================ -->
+      <!-- [LEFT/MAIN]: DESKTOP DEVICE CONTAINER                        -->
+      <!-- ============================================================ -->
+      <div id="desktop-wrapper" class="flex flex-col items-center gap-3 w-full max-w-[1240px] transition-all">
+        <div class="flex items-center justify-between w-full text-xs text-slate-400 px-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+            <span class="font-bold text-slate-200 uppercase tracking-wider">🖥️ 电脑端高保真设计 (Desktop 1440×900 Retina)</span>
+          </div>
+          <span class="text-slate-400">Apple Books × Readwise Reader 极简现代化架构</span>
+        </div>
+
+        <!-- Desktop Viewport Frame -->
+        <div class="desktop-frame text-slate-800 font-sans shadow-2xl">
+          <!-- Window Title Bar -->
+          <div class="h-9 bg-slate-100 border-b border-slate-200/80 px-3.5 flex items-center justify-between select-none shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block"></span>
+            </div>
+            <div class="text-[11px] font-semibold text-slate-500 tracking-tight flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-3 h-3 text-emerald-600"></i>
+              <span>阅境 LuminaRead - 沉浸式知识工作台</span>
+            </div>
+            <div class="w-12"></div>
+          </div>
+
+          <!-- Desktop Inner View Content Hooked via JS -->
+          <div id="desktop-content" class="flex-1 overflow-auto flex flex-col bg-[#fbfbfe]">
+            <!-- Dynamic Inject -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- [RIGHT]: MOBILE DEVICE CONTAINER (iPhone 16 Pro Style)       -->
+      <!-- ============================================================ -->
+      <div id="mobile-wrapper" class="flex flex-col items-center gap-3 shrink-0 transition-all">
+        <div class="flex items-center justify-between w-[393px] text-xs text-slate-400 px-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block animate-pulse"></span>
+            <span class="font-bold text-slate-200 uppercase tracking-wider">📱 手机端高保真设计 (Mobile 393×852)</span>
+          </div>
+          <span class="text-slate-400">iOS 18 灵动岛风格</span>
+        </div>
+
+        <!-- Mobile Viewport Frame -->
+        <div class="mobile-frame text-slate-800 font-sans shadow-2xl flex flex-col">
+          <!-- Dynamic Island -->
+          <div class="mobile-island">
+            <span class="text-[9px] text-slate-400 font-mono">9:41</span>
+            <div class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-800"></div>
+            <div class="flex items-center gap-1 text-[9px] text-slate-400">
+              <i data-lucide="wifi" class="w-2.5 h-2.5"></i>
+              <i data-lucide="battery" class="w-3 h-3"></i>
+            </div>
+          </div>
+
+          <!-- Mobile Inner View Content Hooked via JS -->
+          <div id="mobile-content" class="flex-1 overflow-auto flex flex-col pt-12 pb-6 bg-[#fcfcfd]">
+            <!-- Dynamic Inject -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ==================== PAGE TEMPLATES SCRIPT ==================== -->
+  <script>
+    // Current Active States
+    let currentPage = 'shelf';
+    let currentViewMode = 'split'; // 'split' | 'desktop' | 'mobile'
+
+    // Device View Mode Switcher
+    function setDeviceView(mode) {
+      currentViewMode = mode;
+      const dWrapper = document.getElementById('desktop-wrapper');
+      const mWrapper = document.getElementById('mobile-wrapper');
+      
+      document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.remove('bg-brand-500', 'text-white', 'font-semibold');
+        b.classList.add('text-slate-400');
+      });
+      const activeBtn = document.getElementById(`btn-mode-${mode}`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-brand-500', 'text-white', 'font-semibold');
+        activeBtn.classList.remove('text-slate-400');
+      }
+
+      if (mode === 'split') {
+        dWrapper.classList.remove('hidden');
+        mWrapper.classList.remove('hidden');
+      } else if (mode === 'desktop') {
+        dWrapper.classList.remove('hidden');
+        mWrapper.classList.add('hidden');
+      } else if (mode === 'mobile') {
+        dWrapper.classList.add('hidden');
+        mWrapper.classList.remove('hidden');
+      }
+    }
+
+    // Switch Page
+    function switchPage(pageKey) {
+      currentPage = pageKey;
+      document.querySelectorAll('.page-tab-btn').forEach(b => {
+        b.classList.remove('bg-brand-500', 'text-white', 'font-medium', 'shadow-sm');
+        b.classList.add('text-slate-400');
+      });
+      const targetBtn = document.getElementById(`btn-page-${pageKey}`);
+      if (targetBtn) {
+        targetBtn.classList.add('bg-brand-500', 'text-white', 'font-medium', 'shadow-sm');
+        targetBtn.classList.remove('text-slate-400');
+      }
+
+      const pageNames = {
+        shelf: '1. 书架主页 (按停留频次全新布局)',
+        reader: '2. 沉浸阅读 (2026 双页仿真排版)',
+        typography: '3. 实时排版与外观工作台',
+        sidebar: '4. 目录大纲与书签抽屉',
+        copilot: '5. AI深度伴读副屏 (苏格拉底模式)',
+        notes: '6. 笔记与知识沉淀中心',
+        discovery: '7. 全网找书与聚合下载引擎',
+        search: '8. 全文秒搜面板 (SQLite FTS5)',
+        stats: '9. 个人阅读统计与热力图',
+        sources: '10. 书源镜像与网络代理配置',
+        tts: '11. 听书中心 (黑金声学剧场)',
+        hierarchy: '12. 停留频次重构全景架构',
+      };
+      const indicator = document.getElementById('current-page-indicator');
+      if (indicator && pageNames[pageKey]) indicator.innerText = pageNames[pageKey];
+
+      renderCurrentPage();
+    }
+
+    // Toggle Prototype Canvas Background
+    let darkCanvas = true;
+    function toggleCanvasTheme() {
+      darkCanvas = !darkCanvas;
+      const canvas = document.getElementById('main-canvas');
+      if (darkCanvas) {
+        canvas.classList.remove('bg-slate-200');
+        canvas.classList.add('bg-slate-950');
+      } else {
+        canvas.classList.remove('bg-slate-950');
+        canvas.classList.add('bg-slate-200');
+      }
+    }
+
+    // =========================================================================
+    // RENDER LOGIC FOR ALL 10 PAGES
+    // =========================================================================
+    function renderCurrentPage() {
+      const desktopEl = document.getElementById('desktop-content');
+      const mobileEl = document.getElementById('mobile-content');
+
+      if (pageTemplates[currentPage]) {
+        desktopEl.innerHTML = pageTemplates[currentPage].desktop;
+        mobileEl.innerHTML = pageTemplates[currentPage].mobile;
+      }
+      lucide.createIcons();
+    }
+
+    // Templates Registry
+    const pageTemplates = {
+      // -------------------------------------------------------------
+      // 1. 书架主页 (Bookshelf & Library Hub) - 按停留频次全新布局
+      // -------------------------------------------------------------
+      shelf: {
+        desktop: `
+          <!-- Desktop Navigation Bar (Redesigned by User Retention & Frequency) -->
+          <div class="h-16 px-8 bg-white/95 backdrop-blur-md border-b border-slate-200/80 flex items-center justify-between sticky top-0 z-30 shadow-subtle">
+            <!-- Left: Brand + Tier 1 High-Retention Navigation Links (Only Core 2) -->
+            <div class="flex items-center gap-7">
+              <div class="flex items-center gap-3 cursor-pointer" onclick="switchPage('shelf')">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-sky-400 text-white flex items-center justify-center font-serif font-bold text-lg shadow-md shadow-brand-500/25">
+                  阅
+                </div>
+                <div class="flex flex-col">
+                  <span class="font-black text-slate-900 text-base tracking-tight leading-tight">阅境</span>
+                  <span class="text-[9px] text-brand-600 font-mono font-bold tracking-widest uppercase">LuminaRead</span>
+                </div>
+              </div>
+
+              <!-- High-Frequency Tabs (停留时长 >90% 的真正核心) -->
+              <nav class="flex items-center gap-1.5 text-sm bg-slate-100/70 p-1 rounded-2xl border border-slate-200/60">
+                <button class="px-4 py-1.5 rounded-xl font-extrabold text-brand-600 bg-white shadow-2xs flex items-center gap-1.5 transition-all">
+                  <i data-lucide="book-open" class="w-4 h-4 text-brand-500"></i>书架
+                </button>
+                <button onclick="switchPage('notes')" class="px-4 py-1.5 rounded-xl font-bold text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all flex items-center gap-1.5">
+                  <i data-lucide="highlighter" class="w-4 h-4 text-amber-500"></i>笔记 · 知识库
+                </button>
+              </nav>
+            </div>
+
+            <!-- Center: Tier 2 Audio Living Island (听书高停留常驻灵动岛) -->
+            <div onclick="switchPage('tts')" class="hidden xl:flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/95 text-white shadow-lg shadow-slate-900/20 border border-slate-800 cursor-pointer hover:scale-102 transition-all group" title="点击展开全屏听书大剧场">
+              <div class="flex items-center gap-1 text-emerald-400">
+                <span class="w-1 bg-emerald-400 rounded-full animate-bounce h-2.5"></span>
+                <span class="w-1 bg-emerald-400 rounded-full animate-bounce h-4" style="animation-delay: 0.1s"></span>
+                <span class="w-1 bg-emerald-400 rounded-full animate-bounce h-2" style="animation-delay: 0.2s"></span>
+              </div>
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="font-bold text-white font-serif">置身事内</span>
+                <span class="text-[10px] text-slate-400">· 晓晓朗读中 (04:32)</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-full bg-white/10 text-[9px] text-amber-300 font-mono">1.25x</span>
+              <button class="w-6 h-6 rounded-full bg-white/20 hover:bg-brand-500 text-white flex items-center justify-center transition-colors">
+                <i data-lucide="pause" class="w-3 h-3 fill-current"></i>
+              </button>
+            </div>
+
+            <!-- Right: Tier 3 Task-Based Tools & Tier 4 Collapsed Profile Drawer -->
+            <div class="flex items-center gap-3">
+              <!-- Tier 3: Global Instant Search (Cmd+K) -->
+              <div onclick="switchPage('search')" class="flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-xs text-slate-500 cursor-pointer border border-slate-200/70 transition-all">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span>全文秒搜...</span>
+                <kbd class="px-1.5 py-0.5 rounded bg-white text-[10px] text-slate-400 font-mono shadow-2xs">⌘K</kbd>
+              </div>
+
+              <!-- Tier 3: Book Discovery (任务型探寻轻按钮) -->
+              <button onclick="switchPage('discovery')" class="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all" title="全网找书与下载">
+                <i data-lucide="compass" class="w-3.5 h-3.5 text-brand-500"></i>
+                <span>找书发现</span>
+              </button>
+
+              <!-- Upload Book CTA -->
+              <button class="px-3.5 py-1.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs shadow-md shadow-brand-500/25 flex items-center gap-1.5 transition-all">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>导入
+              </button>
+
+              <div class="h-4 w-px bg-slate-200"></div>
+
+              <!-- Tier 4: Personal Center & Low-Frequency Settings Drawer (收纳统计+书源) -->
+              <div onclick="switchPage('stats')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 cursor-pointer text-slate-700 transition-all group" title="阅读统计与设置中心 (低频收纳)">
+                <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center font-bold text-[10px] shadow-sm">
+                  186
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-brand-600">个人与统计</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Shelf View Body: Re-proportioned by User Eye Tracking & Retention -->
+          <div class="p-8 max-w-6xl mx-auto w-full space-y-7">
+            <!-- [TOP 70% RETENTION HERO]: 大画幅“正在阅读”展台 (打开即读，停留最高核心) -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-7 shadow-2xl flex items-center justify-between relative overflow-hidden border border-slate-700/50">
+              <div class="relative z-10 space-y-3 max-w-xl">
+                <div class="flex items-center gap-3">
+                  <span class="px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-ping"></span>
+                    继续上次阅读 (85% 用户首选动作)
+                  </span>
+                  <span class="text-xs text-slate-400">已读 10% · 本章剩余约 28 分钟</span>
+                </div>
+                <h2 class="text-2xl font-bold font-serif leading-tight text-white tracking-wide">
+                  置身事内：中国政府与经济发展
+                </h2>
+                <p class="text-xs text-slate-300 leading-relaxed line-clamp-2">
+                  上次读至：第 6 章 · 前言 从了解现状开始 / “本书以我国地方政府投融资为主线，分上下两篇。微观机制包括地方政府的基本事务...”
+                </p>
+                <div class="pt-2 flex items-center gap-3">
+                  <button onclick="switchPage('reader')" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-sky-500 hover:from-brand-600 hover:to-sky-600 text-white text-xs font-black shadow-lg shadow-brand-500/35 flex items-center gap-2 hover:scale-102 active:scale-98 transition-all">
+                    <i data-lucide="play" class="w-4 h-4 fill-current"></i>继续沉浸阅读
+                  </button>
+                  <button onclick="switchPage('tts')" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold backdrop-blur-md flex items-center gap-1.5 border border-white/15 transition-all">
+                    <i data-lucide="headphones" class="w-3.5 h-3.5 text-emerald-400"></i>听书接续 (04:32)
+                  </button>
+                  <button onclick="switchPage('copilot')" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-all">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-300"></i>AI 梳理上回要点
+                  </button>
+                </div>
+              </div>
+
+              <!-- 3D Book Cover on Hero Stage -->
+              <div class="hidden md:block relative z-10 w-32 h-46 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20 book-cover-3d bg-slate-800 shrink-0">
+                <div class="w-full h-full bg-gradient-to-br from-amber-50 to-orange-100 p-3 flex flex-col justify-between text-slate-900">
+                  <div class="text-[9px] text-amber-700 font-mono">EPUB · 地方财政</div>
+                  <div class="font-serif font-black text-sm">置身事内</div>
+                  <div class="text-[10px] text-slate-500">兰小欢 著</div>
+                </div>
+              </div>
+
+              <!-- Ambient Glow Decor -->
+              <div class="absolute -right-12 -bottom-12 w-80 h-80 bg-brand-500/20 rounded-full blur-3xl pointer-events-none"></div>
+            </div>
+
+            <!-- [20% RETENTION SECTION]: 书库与分类层级流 (已消灭四层堆砌) -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+              <!-- Tier 1 Library Pills -->
+              <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 w-full sm:w-auto">
+                <button class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm flex items-center gap-1.5">
+                  <i data-lucide="library" class="w-3.5 h-3.5"></i>全部藏书 <span class="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">12</span>
+                </button>
+                <button class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1.5">
+                  <i data-lucide="landmark" class="w-3.5 h-3.5 text-amber-600"></i>历史社科 <span class="text-slate-400 text-[10px]">5</span>
+                </button>
+                <button class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1.5">
+                  <i data-lucide="cpu" class="w-3.5 h-3.5 text-blue-600"></i>技术架构 <span class="text-slate-400 text-[10px]">4</span>
+                </button>
+                <button class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-100 flex items-center gap-1.5">
+                  <i data-lucide="feather" class="w-3.5 h-3.5 text-emerald-600"></i>文学小说 <span class="text-slate-400 text-[10px]">3</span>
+                </button>
+              </div>
+
+              <!-- Quick Status Filters -->
+              <div class="flex items-center gap-2 text-xs">
+                <span class="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-600 font-bold cursor-pointer">在读 (4)</span>
+                <span class="px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer">未读 (6)</span>
+                <span class="px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-100 cursor-pointer">已读完 (2)</span>
+                <div class="h-4 w-px bg-slate-200 ml-1"></div>
+                <button class="p-1.5 rounded-lg bg-slate-100 text-slate-700" title="网格"><i data-lucide="grid" class="w-3.5 h-3.5"></i></button>
+                <button class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100" title="列表"><i data-lucide="list" class="w-3.5 h-3.5"></i></button>
+              </div>
+            </div>
+
+            <!-- Book Grid (3D Spine, Shadows, Badges) -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              <!-- Book 1 (Current Active) -->
+              <div onclick="switchPage('reader')" class="group cursor-pointer flex flex-col space-y-2.5">
+                <div class="aspect-[3/4.2] w-full bg-slate-200 rounded-2xl overflow-hidden relative shadow-book group-hover:shadow-book-hover transition-all duration-300 book-cover-3d">
+                  <div class="w-full h-full bg-gradient-to-br from-amber-50 to-orange-100 flex flex-col justify-between p-4 border border-amber-200/50">
+                    <div class="text-[10px] text-amber-700 font-mono tracking-wider uppercase">EPUB · 地方政府</div>
+                    <div class="font-serif font-bold text-slate-900 text-base leading-snug">置身事内</div>
+                    <div class="text-[11px] text-slate-500">兰小欢 著</div>
+                  </div>
+                  <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 10%
+                  </div>
+                </div>
+                <div>
+                  <h3 class="font-bold text-xs text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-1">置身事内：中国政府与经济发展</h3>
+                  <p class="text-[11px] text-slate-400 mt-0.5">上次阅读 2 小时前</p>
+                </div>
+              </div>
+
+              <!-- Book 2 -->
+              <div onclick="switchPage('reader')" class="group cursor-pointer flex flex-col space-y-2.5">
+                <div class="aspect-[3/4.2] w-full bg-slate-200 rounded-2xl overflow-hidden relative shadow-book group-hover:shadow-book-hover transition-all duration-300 book-cover-3d">
+                  <div class="w-full h-full bg-gradient-to-br from-blue-900 to-indigo-950 text-white flex flex-col justify-between p-4">
+                    <div class="text-[10px] text-sky-300 font-mono tracking-wider uppercase">PDF · 系统架构</div>
+                    <div class="font-serif font-bold text-white text-base leading-snug">Designing Data-Intensive Applications</div>
+                    <div class="text-[11px] text-slate-400">Martin Kleppmann</div>
+                  </div>
+                  <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 68%
+                  </div>
+                </div>
+                <div>
+                  <h3 class="font-bold text-xs text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-1">数据密集型应用系统设计 (DDIA)</h3>
+                  <p class="text-[11px] text-slate-400 mt-0.5">笔记 34 条 · 书签 12 个</p>
+                </div>
+              </div>
+
+              <!-- Book 3 -->
+              <div class="group cursor-pointer flex flex-col space-y-2.5">
+                <div class="aspect-[3/4.2] w-full bg-slate-200 rounded-2xl overflow-hidden relative shadow-book group-hover:shadow-book-hover transition-all duration-300 book-cover-3d">
+                  <div class="w-full h-full bg-gradient-to-br from-emerald-800 to-teal-950 text-white flex flex-col justify-between p-4">
+                    <div class="text-[10px] text-emerald-300 font-mono tracking-wider uppercase">EPUB · 哲学社科</div>
+                    <div class="font-serif font-bold text-white text-base leading-snug">金榜题名之后</div>
+                    <div class="text-[11px] text-slate-400">郑雅君 著</div>
+                  </div>
+                  <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> 未读
+                  </div>
+                </div>
+                <div>
+                  <h3 class="font-bold text-xs text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-1">金榜题名之后：大学生出路分化</h3>
+                  <p class="text-[11px] text-slate-400 mt-0.5">昨天导入 · 4.8MB</p>
+                </div>
+              </div>
+
+              <!-- Book 4 -->
+              <div class="group cursor-pointer flex flex-col space-y-2.5">
+                <div class="aspect-[3/4.2] w-full bg-slate-200 rounded-2xl overflow-hidden relative shadow-book group-hover:shadow-book-hover transition-all duration-300 book-cover-3d">
+                  <div class="w-full h-full bg-gradient-to-br from-purple-900 to-slate-900 text-white flex flex-col justify-between p-4">
+                    <div class="text-[10px] text-purple-300 font-mono tracking-wider uppercase">MOBI · 科幻经典</div>
+                    <div class="font-serif font-bold text-white text-base leading-snug">银河帝国：基地</div>
+                    <div class="text-[11px] text-slate-400">艾萨克·阿西莫夫</div>
+                  </div>
+                  <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-emerald-600 text-[10px] font-mono text-white flex items-center gap-1">
+                    ✓ 已读完
+                  </div>
+                </div>
+                <div>
+                  <h3 class="font-bold text-xs text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-1">基地七部曲：帝国全集</h3>
+                  <p class="text-[11px] text-slate-400 mt-0.5">累计用时 14.5 小时</p>
+                </div>
+              </div>
+
+              <!-- Upload Drop Placeholder -->
+              <div class="aspect-[3/4.2] w-full border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-all hover:bg-brand-50/30 group">
+                <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-brand-100 text-slate-400 group-hover:text-brand-600 flex items-center justify-center mb-2 transition-colors">
+                  <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-700 group-hover:text-brand-600">导入新电子书</span>
+                <span class="text-[10px] text-slate-400 mt-1">拖拽 EPUB/PDF/TXT 到此处</span>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Shelf View (Redesigned by User Retention & Frequency) -->
+          <div class="flex-1 flex flex-col px-4 space-y-4">
+            <!-- Mobile Header: 仅保留搜索与找书轻量入口 -->
+            <div class="flex items-center justify-between pt-1">
+              <div>
+                <span class="text-[10px] text-brand-600 font-black uppercase tracking-widest">LUMINA READ</span>
+                <h1 class="text-xl font-black text-slate-900 tracking-tight">我的书架 (12)</h1>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="switchPage('search')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600" title="全文秒搜"><i data-lucide="search" class="w-4 h-4"></i></button>
+                <button onclick="switchPage('discovery')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600" title="全网找书"><i data-lucide="compass" class="w-4 h-4"></i></button>
+                <button class="w-8 h-8 rounded-full bg-brand-500 text-white flex items-center justify-center shadow-md shadow-brand-500/25"><i data-lucide="plus" class="w-4 h-4"></i></button>
+              </div>
+            </div>
+
+            <!-- Mobile Hero: 正在阅读大卡片 (绝对核心停留区) -->
+            <div onclick="switchPage('reader')" class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-4 rounded-2xl shadow-xl flex items-center gap-3.5 cursor-pointer relative overflow-hidden">
+              <div class="w-14 h-20 rounded-lg overflow-hidden shrink-0 shadow-md bg-amber-100 text-slate-900 p-1 flex flex-col justify-between text-[9px] book-cover-3d">
+                <div class="font-serif font-bold text-[10px] leading-tight">置身事内</div>
+                <div class="text-slate-500">兰小欢</div>
+              </div>
+              <div class="flex-1 min-w-0 space-y-1">
+                <div class="flex items-center justify-between text-[10px] text-brand-300 font-semibold">
+                  <span>继续沉浸阅读</span>
+                  <span>剩 28 分钟</span>
+                </div>
+                <h3 class="text-xs font-bold text-white truncate">置身事内：中国政府与经济发展</h3>
+                <p class="text-[10px] text-slate-400 truncate">第 6 章 · 前言 从了解现状开始</p>
+                <div class="w-full bg-white/20 h-1 rounded-full overflow-hidden mt-1.5">
+                  <div class="bg-brand-400 h-full w-[10%] rounded-full"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile Library Tabs -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 text-xs select-none">
+              <button class="px-3.5 py-1 rounded-full bg-slate-900 text-white font-bold shrink-0">全部书库 (12)</button>
+              <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0">历史社科 (5)</button>
+              <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0">技术架构 (4)</button>
+              <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0">文学小说 (3)</button>
+            </div>
+
+            <!-- Mobile Book Grid -->
+            <div class="grid grid-cols-2 gap-3.5 pb-24">
+              <!-- Item 1 -->
+              <div onclick="switchPage('reader')" class="space-y-1.5 cursor-pointer">
+                <div class="aspect-[3/4.2] w-full rounded-xl bg-gradient-to-br from-amber-50 to-orange-100 p-3 flex flex-col justify-between shadow-sm border border-amber-200/40 relative">
+                  <span class="text-[8px] text-amber-700 font-mono">EPUB</span>
+                  <div class="font-serif font-bold text-xs text-slate-900">置身事内</div>
+                  <div class="text-[9px] text-slate-500">兰小欢</div>
+                  <span class="absolute bottom-1.5 right-1.5 text-[8px] bg-black/70 text-white px-1.5 py-0.2 rounded-full">10%</span>
+                </div>
+                <h4 class="text-xs font-bold text-slate-800 truncate">置身事内</h4>
+                <p class="text-[10px] text-slate-400">已读 10% · 2小时前</p>
+              </div>
+
+              <!-- Item 2 -->
+              <div onclick="switchPage('reader')" class="space-y-1.5 cursor-pointer">
+                <div class="aspect-[3/4.2] w-full rounded-xl bg-gradient-to-br from-blue-900 to-indigo-950 p-3 flex flex-col justify-between shadow-sm text-white relative">
+                  <span class="text-[8px] text-sky-300 font-mono">PDF</span>
+                  <div class="font-serif font-bold text-xs text-white">DDIA 系统设计</div>
+                  <div class="text-[9px] text-slate-400">Kleppmann</div>
+                  <span class="absolute bottom-1.5 right-1.5 text-[8px] bg-black/70 text-white px-1.5 py-0.2 rounded-full">68%</span>
+                </div>
+                <h4 class="text-xs font-bold text-slate-800 truncate">数据密集型系统</h4>
+                <p class="text-[10px] text-slate-400">笔记 34 · 书签 12</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile Floating Audio Living Capsule (常驻悬浮吸附于 TabBar 上方，锁定在手机框内) -->
+          <div onclick="switchPage('tts')" class="absolute bottom-18 inset-x-3 h-12 bg-slate-900/95 backdrop-blur-md rounded-2xl p-2 shadow-2xl flex items-center justify-between text-white z-30 cursor-pointer border border-slate-700">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <i data-lucide="headphones" class="w-4 h-4 animate-pulse"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold truncate">置身事内 · 晓晓朗读中</div>
+                <div class="text-[9px] text-slate-400">第 12 段 · 04:32 / -18:20</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 pr-1">
+              <button class="p-1 rounded-full bg-white/20 hover:bg-white/30 text-white"><i data-lucide="pause" class="w-3.5 h-3.5 fill-current"></i></button>
+            </div>
+          </div>
+
+          <!-- Mobile Bottom Navigation Bar: 重组为 3 核心黄金 Tab (书架 / 笔记 / 我的，锁定在手机底部) -->
+          <div class="absolute bottom-0 inset-x-0 h-16 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-8 flex items-center justify-between text-xs z-40 shadow-lg">
+            <button onclick="switchPage('shelf')" class="flex flex-col items-center gap-1 text-brand-600 font-bold">
+              <i data-lucide="book-open" class="w-5 h-5"></i><span>书架</span>
+            </button>
+            <button onclick="switchPage('notes')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-800">
+              <i data-lucide="highlighter" class="w-5 h-5"></i><span>笔记·知识</span>
+            </button>
+            <button onclick="switchPage('stats')" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-800">
+              <i data-lucide="user" class="w-5 h-5"></i><span>我的·统计</span>
+            </button>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 2. 沉浸阅读 (Immersive Reader & Controls)
+      // -------------------------------------------------------------
+      reader: {
+        desktop: `
+          <!-- Desktop Immersive Reader Screen (2026 Next-Gen Ambient Experience) -->
+          <div class="flex-1 flex flex-col bg-[#fbf9f4] relative overflow-hidden select-none">
+            <!-- Edge Page Turn Invisible Hover Zones -->
+            <div class="page-flip-zone left group" onclick="simulateFlip('prev')" title="点击或左滑翻至上一页">
+              <div class="w-9 h-9 rounded-full bg-amber-900/10 backdrop-blur-md flex items-center justify-center text-amber-900 shadow-sm transition-transform group-hover:-translate-x-1">
+                <i data-lucide="chevron-left" class="w-5 h-5"></i>
+              </div>
+            </div>
+            <div class="page-flip-zone right group" onclick="simulateFlip('next')" title="点击或右滑翻至下一页">
+              <div class="w-9 h-9 rounded-full bg-amber-900/10 backdrop-blur-md flex items-center justify-center text-amber-900 shadow-sm transition-transform group-hover:translate-x-1">
+                <i data-lucide="chevron-right" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <!-- Reader Top Floating Header (Fade-in on Hover / Pure Minimalist) -->
+            <div class="h-14 px-8 bg-[#fbf9f4]/95 backdrop-blur-md border-b border-amber-900/10 flex items-center justify-between z-30 shrink-0">
+              <div class="flex items-center gap-4">
+                <button onclick="switchPage('shelf')" class="p-2 rounded-xl hover:bg-black/5 text-slate-700 transition-colors flex items-center gap-1.5 text-xs font-semibold">
+                  <i data-lucide="arrow-left" class="w-4 h-4"></i>返回书架
+                </button>
+                <div class="h-4 w-px bg-amber-900/15"></div>
+                <div>
+                  <span class="font-bold text-slate-900 text-xs font-serif">置身事内：中国政府与经济发展</span>
+                  <span class="text-[11px] text-slate-400 ml-2">前言 从了解现状开始 (第 6/61 章)</span>
+                </div>
+              </div>
+
+              <!-- Center: 2026 Cognitive Depth Lens (升维/降维心智透镜) -->
+              <div class="hidden md:flex items-center gap-1 bg-amber-900/5 p-1 rounded-xl text-xs border border-amber-900/10">
+                <span class="text-[10px] text-amber-800/70 font-sans px-2 flex items-center gap-1 font-bold">
+                  <i data-lucide="sparkles" class="w-3 h-3 text-amber-600"></i>认知透镜:
+                </span>
+                <button onclick="setDepthMode('simple')" id="lens-btn-simple" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-[11px]">⚪ 降维白话</button>
+                <button onclick="setDepthMode('raw')" id="lens-btn-raw" class="px-2.5 py-1 rounded-lg bg-amber-900/15 font-bold text-amber-900 shadow-2xs transition-all text-[11px]">🔘 原著研读</button>
+                <button onclick="setDepthMode('academic')" id="lens-btn-academic" class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-[11px]">⚪ 学术硬核</button>
+              </div>
+
+              <!-- Top Right Actions -->
+              <div class="flex items-center gap-2">
+                <button onclick="switchPage('sidebar')" class="px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs border border-amber-900/10 flex items-center gap-1.5 transition-all">
+                  <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>目录
+                </button>
+                <button onclick="toggleFloatingHUD()" class="px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-xs font-medium text-slate-700 shadow-2xs border border-amber-900/10 flex items-center gap-1.5 transition-all">
+                  <i data-lucide="sliders" class="w-3.5 h-3.5 text-brand-600"></i>排版微调岛
+                </button>
+                <button onclick="switchPage('copilot')" class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-xs font-bold text-amber-900 border border-amber-500/30 flex items-center gap-1.5 transition-all shadow-sm">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-600"></i>2026 AI伴读
+                </button>
+                <div class="h-4 w-px bg-amber-900/15"></div>
+                <!-- Edge TTS Pill -->
+                <div onclick="switchPage('tts')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs cursor-pointer hover:bg-slate-800 transition-all">
+                  <i data-lucide="headphones" class="w-3.5 h-3.5 text-emerald-400 animate-pulse"></i>
+                  <span>听书</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Two-Page Spread Reader Canvas with Spine Gutter Shadow -->
+            <div class="flex-1 max-w-5xl mx-auto w-full p-8 lg:p-10 flex items-stretch gap-12 font-serif text-slate-800 text-[15.5px] leading-relaxed relative book-spine-gutter">
+              <!-- Left Page Spread -->
+              <div class="flex-1 flex flex-col justify-between pr-8 border-r border-amber-900/10 relative">
+                <div class="space-y-4">
+                  <div class="text-[11px] text-slate-400 font-sans tracking-widest uppercase flex items-center justify-between">
+                    <span>第一章 · 地方政府投融资体系</span>
+                    <span class="text-amber-700 font-mono text-[10px]">P.12</span>
+                  </div>
+                  <h2 class="text-xl font-bold font-serif text-slate-900 pb-1">本书结构与数据说明</h2>
+                  <p class="indent-8 text-justify leading-[1.85]" id="reader-dynamic-p1">
+                    本书以我国地方政府投融资为主线，分上下两篇。上篇解释微观机制，包括地方政府的基本事务、收入、支出、土地融资和开发、投资和债务等；下篇解释这些微观行为对宏观现象的影响。
+                  </p>
+                  <p class="indent-8 text-justify leading-[1.85]" id="reader-dynamic-p2">
+                    本书力求简明扼要，突出主要逻辑和重点事实，不会过多展开细节。有兴趣深究的读者可以参考每章末尾“扩展阅读”中推荐的读物。
+                  </p>
+                  <div class="p-3.5 rounded-xl bg-amber-100/50 border-l-4 border-amber-600 font-serif leading-relaxed text-slate-900 text-[15px]">
+                    “了解应该怎么办，比了解‘我’认为应该怎么办，重要得多。在复杂现实世界中，任何政策制度的设计都受制于既有约束条件与博弈各方的激励机制。”
+                  </div>
+                </div>
+                <div class="text-[11px] text-slate-400 font-sans flex items-center justify-between pt-3 border-t border-amber-900/10">
+                  <span>第 12 页</span>
+                  <span>10% · 本章还剩 2 分钟</span>
+                </div>
+              </div>
+
+              <!-- Right Page Spread -->
+              <div class="flex-1 flex flex-col justify-between pl-8 relative">
+                <div class="space-y-4">
+                  <div class="text-[11px] text-slate-400 font-sans tracking-widest uppercase flex items-center justify-between">
+                    <span class="text-amber-700 font-mono text-[10px]">P.13</span>
+                    <span>前言 · 从了解现状开始</span>
+                  </div>
+                  <h3 class="text-lg font-bold font-serif text-slate-900 pb-1">微观逻辑与制度约束</h3>
+                  <p class="indent-8 text-justify leading-[1.85]">
+                    地方政府不仅是公共服务的提供者，深度融入了工业化与城市化进程。正是因为对经济资源的直接掌握，使得制度的设计具有高度的路径依赖。
+                  </p>
+
+                  <!-- 2026 Just-in-Time Generative UI Simulation Card (段落内嵌动态微沙盘) -->
+                  <div class="my-3 p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-amber-900/20 shadow-md font-sans text-xs space-y-3">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-1.5 font-bold text-slate-900">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                        <span class="flex items-center gap-1 text-slate-900"><i data-lucide="cpu" class="w-3.5 h-3.5 text-brand-600"></i>AI 动态生成沙盘：分税制与土地杠杆演化</span>
+                      </div>
+                      <span class="text-[10px] text-brand-600 font-mono bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200">Just-in-Time GenUI</span>
+                    </div>
+
+                    <!-- Interactive Slider Widget -->
+                    <div class="space-y-2 bg-slate-50/80 p-3 rounded-xl border border-slate-200/60">
+                      <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-600">土地出让金占地方财力比重：</span>
+                        <span class="font-mono font-bold text-amber-700">42.8% (高杠杆期)</span>
+                      </div>
+                      <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-amber-500 to-red-500 w-[43%]"></div>
+                      </div>
+                      <div class="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>1994分税制前 (12%)</span>
+                        <span class="text-red-600 font-semibold">城投平台表外扩张期</span>
+                        <span>土地财政峰值 (55%)</span>
+                      </div>
+                    </div>
+
+                    <p class="text-[11px] text-slate-600 leading-snug">
+                      💡 <strong>沙盘推演结论</strong>：当中央集中75%增值税后，地方财政事权支出不降反升，直接倒逼地方通过“土地抵押+城投发债”进行表外资本扩张。
+                    </p>
+                  </div>
+                </div>
+
+                <!-- 2026 Ghost Margin Note (页边淡墨隐形批注) -->
+                <div class="ghost-margin-note hidden xl:block top-20 bg-[#faf6ed]/95 border border-amber-900/15 p-3 rounded-2xl shadow-lg backdrop-blur-md font-sans text-xs space-y-1.5 cursor-pointer">
+                  <div class="flex items-center justify-between text-[10px] text-amber-800 font-bold">
+                    <span class="flex items-center gap-1"><i data-lucide="feather" class="w-3 h-3 text-amber-600"></i>脂砚斋式旁批 · 互文</span>
+                    <span class="text-[9px] text-slate-400">AI 灵光显影</span>
+                  </div>
+                  <p class="text-slate-700 text-[11px] leading-relaxed font-serif">
+                    “此处与陆铭《大国大城》第4章形成闭环：空间错配的根源正在于地方围绕土地指标的排他性竞争。”
+                  </p>
+                  <div class="text-[9px] text-brand-600 font-semibold pt-1 flex items-center gap-1">
+                    点击在双栏间展开深度思辨 →
+                  </div>
+                </div>
+
+                <!-- Floating Selection Bubble (Socratic UX) -->
+                <div class="absolute -top-4 right-10 bg-slate-950 text-white rounded-2xl p-1.5 shadow-2xl flex items-center gap-1 text-xs z-20 border border-slate-700">
+                  <button class="px-2 py-1 rounded-lg hover:bg-white/20 flex items-center gap-1 text-amber-300"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>划线</button>
+                  <button class="px-2 py-1 rounded-lg hover:bg-white/20 flex items-center gap-1"><i data-lucide="edit-3" class="w-3 h-3"></i>写批注</button>
+                  <button onclick="switchPage('copilot')" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-brand-500 hover:brightness-110 text-white font-bold flex items-center gap-1 shadow-sm">
+                    <i data-lucide="flame" class="w-3 h-3 text-amber-200"></i>苏格拉底质疑
+                  </button>
+                  <button class="px-2 py-1 rounded-lg hover:bg-white/20 flex items-center gap-1"><i data-lucide="copy" class="w-3 h-3"></i>复制</button>
+                </div>
+
+                <div class="text-[11px] text-slate-400 font-sans flex items-center justify-between pt-3 border-t border-amber-900/10">
+                  <span>约 608 字</span>
+                  <span>第 13 页</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2026 Non-Blocking Floating HUD Island (不遮挡正文的超薄磨砂排版岛) -->
+            <div id="reader-floating-hud" class="floating-hud-island absolute bottom-14 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-2xl shadow-floating px-5 py-2.5 z-40 flex items-center gap-5 text-xs text-slate-700">
+              <!-- Font Size Stepper -->
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] text-slate-400 font-medium">字号</span>
+                <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                  <button onclick="adjustReaderFontSize(-1)" class="w-6 h-6 rounded-lg bg-white shadow-2xs font-bold text-slate-700 hover:bg-slate-50 flex items-center justify-center">A-</button>
+                  <span id="hud-font-size" class="font-mono font-bold text-slate-900 px-1 text-[11px]">18</span>
+                  <button onclick="adjustReaderFontSize(1)" class="w-6 h-6 rounded-lg bg-white shadow-2xs font-bold text-slate-700 hover:bg-slate-50 flex items-center justify-center">A+</button>
+                </div>
+              </div>
+
+              <div class="h-5 w-px bg-slate-200"></div>
+
+              <!-- Paper Theme Quick Swatches -->
+              <div class="flex items-center gap-1.5">
+                <button onclick="setReaderTheme('warm')" class="w-6 h-6 rounded-full bg-[#fbf0d9] border-2 border-amber-600 shadow-2xs" title="羊皮温润"></button>
+                <button onclick="setReaderTheme('white')" class="w-6 h-6 rounded-full bg-[#ffffff] border border-slate-300 shadow-2xs" title="纯净白纸"></button>
+                <button onclick="setReaderTheme('green')" class="w-6 h-6 rounded-full bg-[#cce8cf] border border-emerald-400 shadow-2xs" title="护眼豆沙绿"></button>
+                <button onclick="setReaderTheme('dark')" class="w-6 h-6 rounded-full bg-[#1e1e24] border border-slate-700 shadow-2xs" title="深空灰夜间"></button>
+              </div>
+
+              <div class="h-5 w-px bg-slate-200"></div>
+
+              <!-- Font Family Quick Toggle -->
+              <div class="flex items-center gap-1 text-[11px]">
+                <button class="px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 font-serif font-bold">霞鹜文楷</button>
+                <button class="px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-100 font-serif">思源宋体</button>
+              </div>
+
+              <div class="h-5 w-px bg-slate-200"></div>
+
+              <button onclick="switchPage('typography')" class="text-brand-600 hover:text-brand-700 font-medium text-[11px] flex items-center gap-1">
+                更多外观 <i data-lucide="chevron-right" class="w-3 h-3"></i>
+              </button>
+            </div>
+
+            <!-- Bottom Floating Reader Progress Bar (Zen / Minimalist) -->
+            <div class="h-11 bg-[#fbf9f4]/95 backdrop-blur-md border-t border-amber-900/10 px-8 flex items-center justify-between text-xs z-30 shrink-0">
+              <button onclick="simulateFlip('prev')" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1 text-xs">
+                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>上一页
+              </button>
+
+              <!-- Central Zen Progress Indicator -->
+              <div class="flex items-center gap-3 w-80">
+                <span class="text-[11px] text-slate-400 font-mono">Ch.6</span>
+                <div class="flex-1 h-1 bg-amber-900/10 rounded-full overflow-hidden relative cursor-pointer">
+                  <div class="h-full bg-amber-700 w-[10%] rounded-full"></div>
+                </div>
+                <span class="text-[11px] text-slate-600 font-mono font-medium">10% · 第 12/610 页</span>
+              </div>
+
+              <button onclick="simulateFlip('next')" class="text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1 text-xs font-semibold">
+                下一页<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Immersive Reader Screen -->
+          <div class="flex-1 flex flex-col justify-between bg-[#fbf9f4] p-5 font-serif text-slate-800 text-[15px] leading-relaxed relative">
+            <!-- Mobile Reader Top Bar -->
+            <div class="flex items-center justify-between pb-3 border-b border-amber-900/10 text-xs font-sans">
+              <button onclick="switchPage('shelf')" class="text-slate-600 flex items-center gap-1 font-bold"><i data-lucide="chevron-left" class="w-4 h-4"></i>书架</button>
+              <span class="text-slate-400 text-[11px] truncate max-w-[150px]">置身事内：中国政府与经济发展</span>
+              <button onclick="switchPage('typography')" class="text-slate-700 font-medium flex items-center gap-1"><i data-lucide="type" class="w-4 h-4"></i>排版</button>
+            </div>
+
+            <!-- Mobile Reading Paragraphs -->
+            <div class="space-y-4 my-auto">
+              <h2 class="text-base font-bold font-serif text-slate-900">第一章 · 本书结构与数据说明</h2>
+              <p class="indent-6 text-justify leading-[1.8]">
+                本书以我国地方政府投融资为主线，分上下两篇。上篇解释微观机制，包括地方政府的基本事务、收入、支出、土地融资和开发、投资和债务等。
+              </p>
+              <p class="indent-6 text-justify leading-[1.8] bg-amber-200/40 rounded px-1 -mx-1 border-l-2 border-amber-500">
+                为应该怎么办，比了解“我”认为应该怎么办，重要得多。
+              </p>
+              <p class="indent-6 text-justify leading-[1.8]">
+                本书虽为大众读者所写，但使用了大量前沿研究成果，参考文献数百篇。
+              </p>
+            </div>
+
+            <!-- Mobile Tap Trigger Zones Guide (Hint) -->
+            <div class="text-[10px] text-center text-slate-400 font-sans border-t border-amber-900/10 pt-2 flex items-center justify-between">
+              <span>轻按左侧: 上一页</span>
+              <span class="font-bold text-slate-600">中间轻按: 唤起菜单</span>
+              <span>轻按右侧: 下一页</span>
+            </div>
+
+            <!-- Mobile Floating Bottom Controls Pill -->
+            <div class="bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-2.5 shadow-2xl flex items-center justify-around text-xs mt-3">
+              <button onclick="switchPage('sidebar')" class="flex flex-col items-center gap-0.5"><i data-lucide="list" class="w-4 h-4"></i><span class="text-[9px]">目录</span></button>
+              <button onclick="switchPage('copilot')" class="flex flex-col items-center gap-0.5 text-brand-300"><i data-lucide="sparkles" class="w-4 h-4"></i><span class="text-[9px]">AI伴读</span></button>
+              <button class="flex flex-col items-center gap-0.5"><i data-lucide="headphones" class="w-4 h-4 text-emerald-400"></i><span class="text-[9px]">听书</span></button>
+              <button onclick="switchPage('typography')" class="flex flex-col items-center gap-0.5"><i data-lucide="sliders" class="w-4 h-4"></i><span class="text-[9px]">外观</span></button>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 3. 排版调色外观 (Typography & Appearance Modal/Drawer)
+      // -------------------------------------------------------------
+      typography: {
+        desktop: `
+          <!-- Desktop 2026 Live Canvas Typography Studio (所见即所得实时排版工作台) -->
+          <div class="flex-1 flex bg-slate-900 overflow-hidden select-none">
+            <!-- Left 65%: Real-time Live Book Page Preview (实时正文排版视口) -->
+            <div class="flex-[65] p-8 lg:p-12 flex flex-col justify-between items-center bg-[#fbf9f4] border-r border-slate-200/80 overflow-auto relative book-spine-gutter" id="typography-live-preview">
+              <div class="w-full max-w-2xl space-y-5 my-auto font-serif" id="typo-preview-container">
+                <div class="flex items-center justify-between text-xs font-sans text-slate-400 border-b border-amber-900/10 pb-2">
+                  <span class="tracking-widest uppercase">第一章 · 地方政府投融资体系</span>
+                  <span class="text-amber-800 font-mono">实时排版预览 (Live Canvas)</span>
+                </div>
+                <h2 class="text-2xl font-bold font-serif text-slate-900" id="typo-sample-title">本书结构与微观体制</h2>
+                <p class="indent-8 text-justify leading-[1.85] text-slate-800 text-[16px]" id="typo-sample-p1">
+                  本书以我国地方政府投融资为主线，分上下两篇。上篇解释微观机制，包括地方政府的基本事务、收入、支出、土地融资和开发、投资和债务等；下篇解释这些微观行为对宏观现象的影响。
+                </p>
+                <p class="indent-8 text-justify leading-[1.85] text-slate-800 text-[16px]" id="typo-sample-p2">
+                  为应该怎么办，比了解“我”认为应该怎么办，重要得多。在复杂现实世界中，任何政策制度的设计都受制于既有约束条件与博弈各方的激励机制。
+                </p>
+                <div class="text-[11px] text-slate-400 font-sans flex items-center justify-between pt-3 border-t border-amber-900/10">
+                  <span>字号: <span id="typo-label-size" class="font-bold text-slate-700">18px</span> · 行距: <span id="typo-label-line" class="font-bold text-slate-700">1.85</span></span>
+                  <span>字体: <span id="typo-label-font" class="font-bold text-slate-700">霞鹜文楷</span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right 35%: Precision Typography Inspector (右侧参数调节台) -->
+            <div class="flex-[35] bg-white flex flex-col justify-between p-6 overflow-auto border-l border-slate-200 shadow-2xl z-20">
+              <div class="space-y-6">
+                <!-- Header -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold">
+                      <i data-lucide="sliders" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <h3 class="font-bold text-sm text-slate-900">排版与纸质微调台</h3>
+                      <p class="text-[10px] text-slate-400">实时渲染 · 无需关闭即可直观对比</p>
+                    </div>
+                  </div>
+                  <button onclick="switchPage('reader')" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                  </button>
+                </div>
+
+                <!-- 1. Paper Texture Themes -->
+                <div class="space-y-2">
+                  <label class="text-xs font-bold text-slate-700 flex items-center justify-between">
+                    <span>纸张材质与环境光：</span>
+                    <span class="text-[10px] text-amber-600 font-normal">当前：羊皮温润</span>
+                  </label>
+                  <div class="grid grid-cols-5 gap-2">
+                    <button onclick="applyLiveTheme('#ffffff', '#1e293b')" class="h-12 rounded-xl bg-[#ffffff] border-2 border-slate-200 hover:border-brand-500 shadow-2xs flex flex-col items-center justify-center text-[10px] font-bold text-slate-800">白纸</button>
+                    <button onclick="applyLiveTheme('#faf6ed', '#451a03')" class="h-12 rounded-xl bg-[#faf6ed] border-2 border-amber-500 shadow-2xs flex flex-col items-center justify-center text-[10px] font-bold text-amber-900">羊皮</button>
+                    <button onclick="applyLiveTheme('#cce8cf', '#064e3b')" class="h-12 rounded-xl bg-[#cce8cf] border-2 border-slate-200 hover:border-emerald-500 shadow-2xs flex flex-col items-center justify-center text-[10px] font-bold text-emerald-900">豆沙</button>
+                    <button onclick="applyLiveTheme('#24252a', '#e2e8f0')" class="h-12 rounded-xl bg-[#24252a] border-2 border-slate-700 hover:border-slate-500 shadow-2xs flex flex-col items-center justify-center text-[10px] font-bold text-slate-200">暗夜</button>
+                    <button onclick="applyLiveTheme('#0d0e12', '#94a3b8')" class="h-12 rounded-xl bg-[#0d0e12] border-2 border-slate-800 hover:border-slate-600 shadow-2xs flex flex-col items-center justify-center text-[10px] font-bold text-slate-400">纯黑</button>
+                  </div>
+                </div>
+
+                <!-- 2. Typography Font Picker -->
+                <div class="space-y-2">
+                  <label class="text-xs font-bold text-slate-700">中文字体风格：</label>
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <button onclick="applyLiveFont('霞鹜文楷', 'serif')" class="p-2.5 rounded-xl border-2 border-brand-500 bg-brand-50/50 text-brand-700 font-serif font-bold text-left flex items-center justify-between">
+                      <span>霞鹜文楷</span><span class="text-[9px] text-brand-500">温润</span>
+                    </button>
+                    <button onclick="applyLiveFont('思源宋体', 'serif')" class="p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 font-serif text-slate-700 text-left flex items-center justify-between">
+                      <span>思源宋体</span><span class="text-[9px] text-slate-400">正统</span>
+                    </button>
+                    <button onclick="applyLiveFont('思源黑体', 'sans')" class="p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 font-sans text-slate-700 text-left flex items-center justify-between">
+                      <span>思源黑体</span><span class="text-[9px] text-slate-400">现代</span>
+                    </button>
+                    <button onclick="applyLiveFont('文鼎仿宋', 'serif')" class="p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 font-serif text-slate-700 text-left flex items-center justify-between">
+                      <span>文鼎仿宋</span><span class="text-[9px] text-slate-400">骨力</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 3. Sliders: Font size, Line height, Margins -->
+                <div class="space-y-4 pt-1">
+                  <!-- Font size slider -->
+                  <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-slate-600 font-medium">字号大小</span>
+                      <span class="font-mono font-bold text-brand-600" id="typo-slider-val">18 px</span>
+                    </div>
+                    <input type="range" value="18" min="14" max="24" step="1" oninput="changeLiveFontSize(this.value)" class="w-full accent-brand-500 cursor-pointer" />
+                  </div>
+
+                  <!-- Line height slider -->
+                  <div class="space-y-1.5">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-slate-600 font-medium">行高行距</span>
+                      <span class="font-mono font-bold text-brand-600">1.85</span>
+                    </div>
+                    <input type="range" value="1.85" min="1.4" max="2.4" step="0.05" class="w-full accent-brand-500 cursor-pointer" />
+                  </div>
+
+                  <!-- Layout mode buttons -->
+                  <div class="space-y-1.5">
+                    <span class="text-xs text-slate-600 font-medium">对开版式</span>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                      <button class="py-2 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center gap-1">单栏连续滚动</button>
+                      <button class="py-2 rounded-xl bg-slate-900 text-white font-bold flex items-center justify-center gap-1 shadow-sm">双栏真实书页</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Actions -->
+              <div class="pt-4 border-t border-slate-100 flex items-center gap-3">
+                <button onclick="switchPage('reader')" class="flex-1 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-500/25 transition-all text-center">
+                  保存并返回沉浸阅读
+                </button>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Typography Bottom Sheet -->
+          <div class="flex-1 flex flex-col justify-end bg-black/40 p-3">
+            <div class="bg-white rounded-3xl p-5 space-y-4 shadow-2xl">
+              <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto"></div>
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-900">排版与主题设置</h3>
+                <button onclick="switchPage('reader')" class="text-xs text-brand-600 font-bold">完成</button>
+              </div>
+
+              <!-- Color Swatches -->
+              <div class="flex items-center justify-between gap-2">
+                <div class="w-12 h-10 rounded-xl bg-white border-2 border-brand-500 shadow-sm flex items-center justify-center text-[10px] font-bold">白</div>
+                <div class="w-12 h-10 rounded-xl bg-[#fbf0d9] border border-amber-200 flex items-center justify-center text-[10px] font-bold text-amber-900">暖</div>
+                <div class="w-12 h-10 rounded-xl bg-[#cce8cf] border border-emerald-200 flex items-center justify-center text-[10px] font-bold text-emerald-900">绿</div>
+                <div class="w-12 h-10 rounded-xl bg-[#1e1e24] text-white flex items-center justify-center text-[10px] font-bold">夜</div>
+                <div class="w-12 h-10 rounded-xl bg-black text-white flex items-center justify-center text-[10px] font-bold">暗</div>
+              </div>
+
+              <!-- Font Size Stepper -->
+              <div class="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-2xl">
+                <span class="text-slate-600 font-medium">字号大小</span>
+                <div class="flex items-center gap-4">
+                  <button class="w-7 h-7 rounded-lg bg-white border border-slate-200 font-bold">A-</button>
+                  <span class="font-bold text-slate-900">18</span>
+                  <button class="w-7 h-7 rounded-lg bg-white border border-slate-200 font-bold">A+</button>
+                </div>
+              </div>
+
+              <!-- Font Select -->
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <button class="p-2.5 rounded-xl border-2 border-brand-500 bg-brand-50 text-brand-700 font-serif font-bold text-left">霞鹜文楷</button>
+                <button class="p-2.5 rounded-xl border border-slate-200 font-serif text-slate-700 text-left">思源宋体</button>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 4. 目录大纲与划线书签抽屉 (Sidebar Drawer / TOC / Highlights)
+      // -------------------------------------------------------------
+      sidebar: {
+        desktop: `
+          <!-- Desktop Three-Column Reader View with Opened TOC Drawer -->
+          <div class="flex-1 flex bg-[#fbf9f4] overflow-hidden select-none">
+            <!-- Left Fixed TOC Drawer (320px) -->
+            <div class="w-80 bg-white border-r border-slate-200/80 flex flex-col shadow-lg z-20 shrink-0">
+              <!-- Drawer Header -->
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="book-open" class="w-4 h-4 text-brand-500"></i>
+                  <span class="font-bold text-xs text-slate-900">目录与书签速览</span>
+                </div>
+                <button onclick="switchPage('reader')" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400"><i data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+
+              <!-- Tabs: TOC / Highlights / Bookmarks -->
+              <div class="grid grid-cols-3 p-2 bg-slate-50 border-b border-slate-100 text-xs">
+                <button class="py-1.5 rounded-lg bg-white font-bold text-brand-600 shadow-2xs">目录 (61)</button>
+                <button class="py-1.5 rounded-lg text-slate-500 hover:text-slate-900">划线 (18)</button>
+                <button class="py-1.5 rounded-lg text-slate-500 hover:text-slate-900">书签 (4)</button>
+              </div>
+
+              <!-- Chapter List -->
+              <div class="flex-1 overflow-auto p-2 space-y-1 text-xs">
+                <div class="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between text-slate-600">
+                  <span class="truncate">题记与献辞</span>
+                  <span class="text-[10px] text-slate-400">P.1</span>
+                </div>
+                <div class="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between text-slate-600">
+                  <span class="truncate">自序与再版说明</span>
+                  <span class="text-[10px] text-slate-400">P.4</span>
+                </div>
+                <!-- Active Chapter -->
+                <div class="p-2.5 rounded-xl bg-brand-50 border border-brand-200/60 font-bold text-brand-700 flex items-center justify-between">
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+                    <span class="truncate">前言 从了解现状开始</span>
+                  </div>
+                  <span class="text-[10px] text-brand-500 font-mono">P.12</span>
+                </div>
+                <div class="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between text-slate-600 pl-6">
+                  <span class="truncate">第一章 微观机制：地方事务</span>
+                  <span class="text-[10px] text-slate-400">P.28</span>
+                </div>
+                <div class="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between text-slate-600 pl-6">
+                  <span class="truncate">第二章 财税改革与分税制</span>
+                  <span class="text-[10px] text-slate-400">P.56</span>
+                </div>
+                <div class="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between text-slate-600 pl-6">
+                  <span class="truncate">第三章 政府投融资与债务</span>
+                  <span class="text-[10px] text-slate-400">P.92</span>
+                </div>
+                <div class="p-2.5 rounded-xl hover:bg-slate-100 cursor-pointer flex items-center justify-between text-slate-600 pl-6">
+                  <span class="truncate">第四章 工业化与城市化</span>
+                  <span class="text-[10px] text-slate-400">P.135</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Reading Area Remains Active -->
+            <div class="flex-1 p-10 flex flex-col justify-between font-serif opacity-75">
+              <div class="max-w-2xl mx-auto space-y-4">
+                <h2 class="text-xl font-bold">前言 从了解现状开始</h2>
+                <p class="leading-relaxed indent-8">本书以我国地方政府投融资为主线，分上下两篇。微观机制包括地方政府的基本事务、收入、支出、土地融资和开发...</p>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile TOC Drawer -->
+          <div class="flex-1 flex flex-col bg-white p-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h2 class="font-bold text-sm text-slate-900">书籍目录大纲</h2>
+              <button onclick="switchPage('reader')" class="text-xs text-brand-600 font-bold">关闭</button>
+            </div>
+            <div class="flex-1 overflow-auto py-2 space-y-1 text-xs">
+              <div class="p-2.5 rounded-lg text-slate-600">题记与献辞</div>
+              <div class="p-2.5 rounded-lg bg-brand-50 text-brand-600 font-bold flex items-center justify-between">
+                <span>前言 从了解现状开始</span>
+                <span class="text-[10px]">读至此处 10%</span>
+              </div>
+              <div class="p-2.5 rounded-lg text-slate-600 pl-4">第一章 地方政府的权力与事务</div>
+              <div class="p-2.5 rounded-lg text-slate-600 pl-4">第二章 财税与土地开发</div>
+              <div class="p-2.5 rounded-lg text-slate-600 pl-4">第三章 城投公司与债务风险</div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 5. AI 伴读与苏格拉底对话 (AI Reading Copilot & Socratic Chat)
+      // -------------------------------------------------------------
+      copilot: {
+        desktop: `
+          <!-- Desktop 2026 AI Cognitive Co-Reading Studio (苏格拉底认知伴读空间) -->
+          <div class="flex-1 flex flex-col bg-[#fbf9f4] overflow-hidden select-none">
+            <!-- Top Cognitive Mode Selector Switcher -->
+            <div class="h-14 px-8 bg-white/90 backdrop-blur-md border-b border-slate-200/80 flex items-center justify-between shrink-0 z-20">
+              <div class="flex items-center gap-3">
+                <button onclick="switchPage('reader')" class="p-2 rounded-xl hover:bg-slate-100 text-slate-700 transition-colors flex items-center gap-1.5 text-xs font-semibold">
+                  <i data-lucide="arrow-left" class="w-4 h-4"></i>返回书页
+                </button>
+                <div class="h-4 w-px bg-slate-200"></div>
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-amber-500 to-brand-500 text-white flex items-center justify-center shadow-xs">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-xs font-bold text-slate-900">2026 深度认知共读中心</h2>
+                    <p class="text-[10px] text-slate-400">基于全书知识图谱与心智模型的主动式交互</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3 Core Cognitive Modes Tabs (2026 范式) -->
+              <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+                <button class="px-3 py-1 rounded-lg bg-white font-bold text-amber-700 shadow-2xs flex items-center gap-1.5">
+                  <i data-lucide="flame" class="w-3.5 h-3.5 text-amber-600"></i>苏格拉底质疑
+                </button>
+                <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+                  <i data-lucide="git-branch" class="w-3.5 h-3.5 text-brand-600"></i>因果网络图谱
+                </button>
+                <button class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+                  <i data-lucide="shuffle" class="w-3.5 h-3.5 text-purple-600"></i>跨书互文碰撞
+                </button>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] text-emerald-600 font-mono bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>心智模型实时挂载
+                </span>
+              </div>
+            </div>
+
+            <!-- Main Stage: Split Reader & Deep Thinking Cockpit -->
+            <div class="flex-1 flex overflow-hidden">
+              <!-- Left 52%: Original Text with Semantic X-Ray Highlighting -->
+              <div class="flex-[52] p-8 lg:p-10 border-r border-amber-900/10 overflow-auto font-serif space-y-5 bg-[#faf6ed]">
+                <div class="flex items-center justify-between text-xs font-sans text-slate-400 pb-2 border-b border-amber-900/10">
+                  <span class="flex items-center gap-1"><i data-lucide="book-open" class="w-3.5 h-3.5 text-amber-700"></i>前言 · 从了解现状开始 (第 12 页)</span>
+                  <span class="text-amber-800 font-mono text-[11px]">兰小欢 · 复旦经院</span>
+                </div>
+
+                <h1 class="text-xl font-bold font-serif text-slate-900 leading-snug">
+                  为什么了解“怎么做”比“应该怎么做”更关键？
+                </h1>
+
+                <!-- Paragraph with interactive semantic nodes -->
+                <p class="leading-[1.9] indent-8 text-slate-800 text-[15.5px] text-justify">
+                  为应该怎么办，比了解“我”认为应该怎么办，重要得多。在复杂现实世界中，任何政策制度的设计都受制于既有约束条件与博弈各方的激励机制。
+                </p>
+
+                <!-- High-lighted Focus Block with X-Ray Anchor -->
+                <div class="relative p-5 rounded-2xl bg-amber-100/70 border border-amber-300 shadow-sm font-sans space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <i data-lucide="crosshair" class="w-4 h-4 text-amber-600"></i>正在深度透视的核心命题：
+                    </span>
+                    <span class="text-[10px] text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full font-mono">X-Ray Target</span>
+                  </div>
+                  <p class="text-slate-800 italic font-serif text-sm leading-relaxed">
+                    “地方政府不仅是公共服务的提供者，深度融入了工业化与城市化进程。正是因为对经济资源的直接掌握，使得制度的设计具有高度的路径依赖与投资扩张冲动。”
+                  </p>
+                  <!-- Semantic Nodes Badges -->
+                  <div class="pt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                    <span class="px-2.5 py-1 rounded-lg bg-white/80 text-slate-700 font-medium border border-amber-200 flex items-center gap-1">
+                      🔗 晋升锦标赛激励
+                    </span>
+                    <span class="px-2.5 py-1 rounded-lg bg-white/80 text-slate-700 font-medium border border-amber-200 flex items-center gap-1">
+                      🔗 土地抵押融资链
+                    </span>
+                    <span class="px-2.5 py-1 rounded-lg bg-white/80 text-slate-700 font-medium border border-amber-200 flex items-center gap-1">
+                      🔗 软预算约束演化
+                    </span>
+                  </div>
+                </div>
+
+                <p class="leading-[1.9] indent-8 text-slate-800 text-[15.5px] text-justify">
+                  本书力求客观理解体制的成因，既不回避地方债务累积与资产配置错配的风险，也充分肯定在特定历史时期内地方主导型投资对国家基础设施形成的巨大推力。
+                </p>
+              </div>
+
+              <!-- Right 48%: 2026 Socratic Challenger & Causal Dialectic Board -->
+              <div class="flex-[48] bg-white flex flex-col justify-between overflow-hidden shadow-xl z-20">
+                <!-- Interactive Dialectic Feed -->
+                <div class="flex-1 overflow-auto p-6 space-y-5 text-xs font-sans">
+                  <!-- AI Socratic Card: The Devil's Advocate -->
+                  <div class="p-5 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border border-amber-200/80 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
+                          🔥
+                        </div>
+                        <span class="font-bold text-sm text-slate-900">苏格拉底式反思质疑</span>
+                      </div>
+                      <span class="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-semibold">辩难模式</span>
+                    </div>
+
+                    <p class="text-slate-800 leading-relaxed text-xs">
+                      兰小欢在此处假设：<strong>“官员对 GDP 增长的追求是理性且受考核驱动的”</strong>。但我们不妨做一次逻辑压力测试：
+                    </p>
+
+                    <!-- Critical Inquiry Points -->
+                    <div class="space-y-2 bg-white/80 p-3.5 rounded-xl border border-amber-100">
+                      <div class="flex items-start gap-2">
+                        <span class="text-amber-600 font-bold">1.</span>
+                        <p class="text-slate-700 text-[11px] leading-relaxed">
+                          <strong>任期错配矛盾</strong>：地方主要官员任期平均 3-4 年，而大型基建与城投债务周期长达 15-20 年。如何规避“当代人借债、后代人还本”的跨期外部性？
+                        </p>
+                      </div>
+                      <div class="flex items-start gap-2">
+                        <span class="text-amber-600 font-bold">2.</span>
+                        <p class="text-slate-700 text-[11px] leading-relaxed">
+                          <strong>退出机制失效</strong>：当土地出让收入见顶、房企缩表时，以土地为底层抵押物的资产池如何维持流动性？
+                        </p>
+                      </div>
+                    </div>
+
+                    <div class="pt-1 flex items-center gap-2">
+                      <button class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-all shadow-xs flex items-center gap-1">
+                        <i data-lucide="check" class="w-3 h-3"></i>认同并深入推演
+                      </button>
+                      <button class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] transition-all">
+                        寻找兰小欢的抗辩论据
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Intertextuality Card (跨书互文) -->
+                  <div class="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200/60 space-y-2">
+                    <div class="flex items-center justify-between text-indigo-900 font-bold text-xs">
+                      <span class="flex items-center gap-1.5"><i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>跨书互文关联论述：</span>
+                      <span class="text-[10px] text-indigo-500 font-mono">陆铭 ·《大国大城》</span>
+                    </div>
+                    <p class="text-slate-700 text-[11px] leading-relaxed">
+                      陆铭在《大国大城》第 5 章直言：“为了拉动本地 GDP，中西部县城建设了过多与实际人口流动方向逆行的产业园区，造成严重的资源分散与隐性负债”。
+                    </p>
+                    <div class="text-[10px] text-indigo-600 font-semibold cursor-pointer hover:underline flex items-center gap-1 pt-0.5">
+                      查看两书论点对比分析表 →
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom Intelligent Cognitive Input Cockpit -->
+                <div class="p-4 border-t border-slate-100 bg-slate-50/80 space-y-2">
+                  <!-- Prompt Suggestion Chips -->
+                  <div class="flex items-center gap-1.5 overflow-x-auto text-[11px] text-slate-600">
+                    <span class="text-[10px] text-slate-400 shrink-0">启发式追问：</span>
+                    <button class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-brand-400 shrink-0 transition-colors">⚡ 为何分税制没能抑制土地财政？</button>
+                    <button class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-brand-400 shrink-0 transition-colors">⚡ 如果把官员考核改为环保优先会怎样？</button>
+                  </div>
+
+                  <!-- Main Input Box -->
+                  <div class="flex items-center gap-2 bg-white rounded-2xl border border-slate-200 p-2 shadow-2xs">
+                    <input type="text" placeholder="就此命题与 AI 思考官进行深度辩驳或追问..." class="flex-1 text-xs outline-none px-2 text-slate-700" />
+                    <button class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                      <span>思考推演</span>
+                      <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile 2026 AI Cognitive Sheet -->
+          <div class="flex-1 flex flex-col justify-end bg-black/40">
+            <div class="h-[85%] bg-white rounded-t-3xl flex flex-col shadow-2xl overflow-hidden">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-amber-600 text-white flex items-center justify-center text-xs">🔥</div>
+                  <span class="font-bold text-xs text-slate-900">苏格拉底式认知伴读</span>
+                </div>
+                <button onclick="switchPage('reader')" class="text-xs text-brand-600 font-bold">返回书页</button>
+              </div>
+              <div class="flex-1 overflow-auto p-4 space-y-3 text-xs">
+                <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-slate-800 space-y-2">
+                  <span class="font-bold text-amber-900">⚠️ 逆向挑战：</span>
+                  <p class="leading-relaxed">作者兰小欢强调制度设计受制于约束条件。如果地方官员任期短于债务周期，这种激励机制是否存在系统性短视？</p>
+                </div>
+                <div class="p-3 rounded-2xl bg-slate-100 text-slate-700">
+                  💡 关联参考：陆铭《大国大城》关于空间错配与园区重复建设的批判。
+                </div>
+              </div>
+              <div class="p-3 border-t border-slate-100 bg-slate-50">
+                <input type="text" placeholder="与 AI 深入辩论本书观点..." class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none shadow-2xs" />
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 6. 笔记与问书中心 (Notes & Knowledge Hub)
+      // -------------------------------------------------------------
+      notes: {
+        desktop: `
+          <div class="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+            <!-- Notes Hub Top Toolbar -->
+            <div class="h-16 px-8 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div class="flex items-center gap-4">
+                <h1 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <i data-lucide="highlighter" class="w-5 h-5 text-brand-500"></i>
+                  <span>全馆笔记 · 灵感沉淀中心</span>
+                </h1>
+                <span class="px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 text-xs font-bold">128 处划线 · 32 篇想法</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <button class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium flex items-center gap-1.5">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>导出为 Markdown
+                </button>
+                <button class="px-3.5 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-medium flex items-center gap-1.5 shadow-sm">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>同步至 Obsidian / LifeOS
+                </button>
+              </div>
+            </div>
+
+            <!-- Notes Main Body: Two Columns Layout (Books on left, cards on right) -->
+            <div class="flex-1 flex overflow-hidden">
+              <!-- Left: Book Filter List -->
+              <div class="w-72 bg-white border-r border-slate-200 p-4 space-y-2 overflow-auto text-xs shrink-0">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">按书籍筛选笔记</div>
+                <div class="p-3 rounded-xl bg-brand-50 text-brand-700 font-bold flex items-center justify-between cursor-pointer">
+                  <span>全部馆藏书籍 (12)</span>
+                  <span class="bg-brand-200/60 px-1.5 py-0.5 rounded-full text-[10px]">128</span>
+                </div>
+                <div class="p-3 rounded-xl hover:bg-slate-100 text-slate-700 flex items-center justify-between cursor-pointer">
+                  <span class="truncate">置身事内：中国政府...</span>
+                  <span class="text-slate-400 text-[10px]">18</span>
+                </div>
+                <div class="p-3 rounded-xl hover:bg-slate-100 text-slate-700 flex items-center justify-between cursor-pointer">
+                  <span class="truncate">数据密集型系统设计</span>
+                  <span class="text-slate-400 text-[10px]">34</span>
+                </div>
+                <div class="p-3 rounded-xl hover:bg-slate-100 text-slate-700 flex items-center justify-between cursor-pointer">
+                  <span class="truncate">银河帝国：基地</span>
+                  <span class="text-slate-400 text-[10px]">12</span>
+                </div>
+              </div>
+
+              <!-- Right: Notes Masonry / Stream -->
+              <div class="flex-1 p-8 overflow-auto space-y-4">
+                <!-- Note Card 1 -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-subtle space-y-3 hover:shadow-md transition-all">
+                  <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                      <span class="font-bold text-slate-900">《置身事内》· 前言 从了解现状开始</span>
+                    </div>
+                    <span class="text-slate-400 text-[11px]">2026-10-15 14:30</span>
+                  </div>
+                  <blockquote class="border-l-3 border-amber-400 pl-3 font-serif text-slate-800 text-sm leading-relaxed italic bg-amber-50/40 py-1 rounded-r">
+                    “为应该怎么办，比了解‘我’认为应该怎么办，重要得多。本书力求客观看待体制的成因与演变。”
+                  </blockquote>
+                  <div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-700 space-y-1">
+                    <span class="font-bold text-slate-900 flex items-center gap-1"><i data-lucide="message-square" class="w-3 h-3 text-brand-500"></i>我的批注：</span>
+                    <p>务实主义的核心方法论。任何改革方案若脱离基层政府官员的实际激励结构，都会沦为空中楼阁。</p>
+                  </div>
+                </div>
+
+                <!-- Note Card 2 -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-subtle space-y-3 hover:shadow-md transition-all">
+                  <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                      <span class="font-bold text-slate-900">《数据密集型系统设计》· 第5章 数据复制</span>
+                    </div>
+                    <span class="text-slate-400 text-[11px]">2026-10-14 20:15</span>
+                  </div>
+                  <blockquote class="border-l-3 border-emerald-400 pl-3 font-serif text-slate-800 text-sm leading-relaxed italic bg-emerald-50/40 py-1 rounded-r">
+                    “在最终一致性模型中，复制滞后可能达到几秒甚至几分钟，必须妥善处理读己之写（Read-your-writes）保证。”
+                  </blockquote>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Notes View -->
+          <div class="flex-1 flex flex-col p-4 space-y-3 pb-20">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs text-brand-600 font-bold uppercase">灵感积累</span>
+                <h2 class="text-lg font-bold text-slate-900">划线与批注 (128)</h2>
+              </div>
+              <button class="text-xs text-brand-600 font-bold flex items-center gap-1"><i data-lucide="share" class="w-3.5 h-3.5"></i>导出</button>
+            </div>
+
+            <!-- Mobile Card 1 -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+              <span class="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full">置身事内</span>
+              <p class="font-serif text-xs text-slate-800 italic">“为应该怎么办，比了解‘我’认为应该怎么办，重要得多。”</p>
+              <div class="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg">
+                <strong>想法：</strong>务实主义方法论，切忌空谈。
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 7. 全网找书与下载中心 (Discovery & Download Queue)
+      // -------------------------------------------------------------
+      discovery: {
+        desktop: `
+          <div class="flex-1 flex flex-col bg-slate-50 overflow-hidden">
+            <!-- Discovery Header -->
+            <div class="p-8 bg-gradient-to-r from-slate-900 to-indigo-950 text-white shrink-0 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h1 class="text-2xl font-bold font-serif flex items-center gap-2">
+                    <i data-lucide="compass" class="w-6 h-6 text-brand-400"></i>
+                    <span>全网书海互联 · 一键无缝探寻</span>
+                  </h1>
+                  <p class="text-xs text-slate-300 mt-1">聚合 Z-Library 镜像、去中心化 OPDS、公版古典书库与精准多维书源</p>
+                </div>
+                <button onclick="switchPage('sources')" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white font-medium backdrop-blur-md flex items-center gap-1.5 transition-all">
+                  <i data-lucide="sliders" class="w-3.5 h-3.5"></i>书源与镜像配置
+                </button>
+              </div>
+
+              <!-- Search Input & Filters Bar -->
+              <div class="bg-white p-2 rounded-2xl shadow-xl flex items-center gap-3 text-slate-800">
+                <i data-lucide="search" class="w-5 h-5 text-slate-400 ml-2"></i>
+                <input type="text" value="三体 刘慈欣" placeholder="输入书名、作者、ISBN 或主题关键词..." class="flex-1 text-sm outline-none text-slate-900" />
+                <button class="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-500/30">
+                  全网聚合检索
+                </button>
+              </div>
+            </div>
+
+            <!-- Search Results Stream -->
+            <div class="flex-1 p-8 overflow-auto max-w-6xl mx-auto w-full space-y-4">
+              <div class="flex items-center justify-between text-xs text-slate-500">
+                <span>找到 18 本相关书籍 (耗时 0.28 秒)</span>
+                <div class="flex items-center gap-2">
+                  <span>筛选格式：</span>
+                  <span class="px-2 py-0.5 rounded bg-brand-50 text-brand-600 font-bold">全部</span>
+                  <span class="px-2 py-0.5 rounded hover:bg-slate-200 cursor-pointer">EPUB</span>
+                  <span class="px-2 py-0.5 rounded hover:bg-slate-200 cursor-pointer">PDF</span>
+                  <span class="px-2 py-0.5 rounded hover:bg-slate-200 cursor-pointer">MOBI</span>
+                </div>
+              </div>
+
+              <!-- Result Card 1 -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-subtle flex items-center justify-between gap-6 hover:shadow-md transition-all">
+                <div class="flex items-center gap-4">
+                  <div class="w-16 h-22 rounded-xl bg-gradient-to-br from-slate-800 to-indigo-900 text-white p-2 flex flex-col justify-between shrink-0 shadow-sm text-[9px]">
+                    <span class="text-sky-300 font-mono">EPUB</span>
+                    <span class="font-serif font-bold text-[11px] leading-tight">三体全集</span>
+                    <span class="text-slate-400">刘慈欣</span>
+                  </div>
+                  <div class="space-y-1">
+                    <h3 class="font-bold text-sm text-slate-900">三体：死神永生 (地球往事三部曲)</h3>
+                    <p class="text-xs text-slate-500">作者：刘慈欣 · 出版社：重庆出版社 · 语言：中文</p>
+                    <div class="flex items-center gap-2 text-[10px] text-slate-400 pt-1">
+                      <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">EPUB · 4.2 MB</span>
+                      <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700">书源：Z-Lib 镜像 A</span>
+                      <span>质量评分：★★★★★ (9.8)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <button class="px-4 py-2 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 text-xs font-bold flex items-center gap-1.5 transition-all">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>预览章节
+                  </button>
+                  <button class="px-5 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-500/20 flex items-center gap-1.5 transition-all">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>一键下载入馆
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Discovery View -->
+          <div class="flex-1 flex flex-col p-4 space-y-4 pb-20">
+            <div class="space-y-1">
+              <span class="text-xs text-brand-600 font-bold uppercase">全网搜书</span>
+              <h2 class="text-lg font-bold text-slate-900">发现优质新书</h2>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-100 p-2.5 rounded-2xl">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="搜书名、作者..." class="bg-transparent flex-1 text-xs outline-none" />
+            </div>
+            <!-- Mobile Result Card -->
+            <div class="bg-white p-3 rounded-2xl border border-slate-200 flex items-center gap-3 shadow-sm">
+              <div class="w-12 h-16 rounded-lg bg-slate-900 text-white p-1 text-[8px] flex flex-col justify-between shrink-0">
+                <span>EPUB</span>
+                <span class="font-bold">三体全集</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h4 class="text-xs font-bold text-slate-900 truncate">三体：死神永生</h4>
+                <p class="text-[10px] text-slate-400">刘慈欣 · 4.2MB</p>
+                <button class="mt-2 px-3 py-1 bg-brand-500 text-white text-[10px] font-bold rounded-lg">一键入库</button>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 8. 全局全文秒搜 (Global FTS5 Search Dialog)
+      // -------------------------------------------------------------
+      search: {
+        desktop: `
+          <div class="flex-1 flex bg-slate-900/40 p-8 items-center justify-center">
+            <!-- Modal Dialog (Raycast / Spotlight Style) -->
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full flex flex-col overflow-hidden max-h-[620px]">
+              <!-- Search Bar Input -->
+              <div class="p-4 border-b border-slate-200 flex items-center gap-3 bg-slate-50/50">
+                <i data-lucide="search" class="w-5 h-5 text-brand-500"></i>
+                <input type="text" value="地方政府 投融资" placeholder="全局全文检索所有书籍正文、段落、笔记..." class="flex-1 text-sm bg-transparent outline-none text-slate-900 font-medium" />
+                <span class="text-[10px] font-mono text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded">ESC 退出</span>
+              </div>
+
+              <!-- Search Hits Results Stream -->
+              <div class="flex-1 overflow-auto p-4 space-y-3 text-xs">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">段落级全文命中结果 (SQLite FTS5 Trigram 毫秒秒级)</div>
+
+                <!-- Hit Item 1 -->
+                <div onclick="switchPage('reader')" class="p-4 rounded-2xl border border-slate-200/80 hover:border-brand-300 hover:bg-brand-50/20 cursor-pointer transition-all space-y-1.5 group">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-brand-600 group-hover:text-brand-700 flex items-center gap-1.5">
+                      <i data-lucide="book" class="w-3.5 h-3.5"></i>《置身事内》· 前言 从了解现状开始
+                    </span>
+                    <span class="text-[10px] text-slate-400">第 6 节 · 匹配度 99%</span>
+                  </div>
+                  <p class="text-slate-600 leading-relaxed">
+                    ...本书以我国<mark class="bg-amber-200 text-slate-900 font-bold px-1 rounded">地方政府投融资</mark>为主线，分上下两篇。上篇解释微观机制，包括地方政府的基本事务、收入、支出、土地融资和开发...
+                  </p>
+                </div>
+
+                <!-- Hit Item 2 -->
+                <div onclick="switchPage('reader')" class="p-4 rounded-2xl border border-slate-200/80 hover:border-brand-300 hover:bg-brand-50/20 cursor-pointer transition-all space-y-1.5 group">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold text-brand-600 group-hover:text-brand-700 flex items-center gap-1.5">
+                      <i data-lucide="book" class="w-3.5 h-3.5"></i>《置身事内》· 第二章 财税与政府支出
+                    </span>
+                    <span class="text-[10px] text-slate-400">第 18 节 · 匹配度 94%</span>
+                  </div>
+                  <p class="text-slate-600 leading-relaxed">
+                    ...由于预算法严格限制<mark class="bg-amber-200 text-slate-900 font-bold px-1 rounded">地方政府</mark>直接负债，各地便成立了各类城市建设<mark class="bg-amber-200 text-slate-900 font-bold px-1 rounded">投融资</mark>平台（城投公司）...
+                  </p>
+                </div>
+              </div>
+
+              <!-- Footer Helper -->
+              <div class="p-3 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
+                <span>按 ↑ ↓ 键移动选择，按 Enter 一键直达阅读器正文段落</span>
+                <span class="text-brand-600 font-medium">支持拼音首字母模糊匹配</span>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Fullscreen Search Sheet -->
+          <div class="flex-1 flex flex-col bg-white p-4 space-y-3">
+            <div class="flex items-center gap-2 border-b border-slate-200 pb-3">
+              <i data-lucide="search" class="w-4 h-4 text-brand-500"></i>
+              <input type="text" value="地方政府 投融资" class="flex-1 text-xs outline-none" />
+              <button onclick="switchPage('shelf')" class="text-xs text-slate-500 font-bold">取消</button>
+            </div>
+            <div class="space-y-3 text-xs overflow-auto">
+              <div onclick="switchPage('reader')" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div class="font-bold text-brand-600">《置身事内》· 前言</div>
+                <p class="text-slate-600 text-[11px]">...本书以我国<mark class="bg-amber-200">地方政府投融资</mark>为主线...</p>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 9. 阅读统计与阅读热力图 (Reading Statistics & Heatmap)
+      // -------------------------------------------------------------
+      stats: {
+        desktop: `
+          <div class="flex-1 flex flex-col bg-slate-50 p-8 overflow-auto space-y-7">
+            <div class="flex items-center justify-between">
+              <div>
+                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <i data-lucide="bar-chart-2" class="w-5 h-5 text-brand-500"></i>
+                  <span>个人阅读洞察与习惯分析</span>
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">累计记录阅读足迹 186 天</p>
+              </div>
+              <button class="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 shadow-2xs">
+                <i data-lucide="share-2" class="w-3.5 h-3.5"></i>生成阅读报告长图
+              </button>
+            </div>
+
+            <!-- 4 Key Metrics Tiles -->
+            <div class="grid grid-cols-4 gap-5">
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-subtle space-y-1">
+                <span class="text-xs text-slate-400 font-medium">累计阅读总时长</span>
+                <div class="text-2xl font-black text-slate-900 font-mono">148.5 <span class="text-xs font-normal text-slate-400">小时</span></div>
+                <div class="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">↑ 较上周增长 14%</div>
+              </div>
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-subtle space-y-1">
+                <span class="text-xs text-slate-400 font-medium">全本读完图书</span>
+                <div class="text-2xl font-black text-slate-900 font-mono">8 <span class="text-xs font-normal text-slate-400">本</span></div>
+                <div class="text-[10px] text-slate-400">进行中在读 4 本</div>
+              </div>
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-subtle space-y-1">
+                <span class="text-xs text-slate-400 font-medium">累计划线批注</span>
+                <div class="text-2xl font-black text-slate-900 font-mono">312 <span class="text-xs font-normal text-slate-400">条</span></div>
+                <div class="text-[10px] text-brand-600 font-semibold">生成卡片 42 张</div>
+              </div>
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-subtle space-y-1">
+                <span class="text-xs text-slate-400 font-medium">连续阅读打卡</span>
+                <div class="text-2xl font-black text-slate-900 font-mono">23 <span class="text-xs font-normal text-slate-400">天</span></div>
+                <div class="text-[10px] text-amber-600 font-semibold">保持最高纪录中</div>
+              </div>
+            </div>
+
+            <!-- Heatmap Card (GitHub-Style Grid) -->
+            <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-subtle space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="flame" class="w-4 h-4 text-amber-500"></i>
+                  <h3 class="font-bold text-xs text-slate-900">年度 365 天阅读热力矩阵 (Activity Heatmap)</h3>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                  <span>少</span>
+                  <span class="w-2.5 h-2.5 rounded bg-slate-100"></span>
+                  <span class="w-2.5 h-2.5 rounded bg-brand-200"></span>
+                  <span class="w-2.5 h-2.5 rounded bg-brand-400"></span>
+                  <span class="w-2.5 h-2.5 rounded bg-brand-600"></span>
+                  <span>多</span>
+                </div>
+              </div>
+
+              <!-- Visual Heatmap Simulation Grid -->
+              <div class="grid grid-flow-col grid-rows-7 gap-1.5 overflow-x-auto py-2">
+                <!-- 52 columns simulation -->
+                ${Array.from({length: 260}).map((_, i) => {
+                  const intensity = (i * 7) % 5;
+                  const colors = ['bg-slate-100', 'bg-brand-200', 'bg-brand-300', 'bg-brand-500', 'bg-brand-700'];
+                  return `<div class="w-3 h-3 rounded-sm ${colors[intensity]}" title="阅读时间: ${intensity * 30} 分钟"></div>`;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Stats View -->
+          <div class="flex-1 flex flex-col p-4 space-y-4 pb-20">
+            <div>
+              <span class="text-xs text-brand-600 font-bold uppercase">阅读数据</span>
+              <h2 class="text-lg font-bold text-slate-900">我的读书足迹</h2>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <span class="text-[10px] text-slate-400">累计时长</span>
+                <div class="text-xl font-black text-slate-900 font-mono">148.5h</div>
+              </div>
+              <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <span class="text-[10px] text-slate-400">读完书籍</span>
+                <div class="text-xl font-black text-slate-900 font-mono">8本</div>
+              </div>
+            </div>
+            <!-- Heatmap Mobile Preview -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+              <span class="text-xs font-bold text-slate-800">近 30 天打卡热力</span>
+              <div class="grid grid-cols-6 gap-2 pt-1">
+                ${Array.from({length: 30}).map((_, i) => `<div class="h-6 rounded-md bg-brand-${((i%4)+1)*200} flex items-center justify-center text-[8px] text-slate-700 font-mono">${i+1}</div>`).join('')}
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 10. 书源配置与镜像代理 (Source & Mirror Management)
+      // -------------------------------------------------------------
+      sources: {
+        desktop: `
+          <div class="flex-1 flex flex-col bg-slate-50 p-8 overflow-auto space-y-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <i data-lucide="sliders" class="w-5 h-5 text-brand-500"></i>
+                  <span>书源镜像与网络代理中心</span>
+                </h1>
+                <p class="text-xs text-slate-400 mt-0.5">管理 OPDS 协议订阅、Z-Library 镜像站点与网络代理通道</p>
+              </div>
+              <button class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-500/20 flex items-center gap-1.5">
+                <i data-lucide="plus" class="w-4 h-4"></i>添加自定义书源
+              </button>
+            </div>
+
+            <!-- Source Cards List -->
+            <div class="space-y-3.5">
+              <!-- Source Item 1 -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-subtle flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <i data-lucide="globe" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h4 class="font-bold text-xs text-slate-900">Z-Library 官方暗网与直连镜像 A</h4>
+                      <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-mono font-bold text-[10px]">Ping: 82ms (优)</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-0.5">https://singlelogin.re · 认证状态：已授权绑定 · 每日限额 20 本</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <button class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium">测试连通性</button>
+                  <button class="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+                </div>
+              </div>
+
+              <!-- Source Item 2 -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-subtle flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <i data-lucide="radio" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h4 class="font-bold text-xs text-slate-900">Calibre-Web OPDS 本地私人书库</h4>
+                      <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-mono font-bold text-[10px]">局域网直连: 4ms</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-0.5">http://192.168.1.100:8083/opds · 包含 2,400 本家庭藏书</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <button class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium">更新目录索引</button>
+                  <button class="p-2 rounded-xl hover:bg-slate-100 text-slate-400"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Sources View -->
+          <div class="flex-1 flex flex-col p-4 space-y-3 pb-20">
+            <div>
+              <span class="text-xs text-brand-600 font-bold uppercase">书源通道</span>
+              <h2 class="text-lg font-bold text-slate-900">书源与代理设置</h2>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-1.5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-xs text-slate-900">Z-Lib 官方镜像</span>
+                <span class="text-emerald-600 text-[10px] font-mono font-bold">82ms 正常</span>
+              </div>
+              <p class="text-[10px] text-slate-400 truncate">https://singlelogin.re</p>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-1.5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-xs text-slate-900">Calibre OPDS</span>
+                <span class="text-blue-600 text-[10px] font-mono font-bold">局域网 4ms</span>
+              </div>
+              <p class="text-[10px] text-slate-400 truncate">http://192.168.1.100:8083/opds</p>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 11. 听书中心 (Audio TTS Player & Ambient Listening Hub)
+      // -------------------------------------------------------------
+      tts: {
+        desktop: `
+          <!-- Desktop Immersive Audio Theater Screen -->
+          <div class="flex-1 flex flex-col bg-[#0c0d14] text-white overflow-hidden select-none relative">
+            <!-- Top Audio Header -->
+            <div class="h-14 px-8 bg-black/40 backdrop-blur-md border-b border-white/10 flex items-center justify-between shrink-0 z-20">
+              <div class="flex items-center gap-4">
+                <button onclick="switchPage('reader')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-medium text-slate-300 hover:text-white flex items-center gap-1.5 transition-all">
+                  <i data-lucide="book-open" class="w-3.5 h-3.5 text-brand-400"></i>切换至纸书双页排版
+                </button>
+                <div class="h-4 w-px bg-white/15"></div>
+                <div>
+                  <span class="font-bold text-white text-xs font-serif">置身事内：中国政府与经济发展</span>
+                  <span class="text-[11px] text-slate-400 ml-2">前言 从了解现状开始 (正在朗读段落 12/64)</span>
+                </div>
+              </div>
+
+              <!-- Top Right Audio Indicators -->
+              <div class="flex items-center gap-3">
+                <span class="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>Edge 神经拟真语音 · 晓晓 (自然流利)</span>
+                </span>
+                <button onclick="switchPage('shelf')" class="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white" title="收起听书">
+                  <i data-lucide="minimize-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Main Stage: Split into Left (Cover + Ambient + Voice) and Right (Karaoke Text Stream) -->
+            <div class="flex-1 flex overflow-hidden">
+              <!-- Left 40%: Vinyl Cover Stage & Ambient Mixer -->
+              <div class="w-[420px] border-r border-white/10 p-8 flex flex-col justify-between overflow-auto bg-gradient-to-b from-slate-900/40 to-black/60 shrink-0 space-y-6">
+                <!-- Cover Stage with Glowing Halo -->
+                <div class="flex flex-col items-center justify-center pt-2">
+                  <div class="relative group">
+                    <!-- Glow Behind Cover -->
+                    <div class="absolute -inset-4 bg-gradient-to-tr from-brand-600/30 to-amber-500/30 rounded-3xl blur-2xl group-hover:blur-3xl transition-all pulse-glow"></div>
+                    <!-- 3D Book Cover -->
+                    <div class="relative w-44 h-60 rounded-2xl overflow-hidden shadow-2xl border border-white/20 book-cover-3d bg-slate-800">
+                      <div class="w-full h-full bg-gradient-to-br from-amber-900/90 to-slate-950 p-4 flex flex-col justify-between text-amber-100">
+                        <span class="text-[10px] text-amber-300 font-mono tracking-wider uppercase">AUDIOBOOK</span>
+                        <div class="font-serif font-bold text-lg leading-snug">置身事内</div>
+                        <div class="text-xs text-slate-400">兰小欢 著</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Audio Waveform Visualizer -->
+                  <div class="flex items-center gap-1 h-8 mt-5">
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-3"></span>
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-6" style="animation-delay: 0.1s"></span>
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-4" style="animation-delay: 0.2s"></span>
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-7" style="animation-delay: 0.3s"></span>
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-5" style="animation-delay: 0.4s"></span>
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-2" style="animation-delay: 0.15s"></span>
+                    <span class="w-1 bg-brand-400 rounded-full animate-bounce h-6" style="animation-delay: 0.25s"></span>
+                  </div>
+                </div>
+
+                <!-- Voice Picker & Ambient Mixer Cards -->
+                <div class="space-y-4 text-xs">
+                  <!-- Voice Selection Pills -->
+                  <div class="space-y-1.5">
+                    <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>音色方案 (Edge Neural Voices)</span>
+                      <span class="text-brand-400 cursor-pointer">更多角色 ➔</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button class="p-2.5 rounded-xl border-2 border-brand-500 bg-brand-500/20 text-white font-bold flex items-center gap-2 text-left">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <div>
+                          <div class="text-xs">晓晓 (温柔女声)</div>
+                          <div class="text-[10px] text-slate-400 font-normal">细腻多情 · 长读舒适</div>
+                        </div>
+                      </button>
+                      <button class="p-2.5 rounded-xl border border-white/10 hover:border-white/30 bg-white/5 text-slate-300 flex items-center gap-2 text-left">
+                        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                        <div>
+                          <div class="text-xs">云希 (沉稳男声)</div>
+                          <div class="text-[10px] text-slate-400 font-normal">浑厚沉着 · 社科历史</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Ambient Sound Mixer (白噪音环境音混音) -->
+                  <div class="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-slate-200 flex items-center gap-1.5">
+                        <i data-lucide="sliders" class="w-3.5 h-3.5 text-amber-400"></i>白噪音伴读混音器
+                      </span>
+                      <span class="text-[10px] text-emerald-400 font-mono">已启用: 夜雨 35%</span>
+                    </div>
+                    <div class="space-y-2 pt-1 text-[11px]">
+                      <div class="flex items-center justify-between">
+                        <span class="text-slate-400 flex items-center gap-1"><i data-lucide="cloud-rain" class="w-3 h-3 text-sky-400"></i>窗外细雨</span>
+                        <input type="range" value="35" min="0" max="100" class="w-36 accent-brand-500 cursor-pointer" />
+                        <span class="font-mono text-slate-300 w-8 text-right">35%</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-slate-400 flex items-center gap-1"><i data-lucide="flame" class="w-3 h-3 text-amber-500"></i>壁炉柴火</span>
+                        <input type="range" value="0" min="0" max="100" class="w-36 accent-brand-500 cursor-pointer" />
+                        <span class="font-mono text-slate-500 w-8 text-right">0%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right 60%: Karaoke Transcript Stream (Card-by-Card Auto Scroll) -->
+              <div class="flex-1 p-10 overflow-auto space-y-6 font-serif text-slate-400 text-[16px] leading-relaxed relative">
+                <div class="text-xs font-sans text-slate-500 tracking-wider uppercase border-b border-white/10 pb-2 flex items-center justify-between">
+                  <span>前言 · 从了解现状开始 (点击任意段落即可插播)</span>
+                  <span class="text-amber-400 flex items-center gap-1"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i>双击文字可摘录为笔记</span>
+                </div>
+
+                <!-- Paragraph 10 (Faded Upper) -->
+                <p class="indent-8 text-justify opacity-30 hover:opacity-75 transition-opacity cursor-pointer">
+                  复旦大学经济学院是研究中国经济的重镇，向来重视制度和历史分析，这些特点在我的思考中打下了深深烙印。学院几乎每周都有十数场高质量的学术研讨。
+                </p>
+
+                <!-- Paragraph 11 (Faded Upper) -->
+                <p class="indent-8 text-justify opacity-45 hover:opacity-75 transition-opacity cursor-pointer">
+                  本书虽为大众读者所写，但使用了大量前沿研究成果，参考文献数百篇。与各章节内容相匹配的文献清单，可以通过各章节末尾的二维码与在线链接获取。
+                </p>
+
+                <!-- Paragraph 12 (CURRENT ACTIVE - Golden Halo & Karaoke Highlight) -->
+                <div class="p-6 rounded-3xl bg-gradient-to-r from-amber-500/15 via-brand-500/10 to-transparent border-l-4 border-amber-400 shadow-2xl space-y-3 relative">
+                  <div class="flex items-center justify-between text-xs font-sans">
+                    <span class="text-amber-300 font-bold flex items-center gap-1.5">
+                      <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                      <span>正在朗读当前段落 (第 12 段)</span>
+                    </span>
+                    <button class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] text-white flex items-center gap-1">
+                      <i data-lucide="bookmark" class="w-3 h-3"></i>沉淀金句
+                    </button>
+                  </div>
+                  <p class="text-white text-lg font-bold leading-relaxed text-justify tracking-wide">
+                    本书以我国地方政府投融资为主线，分上下两篇。<span class="bg-amber-400/30 text-amber-200 px-1 rounded shadow-sm">上篇解释微观机制，包括地方政府的基本事务、收入、支出、土地融资和开发、投资和债务等</span>；下篇解释这些微观行为对宏观现象的影响。
+                  </p>
+                </div>
+
+                <!-- Paragraph 13 (Faded Lower) -->
+                <p class="indent-8 text-justify opacity-45 hover:opacity-75 transition-opacity cursor-pointer">
+                  为应该怎么办，比了解“我”认为应该怎么办，重要得多。本书力求客观看待体制的成因与演变，突出主要逻辑和重点事实，不会过多展开细节。
+                </p>
+
+                <!-- Paragraph 14 (Faded Lower) -->
+                <p class="indent-8 text-justify opacity-30 hover:opacity-75 transition-opacity cursor-pointer">
+                  有兴趣深究的读者可以参考每章末尾“扩展阅读”中推荐的读物。希望本书能为读者提供一个观察中国经济微观与宏观机制的严谨坐标轴。
+                </p>
+              </div>
+            </div>
+
+            <!-- Bottom Master Audio Controller Bar -->
+            <div class="h-20 bg-black/80 backdrop-blur-xl border-t border-white/10 px-8 flex items-center justify-between shrink-0 z-30">
+              <!-- Left: Time & Progress -->
+              <div class="w-64 space-y-1 text-xs">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>04:32</span>
+                  <span class="text-amber-400">段落 12 / 64</span>
+                  <span>-18:20</span>
+                </div>
+                <div class="h-1.5 bg-white/15 rounded-full overflow-hidden relative cursor-pointer">
+                  <div class="h-full bg-gradient-to-r from-brand-500 to-amber-400 w-[22%] rounded-full"></div>
+                </div>
+              </div>
+
+              <!-- Center: Core Playback Transport Controls -->
+              <div class="flex items-center gap-5">
+                <button class="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-all" title="快退 15 秒">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+                <button class="p-2 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-all" title="上一段">
+                  <i data-lucide="skip-back" class="w-5 h-5"></i>
+                </button>
+                <!-- Big Glowing Play/Pause Button -->
+                <button class="w-13 h-13 rounded-full bg-gradient-to-tr from-brand-500 to-sky-400 text-white flex items-center justify-center shadow-lg shadow-brand-500/40 hover:scale-105 active:scale-95 transition-all">
+                  <i data-lucide="pause" class="w-6 h-6 fill-current"></i>
+                </button>
+                <button class="p-2 rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-all" title="下一段">
+                  <i data-lucide="skip-forward" class="w-5 h-5"></i>
+                </button>
+                <button class="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-all" title="快进 15 秒">
+                  <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+                </button>
+              </div>
+
+              <!-- Right: Speed & Sleep Timer Buttons -->
+              <div class="flex items-center gap-3 text-xs">
+                <!-- Speed Pill -->
+                <div class="flex items-center gap-1 bg-white/10 px-2.5 py-1.5 rounded-xl border border-white/10">
+                  <i data-lucide="gauge" class="w-3.5 h-3.5 text-slate-400"></i>
+                  <span class="font-mono font-bold text-white">1.25x</span>
+                </div>
+
+                <!-- Sleep Timer Pill -->
+                <div class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/10 text-slate-300 cursor-pointer hover:bg-white/15">
+                  <i data-lucide="moon" class="w-3.5 h-3.5 text-amber-400"></i>
+                  <span>30 分钟后关闭</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <!-- Mobile Fullscreen Audio Player Sheet (Apple Podcasts / WeChat Read Style) -->
+          <div class="flex-1 flex flex-col justify-between bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white p-5 select-none relative pb-6">
+            <!-- Mobile Audio Top Nav -->
+            <div class="flex items-center justify-between text-xs pt-1 border-b border-white/10 pb-3">
+              <button onclick="switchPage('shelf')" class="text-slate-400 hover:text-white flex items-center gap-1">
+                <i data-lucide="chevron-down" class="w-5 h-5"></i><span>收起</span>
+              </button>
+              <div class="text-center">
+                <h4 class="font-bold text-xs truncate max-w-[180px]">置身事内</h4>
+                <p class="text-[10px] text-slate-400">前言 从了解现状开始</p>
+              </div>
+              <span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <i data-lucide="moon" class="w-2.5 h-2.5"></i>30分
+              </span>
+            </div>
+
+            <!-- Mobile Album Art & Waveform -->
+            <div class="flex flex-col items-center justify-center my-auto space-y-4">
+              <div class="relative">
+                <div class="absolute -inset-3 bg-brand-500/20 rounded-3xl blur-xl"></div>
+                <div class="w-40 h-52 rounded-2xl bg-gradient-to-br from-amber-900 to-slate-950 p-3 shadow-2xl border border-white/20 flex flex-col justify-between text-white relative">
+                  <span class="text-[8px] font-mono text-amber-300">AUDIOBOOK</span>
+                  <div class="font-serif font-bold text-base">置身事内</div>
+                  <div class="text-[10px] text-slate-400">兰小欢 · 晓晓朗读</div>
+                </div>
+              </div>
+
+              <!-- Current Live Subtitle Card (Karaoke Effect) -->
+              <div class="w-full bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center space-y-1">
+                <span class="text-[9px] text-amber-400 font-bold uppercase tracking-wider">实时同步字幕 (段落 12)</span>
+                <p class="text-xs font-serif text-white font-bold leading-relaxed line-clamp-2">
+                  “本书以我国地方政府投融资为主线，分上下两篇。上篇解释微观机制...”
+                </p>
+              </div>
+            </div>
+
+            <!-- Mobile Controls Group -->
+            <div class="space-y-4">
+              <!-- Slider -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span>04:32</span>
+                  <span>10% (12/64段)</span>
+                  <span>-18:20</span>
+                </div>
+                <div class="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-brand-500 to-amber-400 w-[22%]"></div>
+                </div>
+              </div>
+
+              <!-- Main Transport Buttons -->
+              <div class="flex items-center justify-around py-1">
+                <button class="text-slate-400"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
+                <button class="text-white"><i data-lucide="skip-back" class="w-6 h-6"></i></button>
+                <button class="w-14 h-14 rounded-full bg-brand-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/40">
+                  <i data-lucide="pause" class="w-7 h-7 fill-current"></i>
+                </button>
+                <button class="text-white"><i data-lucide="skip-forward" class="w-6 h-6"></i></button>
+                <button class="text-slate-400"><i data-lucide="rotate-cw" class="w-5 h-5"></i></button>
+              </div>
+
+              <!-- Bottom 4 Quick Toggles -->
+              <div class="grid grid-cols-4 gap-2 pt-2 border-t border-white/10 text-center text-[10px] text-slate-300">
+                <button class="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1">
+                  <i data-lucide="mic" class="w-3.5 h-3.5 text-emerald-400"></i>晓晓
+                </button>
+                <button class="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1">
+                  <i data-lucide="gauge" class="w-3.5 h-3.5 text-brand-400"></i>1.25x
+                </button>
+                <button class="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1">
+                  <i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-sky-400"></i>夜雨 35%
+                </button>
+                <button onclick="switchPage('reader')" class="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 flex flex-col items-center gap-1">
+                  <i data-lucide="book-open" class="w-3.5 h-3.5 text-amber-400"></i>正文
+                </button>
+              </div>
+            </div>
+          </div>
+        `
+      },
+
+      // -------------------------------------------------------------
+      // 12. 停留频次重构全景架构 (User Retention & Frequency Hierarchy)
+      // -------------------------------------------------------------
+      hierarchy: {
+        desktop: `
+          <div class="flex-1 flex flex-col bg-slate-50 p-8 overflow-auto space-y-7 text-slate-800">
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-200/80 pb-4">
+              <div>
+                <span class="text-xs text-brand-600 font-bold uppercase tracking-wider">人机工程学与信息架构重塑</span>
+                <h1 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <i data-lucide="layers" class="w-6 h-6 text-amber-500"></i>
+                  <span>基于“用户停留时长与频次金字塔”的全新布局规范</span>
+                </h1>
+                <p class="text-xs text-slate-500 mt-1">杜绝同级标签扁平乱堆 · 黄金视觉焦点全量倾斜给核心阅读与听书伴读</p>
+              </div>
+              <button onclick="switchPage('shelf')" class="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs shadow-md shadow-brand-500/25 flex items-center gap-2 transition-all">
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>查看重构后的书架主页
+              </button>
+            </div>
+
+            <!-- Retention Pyramid Metrics Bar -->
+            <div class="grid grid-cols-4 gap-4">
+              <!-- Tier 1 -->
+              <div class="bg-white p-5 rounded-3xl border-2 border-brand-500/80 shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-[10px] font-bold">Tier 1 · 核心主场</span>
+                  <span class="text-xs font-mono font-bold text-brand-600">占比 83%</span>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">沉浸阅读 + 书架继续读</h3>
+                <p class="text-[11px] text-slate-500 leading-relaxed">用户单次停留 30~90 分钟。打开软件 85% 是为了继续看刚才的书。必须给予最大的首屏 Hero 展台与极简开卷路径。</p>
+              </div>
+
+              <!-- Tier 2 -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">Tier 2 · 伴随高停留</span>
+                  <span class="text-xs font-mono font-bold text-emerald-600">占比 10%</span>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">后台/前台听书伴读</h3>
+                <p class="text-[11px] text-slate-500 leading-relaxed">长时间通勤或睡前播放。设计为【常驻灵动岛/胶囊】，跨页面浮动触手可及，无需深埋于子页面。</p>
+              </div>
+
+              <!-- Tier 3 -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">Tier 3 · 任务型快查</span>
+                  <span class="text-xs font-mono font-bold text-amber-600">占比 5%</span>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">笔记复习 + 全文秒搜</h3>
+                <p class="text-[11px] text-slate-500 leading-relaxed">阶段性查阅金句、AI 追问与全文精确段落检索。降级为独立高亮 Tab 或快捷键 ⌘K 唤起浮层。</p>
+              </div>
+
+              <!-- Tier 4 -->
+              <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">Tier 4 · 超低频设置</span>
+                  <span class="text-xs font-mono font-bold text-slate-500">占比 <2%</span>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">全网找书 + 统计 + 书源</h3>
+                <p class="text-[11px] text-slate-500 leading-relaxed">偶尔下载新书或看打卡热力图，配置书源一次半年不改。从一级导航剥离，归纳进个人中心与轻量探索按钮。</p>
+              </div>
+            </div>
+
+            <!-- Architecture Comparison Grid (Before vs After) -->
+            <div class="grid grid-cols-2 gap-6">
+              <!-- Before -->
+              <div class="bg-rose-50/50 rounded-3xl p-6 border border-rose-200 space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-sm text-rose-900 flex items-center gap-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
+                    <span>重构前：粗暴扁平堆砌（缺乏人机工程学）</span>
+                  </h3>
+                  <span class="text-[10px] px-2 py-0.5 bg-rose-200/60 text-rose-800 font-bold rounded-full">高认知负荷</span>
+                </div>
+                <div class="space-y-2 text-xs text-rose-800 leading-relaxed">
+                  <p>❌ <strong>导航失焦</strong>：顶栏一排挤满“书架、笔记、找书、秒搜、统计、书源”，6 个按钮平铺，用户眼花缭乱；</p>
+                  <p>❌ <strong>权重倒置</strong>：把一年用一次的“书源配置”与每天看 10 次的“书架”摆在同级物理位置；</p>
+                  <p>❌ <strong>书架四层堆砌</strong>：状态 + 书库 + 分类 + 视图模式生硬并列，首屏全是灰色药丸按钮；</p>
+                  <p>❌ <strong>听书缺乏归属</strong>：高停留的音频朗读被边缘化为一个贴在底部的小胶囊。</p>
+                </div>
+              </div>
+
+              <!-- After -->
+              <div class="bg-emerald-50/50 rounded-3xl p-6 border border-emerald-200 space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-sm text-emerald-900 flex items-center gap-2">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+                    <span>重构后：按停留频次倾斜（现代出版物标准）</span>
+                  </h3>
+                  <span class="text-[10px] px-2 py-0.5 bg-emerald-200/60 text-emerald-800 font-bold rounded-full">极简心流体验</span>
+                </div>
+                <div class="space-y-2 text-xs text-emerald-800 leading-relaxed">
+                  <p>✅ <strong>核心聚焦</strong>：顶栏仅保留【书架】与【笔记】双核，视线清爽干净；</p>
+                  <p>✅ <strong>中央常驻听书灵动岛</strong>：动态波形显示正在播放状态，轻点随时展开全屏黑金剧场；</p>
+                  <p>✅ <strong>首屏 70% 给予 Hero 展台</strong>：大画幅呈现正在阅读书籍，一键“继续阅读”，直击用户痛点；</p>
+                  <p>✅ <strong>低频收归个人中心</strong>：阅读热力图统计、书源与镜像配置收归右上角 Profile，需要时随时呼出。</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Visual Flowchart of Frequency Router -->
+            <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-subtle space-y-3">
+              <h3 class="font-bold text-xs text-slate-900 flex items-center gap-2">
+                <i data-lucide="git-branch" class="w-4 h-4 text-brand-500"></i>
+                <span>全新路由与组件拓扑结构（单向沉浸链路）</span>
+              </h3>
+              <div class="p-4 bg-slate-900 rounded-2xl text-slate-200 font-mono text-xs overflow-x-auto leading-relaxed">
+                [用户入口] ──▶ [书架主页 (Bookshelf)] ──(70%停留点击)──▶ [沉浸阅读器 (Reader 1440px/393px)]<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├─▶ [笔记·知识库 (Notes Hub)] ◀────(读后高亮/想法沉淀)──────┤<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├─▶ [听书灵动岛/胶囊 (Audio Capsule)] ──▶ [黑金声学剧场 (TTS Theater 伴随高停留)]<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├─▶ [找书发现 (Discovery Drawer)] (任务型完成即退)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;└─▶ [个人与设置中心 (Profile Sheet)] ──▶ [阅读热力图 (Stats) + 书源配置 (Sources)] (低频收纳)
+              </div>
+            </div>
+          </div>
+        `,
+        mobile: `
+          <div class="flex-1 flex flex-col p-4 space-y-4 pb-24 text-slate-800">
+            <div>
+              <span class="text-xs text-brand-600 font-bold uppercase">移动端人机工程学</span>
+              <h2 class="text-lg font-black text-slate-900">按停留频次重构底部导航</h2>
+            </div>
+            
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-xs">
+              <div class="font-bold text-slate-900">黄金 3+1 TabBar 架构：</div>
+              <div class="space-y-2 text-slate-600">
+                <div class="p-2.5 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span class="font-bold text-brand-600">Tab 1: 📚 书架</span>
+                  <span class="text-[10px] text-slate-400">80% 核心落脚点</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span class="font-bold text-slate-800">Tab 2: ✏️ 笔记·知识</span>
+                  <span class="text-[10px] text-slate-400">查阅金句与 AI 问书</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-50 flex items-center justify-between">
+                  <span class="font-bold text-slate-800">Tab 3: 👤 我的·设置</span>
+                  <span class="text-[10px] text-slate-400">聚合统计/书源/偏好</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between">
+                  <span class="font-bold">浮动中枢: 🎧 听书胶囊</span>
+                  <span class="text-[10px] text-amber-700">播放时常驻吸附</span>
+                </div>
+              </div>
+            </div>
+
+            <button onclick="switchPage('shelf')" class="w-full py-3 rounded-2xl bg-brand-500 text-white font-bold text-xs shadow-md shadow-brand-500/25">
+              立即体验新版移动端书架
+            </button>
+          </div>
+        `
+      }
+    };
+
+    // ============================================================
+    // 2026 NEXT-GEN INTERACTIVE CONTROLS & DYNAMIC PROTOTYPE LOGIC
+    // ============================================================
+
+    // 1. Toggle Non-Blocking Floating HUD Island
+    let hudVisible = true;
+    function toggleFloatingHUD() {
+      const hud = document.getElementById('reader-floating-hud');
+      if (!hud) return;
+      hudVisible = !hudVisible;
+      hud.style.display = hudVisible ? 'flex' : 'none';
+    }
+
+    // 2. Adjust Reader Font Size (Live Feedback)
+    let currentReaderFontSize = 18;
+    function adjustReaderFontSize(delta) {
+      currentReaderFontSize = Math.min(26, Math.max(13, currentReaderFontSize + delta));
+      const hudLabel = document.getElementById('hud-font-size');
+      if (hudLabel) hudLabel.innerText = currentReaderFontSize;
+      
+      const p1 = document.getElementById('reader-dynamic-p1');
+      const p2 = document.getElementById('reader-dynamic-p2');
+      if (p1) p1.style.fontSize = `${currentReaderFontSize}px`;
+      if (p2) p2.style.fontSize = `${currentReaderFontSize}px`;
+    }
+
+    // 3. Set Reader Theme (Warm / White / Green / Dark)
+    function setReaderTheme(theme) {
+      const themes = {
+        warm: { bg: '#fbf9f4', text: '#1e293b', border: 'rgba(120,53,15,0.1)' },
+        white: { bg: '#ffffff', text: '#0f172a', border: 'rgba(0,0,0,0.08)' },
+        green: { bg: '#cce8cf', text: '#064e3b', border: 'rgba(6,78,59,0.15)' },
+        dark: { bg: '#1c1d22', text: '#e2e8f0', border: 'rgba(255,255,255,0.1)' }
+      };
+      const t = themes[theme] || themes.warm;
+      const pages = document.querySelectorAll('.book-spine-gutter');
+      pages.forEach(p => {
+        p.style.backgroundColor = t.bg;
+        p.style.color = t.text;
+      });
+    }
+
+    // 4. 2026 Cognitive Depth Lens Mode Switcher (降维白话 / 原著 / 学术硬核)
+    function setDepthMode(mode) {
+      const btnSimple = document.getElementById('lens-btn-simple');
+      const btnRaw = document.getElementById('lens-btn-raw');
+      const btnAcademic = document.getElementById('lens-btn-academic');
+      const p1 = document.getElementById('reader-dynamic-p1');
+
+      if (!btnSimple || !btnRaw || !btnAcademic || !p1) return;
+
+      // Reset styles
+      [btnSimple, btnRaw, btnAcademic].forEach(b => {
+        b.className = 'px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 transition-all text-[11px]';
+      });
+
+      if (mode === 'simple') {
+        btnSimple.className = 'px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold shadow-2xs transition-all text-[11px]';
+        p1.innerHTML = `<span class="bg-emerald-500/10 text-emerald-800 font-bold px-1 rounded text-xs mr-1">[AI通俗降维]</span> 本书的核心就是算明白一笔账：中国的县长市长们既像官、又像上市公司CEO。他们手里没多少税收，却要修高铁盖产业园，怎么办？拿地去银行做抵押贷款！上篇讲他们怎么搞钱借钱，下篇讲借多了对全国经济有何连锁反应。`;
+      } else if (mode === 'academic') {
+        btnAcademic.className = 'px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold shadow-2xs transition-all text-[11px]';
+        p1.innerHTML = `<span class="bg-indigo-500/10 text-indigo-800 font-bold px-1 rounded text-xs mr-1">[学术计量模型]</span> 本书建立于地方财政分权理论（Fiscal Federalism）与晋升锦标赛博弈模型之上。上篇在不完全契约理论与软预算约束框架下，剖析地方投融资平台（LGFV）对影子银行与土地抵押信贷的制度依赖；下篇采用异质性宏观动态模型测算资产负债表扩张对系统性流动性之边际外溢。`;
+      } else {
+        btnRaw.className = 'px-2.5 py-1 rounded-lg bg-amber-900/15 font-bold text-amber-900 shadow-2xs transition-all text-[11px]';
+        p1.innerHTML = `本书以我国地方政府投融资为主线，分上下两篇。上篇解释微观机制，包括地方政府的基本事务、收入、支出、土地融资和开发、投资和债务等；下篇解释这些微观行为对宏观现象的影响。`;
+      }
+    }
+
+    // 5. Page Flip Feedback Animation
+    function simulateFlip(dir) {
+      const spread = document.querySelector('.book-spine-gutter');
+      if (spread) {
+        spread.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+        spread.style.opacity = '0.4';
+        spread.style.transform = dir === 'next' ? 'translateX(-8px)' : 'translateX(8px)';
+        setTimeout(() => {
+          spread.style.opacity = '1';
+          spread.style.transform = 'translateX(0)';
+        }, 160);
+      }
+    }
+
+    // 6. Typography Studio Live Interactions
+    function applyLiveTheme(bg, text) {
+      const container = document.getElementById('typography-live-preview');
+      if (container) {
+        container.style.backgroundColor = bg;
+        container.style.color = text;
+      }
+    }
+
+    function applyLiveFont(fontName, category) {
+      const container = document.getElementById('typo-preview-container');
+      const label = document.getElementById('typo-label-font');
+      if (container) {
+        container.style.fontFamily = fontName === '霞鹜文楷' ? '"Noto Serif SC", serif' : (category === 'serif' ? 'serif' : 'sans-serif');
+      }
+      if (label) label.innerText = fontName;
+    }
+
+    function changeLiveFontSize(val) {
+      const p1 = document.getElementById('typo-sample-p1');
+      const p2 = document.getElementById('typo-sample-p2');
+      const sliderVal = document.getElementById('typo-slider-val');
+      const label = document.getElementById('typo-label-size');
+      if (p1) p1.style.fontSize = `${val}px`;
+      if (p2) p2.style.fontSize = `${val}px`;
+      if (sliderVal) sliderVal.innerText = `${val} px`;
+      if (label) label.innerText = `${val}px`;
+    }
+
+    // Initial Render
+    renderCurrentPage();
+  </script>
+</body>
+</html>

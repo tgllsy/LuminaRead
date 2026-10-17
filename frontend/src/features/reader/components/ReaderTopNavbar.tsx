@@ -1,8 +1,9 @@
 import React from 'react'
-import { ArrowLeft, BookmarkPlus, Languages, Search, Highlighter, X } from 'lucide-react'
+import { ArrowLeft, BookmarkPlus, Languages, Search, Highlighter, X, Headphones } from 'lucide-react'
 import type { BookSummary, ReaderTypography, PdfMode } from '../types'
 import { getEffectiveThemeStyle } from '../constants'
 import { useTypographyStore } from '../../../stores/typographyStore'
+import { HeaderTtsIsland } from '../../../app/components/HeaderTtsIsland'
 
 interface ReaderTopNavbarProps {
   book: BookSummary
@@ -27,6 +28,7 @@ interface ReaderTopNavbarProps {
   onOpenNotes: () => void
   hasHighlights: boolean
   readingEstimateText?: string
+  onOpenTTS?: () => void
 }
 
 export const ReaderTopNavbar: React.FC<ReaderTopNavbarProps> = (props) => {
@@ -77,29 +79,27 @@ export const ReaderTopNavbar: React.FC<ReaderTopNavbarProps> = (props) => {
 
 const DesktopNavbar: React.FC<ReaderTopNavbarProps & { headerClass: string; onToggleChinese: () => void }> = ({
   book, chapterTitle, chapterIndex, totalChapters, progressPercent,
-  typography, openTabBooks, onSwitchBookTab, onCloseBookTab, onBackToShelf,
-  onToggleBilingual, bilingualLoading, onAddBookmark, pdfMode, onTogglePdfMode, headerClass, readingEstimateText, onToggleChinese,
+  openTabBooks, onSwitchBookTab, onCloseBookTab, onBackToShelf,
+  onAddBookmark, pdfMode, onTogglePdfMode, headerClass, readingEstimateText,
 }) => {
-  const variant = typography.chineseVariant
-  const isVariantActive = Boolean(variant && variant !== 'original')
   return (
     <header className={`hidden lg:flex sticky top-0 z-30 border-b backdrop-blur-md h-12 shrink-0 items-center justify-between px-6 xl:px-10 transition-colors ${headerClass}`}>
-      <div className="max-w-6xl w-full mx-auto flex items-center justify-between gap-4">
+      <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onBackToShelf} className="px-2.5 py-1 -ml-2 rounded-full hover:bg-current/5 flex items-center gap-1.5 text-xs font-semibold shrink-0 transition-colors" title="返回书架">
+          <button onClick={onBackToShelf} className="px-2.5 py-1 -ml-2 rounded-full hover:bg-current/5 flex items-center gap-1.5 text-xs font-semibold shrink-0 transition-colors cursor-pointer" title="返回书架">
             <ArrowLeft className="w-4 h-4 stroke-[2]" /><span>书架</span>
           </button>
           <span className="opacity-25">|</span>
-          <span className="text-sm font-bold truncate max-w-[220px]">{book.title}</span>
-          <span className="text-xs opacity-60 truncate max-w-[240px]">· {chapterTitle}</span>
+          <span className="text-sm font-bold truncate max-w-[240px]">{book.title}</span>
+          <span className="text-xs opacity-60 truncate max-w-[260px]">· {chapterTitle}</span>
           <OpenTabsBar currentBookId={book.id} openTabBooks={openTabBooks} onSwitchBookTab={onSwitchBookTab} onCloseBookTab={onCloseBookTab} />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           {book.format === 'pdf' && (
             <button
               onClick={onTogglePdfMode}
-              className={`px-3 py-1 rounded-full text-xs font-medium ${
+              className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer ${
                 pdfMode === 'page_canvas'
                   ? 'bg-[#1b88ee] text-white'
                   : pdfMode === 'text_only'
@@ -111,22 +111,7 @@ const DesktopNavbar: React.FC<ReaderTopNavbarProps & { headerClass: string; onTo
               {pdfMode === 'hybrid' ? '图文并排' : pdfMode === 'page_canvas' ? '原版影印' : '纯文本'}
             </button>
           )}
-          <button
-            type="button" onClick={onToggleChinese}
-            className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${isVariantActive ? 'bg-[#1b88ee]/15 text-[#1b88ee] font-semibold' : 'bg-current/5 hover:bg-current/10'}`}
-            title="繁体书与简体书一键互换（把繁体转换成简体或转为繁体）"
-          >
-            <span className="font-serif font-bold text-[11px]">{variant === 'simplified' ? '简' : variant === 'traditional' ? '繁' : '繁⇄简'}</span>
-            <span>{variant === 'simplified' ? '已转简体' : variant === 'traditional' ? '已转繁体' : '简繁互换'}</span>
-          </button>
-          <button
-            onClick={onToggleBilingual}
-            className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 transition-colors ${typography.bilingualMode ? 'bg-[#1b88ee]/15 text-[#1b88ee] font-semibold' : 'bg-current/5 hover:bg-current/10'}`}
-            title="段落级双语对照"
-          >
-            <Languages className="w-3.5 h-3.5" /><span>{bilingualLoading ? '翻译中...' : '双语'}</span>
-          </button>
-          <button onClick={onAddBookmark} className="p-1.5 rounded-full hover:bg-current/5 transition-colors" title="添加当前页书签">
+          <button onClick={onAddBookmark} className="p-1.5 rounded-full hover:bg-current/5 transition-colors cursor-pointer" title="添加当前页书签">
             <BookmarkPlus className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-1.5 text-xs font-mono opacity-65 pl-1">
@@ -180,7 +165,7 @@ const OpenTabsBar: React.FC<{
 const MobileFloatingNavbar: React.FC<ReaderTopNavbarProps & { isDark: boolean; onToggleChinese: () => void }> = ({
   book, typography, onBackToShelf, onToggleBilingual, bilingualLoading,
   onAddBookmark, pdfMode, onTogglePdfMode, immersiveHudVisible, showTypography,
-  onOpenSearch, onOpenNotes, hasHighlights, readingEstimateText, isDark, onToggleChinese,
+  onOpenSearch, onOpenNotes, hasHighlights, readingEstimateText, isDark, onToggleChinese, onOpenTTS,
 }) => {
   const btnCls = isDark
     ? 'bg-[#2c2c2e] text-[#ebebf5] hover:bg-[#3a3a3c]'
@@ -249,6 +234,14 @@ const MobileFloatingNavbar: React.FC<ReaderTopNavbarProps & { isDark: boolean; o
             title={bilingualLoading ? '双语翻译中...' : '双语对照'}
           >
             <Languages className="w-4 h-4 stroke-[1.9]" />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenTTS}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${btnCls}`}
+            title="听书伴读"
+          >
+            <Headphones className="w-4 h-4 stroke-[1.9]" />
           </button>
           <button onClick={onAddBookmark} className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${btnCls}`} title="添加书签">
             <BookmarkPlus className="w-4 h-4 stroke-[1.9]" />
