@@ -44,9 +44,28 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
   const activeChapterObj = bc.contentData?.chapters[bc.chapterIndex] || bc.contentData?.chapters[0] || { id: 'ch_1', title: '正文', content: '', wordCount: 0, order: 0 }
   const paragraphs = useMemo(() => String(activeChapterObj.content || '').split(/\n{2,}|\n/).map((p) => p.trim()).filter(Boolean), [activeChapterObj.content])
 
-  const { reportProgress } = useReadingProgressSync({
+  const isContinuousSingleScroll = typo.effectiveLayoutMode === 'single' && typo.typography.continuousScroll !== false && !(isPdf && pdf.pdfMode === 'page_canvas')
+  const dockedSidebarWidth = (vp.isSidebarPinned && overlays.drawerOpen && vp.sidebarDockSide !== 'none') ? (vp.windowWidth >= 1280 ? 380 : vp.windowWidth >= 1024 ? 350 : 320) : 0
+  const isTabletOrDesktop = vp.windowWidth >= 768
+  const dockedCopilotWidth = (overlays.copilotModal.isOpen && isTabletOrDesktop)
+    ? (vp.windowWidth >= 1536 ? 500 : vp.windowWidth >= 1280 ? 480 : vp.windowWidth >= 1024 ? 450 : 420)
+    : 0
+  const totalDockedWidth = dockedSidebarWidth + dockedCopilotWidth
+  const pag = usePaginationLayout({
+    paragraphs,
+    typography: typo.typography,
+    windowWidth: Math.max(480, vp.windowWidth - totalDockedWidth),
+    windowHeight: vp.windowHeight,
+    focusParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex,
+    pdfMode: pdf.pdfMode,
+    enabled: !isContinuousSingleScroll,
+  })
+
+  const { reportProgress, syncCurrentProgress } = useReadingProgressSync({
     activeBookId,
     chapterIndex: bc.chapterIndex,
+    clampedSpreadIndex: pag.clampedSpreadIndex,
+    totalSpreads: pag.paginatedSpreads.length,
     getCurrentVisibleParagraphIndex: getCurrentParaIndex,
     totalChapters: bc.contentData?.chapters.length || 1,
     totalParagraphs: paragraphs.length,
@@ -54,20 +73,9 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
     isHidden,
   })
 
-  const isContinuousSingleScroll = typo.effectiveLayoutMode === 'single' && typo.typography.continuousScroll !== false && !(isPdf && pdf.pdfMode === 'page_canvas')
   const scrollSyncFnRef = useRef<(nextChIdx: number) => void>(() => {})
   const onScrollSyncChapter = useCallback((nextChIdx: number) => scrollSyncFnRef.current(nextChIdx), [])
   const stream = useChapterStream({ activeBookId, chapterIndex: bc.chapterIndex, isContinuousSingleScroll, contentData: bc.contentData, setContentData: bc.setContentData, bottomSentinelRef, chapterStreamRefs, onScrollSyncChapter, isHidden })
-  const dockedSidebarWidth = (vp.isSidebarPinned && overlays.drawerOpen && vp.sidebarDockSide !== 'none') ? (vp.windowWidth >= 1280 ? 380 : vp.windowWidth >= 1024 ? 350 : 320) : 0
-  const pag = usePaginationLayout({
-    paragraphs,
-    typography: typo.typography,
-    windowWidth: Math.max(640, vp.windowWidth - dockedSidebarWidth),
-    windowHeight: vp.windowHeight,
-    focusParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex,
-    pdfMode: pdf.pdfMode,
-    enabled: !isContinuousSingleScroll,
-  })
 
   const syncHighlightKw = useCallback((kw: string) => {
     overlays.setHighlightKeyword(kw)
@@ -88,7 +96,7 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
     reportProgress(nextChIdx, 0, Math.round(((nextChIdx + 1) / total) * 100), 15).catch(() => {})
   }
 
-  return { bc, vp, openTabBooks, typo, pdf, overlays, paragraphRefs, articleRef, bottomSentinelRef, chapterStreamRefs, lastWheelTurnRef, bil, tts, activeChapterObj, isContinuousSingleScroll, stream, paragraphs, pag, handleSelectChapter }
+  return { bc, vp, openTabBooks, typo, pdf, overlays, paragraphRefs, articleRef, bottomSentinelRef, chapterStreamRefs, lastWheelTurnRef, bil, tts, activeChapterObj, isContinuousSingleScroll, stream, paragraphs, pag, handleSelectChapter, syncCurrentProgress, reportProgress }
 }
 
 function useReaderWorkspaceController(props: ReaderWorkspaceProps) {
@@ -179,6 +187,7 @@ const ReaderWorkspaceFloatingBars: React.FC<{
         drawerOpen={c.overlays.drawerOpen} drawerTab={c.overlays.drawerTab} onOpenDrawerTab={c.openDrawerTab}
         dockSide={c.vp.sidebarDockSide}
         onOpenCopilot={() => { c.overlays.setShowTypography(false); c.overlays.setCopilotModal((p) => ({ isOpen: !p.isOpen, mode: 'spoiler_free_recap', text: '' })) }}
+        isCopilotOpen={c.overlays.copilotModal.isOpen}
         onOpenTTS={() => { c.overlays.setShowTypography(false); c.overlays.setShowAmbientTTS((v) => !v) }} highlightsCount={highlightsCount}
         isTtsActive={c.tts.ttsAudioStatus.active || c.tts.ttsActivePara !== null} isTtsPlaying={c.tts.ttsAudioStatus.playing} isTtsAmbientActive={c.tts.ttsAudioStatus.ambientActive}
         onToggleChinese={handleToggleChinese}
@@ -243,7 +252,11 @@ export const ReaderWorkspace: React.FC<ReaderWorkspaceProps> = (props) => {
       )}
       <ReaderTopNavbar
         book={book} chapterTitle={c.activeChapterObj.title} chapterIndex={c.bc.chapterIndex} totalChapters={chapters.length} progressPercent={progressPercent} typography={c.typo.typography}
-        openTabBooks={c.openTabBooks} onSwitchBookTab={onSwitchBookTab} onCloseBookTab={onCloseBookTab} onBackToShelf={onBackToShelf}
+        openTabBooks={c.openTabBooks} onSwitchBookTab={onSwitchBookTab} onCloseBookTab={onCloseBookTab}
+        onBackToShelf={() => {
+          c.syncCurrentProgress(true)
+          onBackToShelf?.()
+        }}
         onToggleBilingual={() => c.typo.setTypography((p) => ({ ...p, bilingualMode: !p.bilingualMode }))} bilingualLoading={c.bil.bilingualLoading} onAddBookmark={c.bm.handleAddBookmark}
         pdfMode={c.pdf.pdfMode}
         onTogglePdfMode={() => c.pdf.setPdfMode((p) => (p === 'hybrid' ? 'page_canvas' : p === 'page_canvas' ? 'text_only' : 'hybrid'))}

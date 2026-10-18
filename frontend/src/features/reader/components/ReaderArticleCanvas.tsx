@@ -14,6 +14,7 @@ import type {
 import { FONT_FAMILY_MAP } from '../constants'
 import { PdfViewport } from './PdfViewport'
 import { ReaderViewport } from './ReaderViewport'
+import { useTtsReadingFollow } from '../hooks'
 
 export interface ReaderArticleCanvasProps {
   articleRef: React.RefObject<HTMLDivElement | null>
@@ -101,6 +102,14 @@ export const ReaderArticleCanvas: React.FC<ReaderArticleCanvasProps> = ({
   onStartTtsAtParagraph, onSelectHighlightForNote, onTextMouseUp, onOpenLightbox,
   onSetPdfSpreadMode, onSetPdfZoom, onJumpToPdfPage, onOpenEntityWiki,
 }) => {
+  useTtsReadingFollow({
+    activeBookId: book.id,
+    chapterIndex,
+    ttsActivePara,
+    paragraphRefs,
+    isContinuousSingleScroll,
+  })
+
   const isPageCanvas = book.format === 'pdf' && pdfMode === 'page_canvas'
   const maxWidth = isPageCanvas
     ? '1240px'

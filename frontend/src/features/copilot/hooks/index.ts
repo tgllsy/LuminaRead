@@ -1,3 +1,5 @@
 export { useCopilotRecap } from './useCopilotRecap'
 export { useCopilotChat } from './useCopilotChat'
 export { useCopilotPresets } from './useCopilotPresets'
+export { useCopilotModalSync } from './useCopilotModalSync'
+export { useTokenStream } from './useTokenStream'

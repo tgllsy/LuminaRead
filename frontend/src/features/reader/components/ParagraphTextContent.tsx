@@ -136,6 +136,7 @@ export const ParagraphTextContent: React.FC<ParagraphTextContentProps> = ({
     shouldIndent,
     isDropCap
   )
+  const hasBilingual = Boolean(typography.bilingualMode && targetChIdx === chapterIndex && bilingualMap[pIdx])
 
   return (
     <div
@@ -156,6 +157,8 @@ export const ParagraphTextContent: React.FC<ParagraphTextContentProps> = ({
           ? 'bg-emerald-500/8 ring-1 ring-emerald-500/30 px-2.5 -mx-2.5'
           : isSmallPrintRef
           ? 'pl-3.5 py-1.5 border-l-2 border-current/20 bg-current/[0.02] rounded-r-xl'
+          : hasBilingual
+          ? ''
           : 'reader-para-contain'
       }`}
     >
@@ -201,11 +204,11 @@ export const ParagraphTextContent: React.FC<ParagraphTextContentProps> = ({
         />
       </p>
 
-      {isFinalSlice && (
+      {(isFinalSlice || hasBilingual) && (
         <ParagraphNoteCallouts
           notesWithContent={notesWithContent}
           pIdx={pIdx}
-          bilingualText={typography.bilingualMode && targetChIdx === chapterIndex ? bilingualMap[pIdx] : undefined}
+          bilingualText={hasBilingual ? bilingualMap[pIdx] : undefined}
           onSelectHighlightForNote={onSelectHighlightForNote}
         />
       )}

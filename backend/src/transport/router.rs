@@ -3,6 +3,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use tower_http::compression::predicate::{DefaultPredicate, NotForContentType, Predicate};
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
@@ -98,11 +99,15 @@ pub fn build_router(state: AppState) -> Router {
         .allow_methods(tower_http::cors::Any)
         .allow_headers(tower_http::cors::Any);
 
+    let compression_predicate = DefaultPredicate::new()
+        .and(NotForContentType::const_new("audio/"))
+        .and(NotForContentType::const_new("video/"));
+
     router
         .route("/sw.js", get(handle_service_worker))
         .fallback(handle_static_and_spa)
         .layer(DefaultBodyLimit::max(max_body))
-        .layer(CompressionLayer::new().gzip(true))
+        .layer(CompressionLayer::new().gzip(true).compress_when(compression_predicate))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state)

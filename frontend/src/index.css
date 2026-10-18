@@ -177,7 +177,7 @@ html.eink-mode * {
 }
 
 html.eink-mode {
-  filter: grayscale(100%) contrast(150%) !important;
+  filter: grayscale(100%) !important;
 }
 
 /* Page Turn Slide & 3D Curl Paper Animations */
@@ -452,6 +452,104 @@ html.eink-mode {
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.25);
 }
 
+/* ==========================================================================
+   KTV 级逐字流动朗读高亮（Karaoke Word-by-Word Reading Highlight）
+   ========================================================================== */
+.reader-ktv-sentence-wrapper {
+  display: inline;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  border-bottom: 2px solid rgba(37, 99, 235, 0.65);
+  border-radius: 4px;
+  padding: 1px 3px;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+.reader-ktv-char {
+  display: inline;
+  transition: color 80ms ease, opacity 80ms ease, transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: color, transform;
+}
+
+/* 已播放朗读完的字符：保持深墨蓝高对比阅读字色，底色高亮，绝不发虚 */
+.reader-ktv-char-played {
+  color: #1e3a8a !important;
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* 当前正被发音的字：微放大向上浮动 + 聚焦深海蓝，带轻度聚焦阴影 */
+.reader-ktv-char-current {
+  display: inline-block;
+  color: #0369a1 !important;
+  font-weight: 700;
+  opacity: 1;
+  transform: scale(1.16) translateY(-1px);
+  text-shadow: 0 0 6px rgba(14, 165, 233, 0.45);
+  z-index: 1;
+}
+
+/* 句子中尚未朗读到的字符：保持自然正文字色，避免过淡导致看不清 */
+.reader-ktv-char-unplayed {
+  color: inherit;
+  opacity: 0.85;
+  font-weight: 400;
+}
+
+/* 深色模式下的 KTV 逐字流光 */
+.dark .reader-ktv-sentence-wrapper,
+[data-theme='dark'] .reader-ktv-sentence-wrapper {
+  background-color: rgba(59, 130, 246, 0.22) !important;
+  border-bottom: 2px solid rgba(96, 165, 250, 0.8);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.25);
+}
+
+.dark .reader-ktv-char-played,
+[data-theme='dark'] .reader-ktv-char-played {
+  color: #93c5fd !important;
+  font-weight: 600;
+  opacity: 1;
+  text-shadow: 0 0 4px rgba(96, 165, 250, 0.4);
+}
+
+.dark .reader-ktv-char-current,
+[data-theme='dark'] .reader-ktv-char-current {
+  color: #38bdf8 !important;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.85), 0 0 3px #ffffff;
+}
+
+.dark .reader-ktv-char-unplayed,
+[data-theme='dark'] .reader-ktv-char-unplayed {
+  color: rgba(241, 245, 249, 0.8) !important;
+  opacity: 0.85;
+}
+
+/* E-Ink 模式下的 KTV 逐字效果：纯黑白无动画、纯正加粗与双下划线、零残影零发虚 */
+.eink-mode .reader-ktv-sentence-wrapper {
+  background-color: transparent !important;
+  border-bottom: 2px solid #000000 !important;
+  box-shadow: none !important;
+}
+.eink-mode .reader-ktv-char {
+  display: inline !important;
+  transform: none !important;
+  text-shadow: none !important;
+  transition: none !important;
+}
+.eink-mode .reader-ktv-char-played,
+.eink-mode .reader-ktv-char-current {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+.eink-mode .reader-ktv-char-unplayed {
+  color: #000000 !important;
+  font-weight: 400 !important;
+  opacity: 1 !important;
+}
+
 /* E-Ink 墨水屏专属极致模式：纯黑白、零过渡动画、无半透明与阴影、高对比 */
 .eink-mode, .eink-mode * {
   animation: none !important;
@@ -461,7 +559,25 @@ html.eink-mode {
   backdrop-filter: none !important;
 }
 .eink-mode { background-color: #ffffff !important; color: #000000 !important; }
+.eink-mode .reader-article-canvas { background-color: #ffffff !important; color: #000000 !important; border-color: rgba(0, 0, 0, 0.25) !important; }
 .eink-mode .reader-article-body { color: #000000 !important; }
+.eink-mode .reader-article-canvas p,
+.eink-mode .reader-article-canvas div,
+.eink-mode .reader-article-canvas span {
+  color: #000000 !important;
+}
+/* 彻底解决 E-Ink 模式下页眉页脚发虚看不清的问题 */
+.eink-mode [class*="opacity-4"],
+.eink-mode [class*="opacity-5"],
+.eink-mode [class*="opacity-6"] {
+  opacity: 0.95 !important;
+  color: #000000 !important;
+}
+.eink-mode .reader-ui-badge {
+  background-color: transparent !important;
+  border: 1px solid #000000 !important;
+  color: #000000 !important;
+}
 
 /* 出版级双语对照 Markdown 格式排版渲染样式 */
 .reader-bilingual-markdown {

@@ -175,6 +175,10 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
           effectiveVoice={effectiveVoice}
           voices={effectiveVoices}
           onVoiceChange={handleVoiceChange}
+          ambientPreset={effectiveAmbientPreset}
+          ambientVolume={effectiveAmbientVolume}
+          onSelectAmbientPreset={handleSelectAmbientPreset}
+          onChangeAmbientVolume={handleChangeAmbientVolume}
           rainVol={effectiveRain}
           fireVol={effectiveFire}
           windVol={effectiveWind}
@@ -231,7 +235,7 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <Headphones className="w-4 h-4 text-emerald-400" />
-                <span>白噪音与沉浸自然音调音台</span>
+                <span>白噪音伴读调音台</span>
               </div>
               <button
                 type="button"
@@ -253,19 +257,6 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
               accentActivePillCls="bg-emerald-600 text-white font-bold border border-emerald-500 shadow-md shadow-emerald-500/20"
               mutedTextCls="text-slate-400"
             />
-
-            <div className="pt-2 border-t border-white/10">
-              <AmbientMixerWidget
-                rainVol={effectiveRain}
-                fireVol={effectiveFire}
-                windVol={effectiveWind}
-                onChangeRain={handleRainChange}
-                onChangeFire={handleFireChange}
-                onChangeWind={handleWindChange}
-                ambientEnabled={effectiveAmbientEnabled}
-                onToggleEnabled={handleToggleAmbientEnabled}
-              />
-            </div>
           </div>
         </div>
       )}

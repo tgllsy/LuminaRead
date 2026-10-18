@@ -70,7 +70,7 @@ export const ReaderSinglePagedView: React.FC<ReaderSinglePagedViewProps> = ({
   return (
     <div className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden relative select-text w-full">
       {/* 顶部微型页眉 */}
-      <div className="mb-2 px-1 flex items-center justify-between text-[11px] font-sans opacity-45 select-none shrink-0 border-b border-current/5 pb-1">
+      <div className="mb-2 px-1 flex items-center justify-between text-[11px] font-sans opacity-75 select-none shrink-0 border-b border-current/10 pb-1">
         <span className="truncate max-w-[200px] sm:max-w-[320px] font-medium">{currentChapter.title}</span>
         <div className="flex items-center gap-2 shrink-0">
           {readingEstimateText && (
@@ -166,7 +166,7 @@ export const ReaderSinglePagedView: React.FC<ReaderSinglePagedViewProps> = ({
       </div>
 
       {/* 底部微型页脚 */}
-      <div className="mt-2 px-1 flex items-center justify-between text-[11px] font-sans opacity-45 select-none shrink-0 border-t border-current/5 pt-1">
+      <div className="mt-2 px-1 flex items-center justify-between text-[11px] font-sans opacity-75 select-none shrink-0 border-t border-current/10 pt-1">
         <span className="truncate max-w-[220px] sm:max-w-[340px]">{book.title}</span>
         <span className="font-mono">
           {currentSpread?.leftPageNum || 1} / {currentSpread?.totalPages || 1}

@@ -2,14 +2,12 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import type { AmbientPreset } from '../types'
 import { AmbientAudioEngine } from '../helpers/ambientAudioEngine'
 
-const AMBIENT_STORAGE_KEY = 'luminaread_ambient_prefs_v2'
+const AMBIENT_STORAGE_KEY = 'luminaread_ambient_prefs_v3'
 
 interface SavedAmbientState {
   preset: AmbientPreset
   volume: number
-  rain: number
-  fire: number
-  wind: number
+  enabled: boolean
 }
 
 function loadSavedAmbientState(initialPreset: AmbientPreset, initialVolume: number): SavedAmbientState {
@@ -20,18 +18,14 @@ function loadSavedAmbientState(initialPreset: AmbientPreset, initialVolume: numb
       return {
         preset: parsed.preset || initialPreset,
         volume: typeof parsed.volume === 'number' ? parsed.volume : initialVolume,
-        rain: typeof parsed.rain === 'number' ? parsed.rain : 30,
-        fire: typeof parsed.fire === 'number' ? parsed.fire : 0,
-        wind: typeof parsed.wind === 'number' ? parsed.wind : 15,
+        enabled: Boolean(parsed.enabled),
       }
     }
   } catch {}
   return {
     preset: initialPreset,
     volume: initialVolume,
-    rain: initialPreset === 'rain' ? 60 : 30,
-    fire: initialPreset === 'fire' ? 60 : 0,
-    wind: initialPreset === 'wind' ? 60 : 15,
+    enabled: false,
   }
 }
 
@@ -46,71 +40,49 @@ export function useAmbientMixer(
   initialVolume = 0.5
 ) {
   const [initial] = useState(() => loadSavedAmbientState(initialPreset, initialVolume))
-  const [ambientEnabled, setAmbientEnabledState] = useState<boolean>(false)
+  const [ambientEnabled, setAmbientEnabledState] = useState<boolean>(initial.enabled)
   const [ambientPreset, setAmbientPresetState] = useState<AmbientPreset>(initial.preset)
   const [ambientVolume, setAmbientVolumeState] = useState<number>(initial.volume)
-  const [rainVol, setRainVolState] = useState<number>(initial.rain)
-  const [fireVol, setFireVolState] = useState<number>(initial.fire)
-  const [windVol, setWindVolState] = useState<number>(initial.wind)
 
-  const volumesRef = useRef({
-    rain: initial.rain,
-    fire: initial.fire,
-    wind: initial.wind,
-  })
+  const volumeRef = useRef(ambientVolume)
+  volumeRef.current = ambientVolume
+  const presetRef = useRef(ambientPreset)
+  presetRef.current = ambientPreset
+  const enabledRef = useRef(ambientEnabled)
+  enabledRef.current = ambientEnabled
+
   const engineRef = useRef<AmbientAudioEngine | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
 
   const getOrCreateEngine = useCallback((): AmbientAudioEngine => {
     if (!engineRef.current) {
       engineRef.current = new AmbientAudioEngine()
-      engineRef.current.setMasterVolume(ambientVolume)
-      engineRef.current.setEnabled(ambientEnabled)
+      engineRef.current.setMasterVolume(volumeRef.current)
+      engineRef.current.setEnabled(enabledRef.current)
     }
     return engineRef.current
-  }, [ambientVolume, ambientEnabled])
+  }, [])
 
   const stopAmbientAudio = useCallback(() => {
     setAmbientEnabledState(false)
-    engineRef.current?.setEnabled(false)
-    engineRef.current?.stopAll()
-    setAmbientPresetState('off')
-    volumesRef.current = { rain: 0, fire: 0, wind: 0 }
-    setRainVolState(0)
-    setFireVolState(0)
-    setWindVolState(0)
-    saveAmbientState({
-      preset: 'off',
-      volume: ambientVolume,
-      rain: 0,
-      fire: 0,
-      wind: 0,
-    })
-  }, [ambientVolume])
-
-  const setAmbientEnabled = useCallback((enabled: boolean) => {
-    setAmbientEnabledState(enabled)
-    const engine = getOrCreateEngine()
-    engine.setEnabled(enabled)
-
-    if (enabled) {
-      if (ambientPreset === 'off' && rainVol === 0 && fireVol === 0 && windVol === 0) {
-        setAmbientPresetState('rain')
-        setRainVolState(60)
-        volumesRef.current.rain = 60
-        engine.playPreset('rain', ambientVolume)
-      }
-    } else {
+    enabledRef.current = false
+    const engine = engineRef.current
+    if (engine) {
+      engine.setEnabled(false)
       engine.stopAll()
     }
-  }, [ambientPreset, ambientVolume, fireVol, getOrCreateEngine, rainVol, windVol])
-
-  const toggleAmbientEnabled = useCallback(() => {
-    setAmbientEnabled(!ambientEnabled)
-  }, [ambientEnabled, setAmbientEnabled])
+    setAmbientPresetState('off')
+    presetRef.current = 'off'
+    saveAmbientState({
+      preset: 'off',
+      volume: volumeRef.current,
+      enabled: false,
+    })
+  }, [])
 
   const startAmbientAudio = useCallback(
-    (preset: AmbientPreset, vol = ambientVolume) => {
+    (preset: AmbientPreset, vol?: number) => {
+      const targetVol = vol !== undefined ? vol : volumeRef.current
       const engine = getOrCreateEngine()
       if (preset === 'off') {
         stopAmbientAudio()
@@ -118,102 +90,80 @@ export function useAmbientMixer(
       }
 
       setAmbientEnabledState(true)
+      enabledRef.current = true
       engine.setEnabled(true)
       setAmbientPresetState(preset)
-      setAmbientVolumeState(vol)
-      engine.playPreset(preset, vol)
-
-      if (preset === 'rain') {
-        volumesRef.current = { rain: 70, fire: 0, wind: 0 }
-        setRainVolState(70)
-        setFireVolState(0)
-        setWindVolState(0)
-      } else if (preset === 'fire') {
-        volumesRef.current = { rain: 0, fire: 70, wind: 0 }
-        setRainVolState(0)
-        setFireVolState(70)
-        setWindVolState(0)
-      } else if (preset === 'wind') {
-        volumesRef.current = { rain: 0, fire: 0, wind: 70 }
-        setRainVolState(0)
-        setFireVolState(0)
-        setWindVolState(70)
-      }
+      presetRef.current = preset
+      setAmbientVolumeState(targetVol)
+      volumeRef.current = targetVol
+      engine.playPreset(preset, targetVol)
 
       saveAmbientState({
         preset,
-        volume: vol,
-        rain: volumesRef.current.rain,
-        fire: volumesRef.current.fire,
-        wind: volumesRef.current.wind,
+        volume: targetVol,
+        enabled: true,
       })
     },
-    [ambientVolume, getOrCreateEngine]
+    [getOrCreateEngine, stopAmbientAudio]
   )
 
   const setAmbientVolume = useCallback((vol: number) => {
     const clamped = Math.max(0, Math.min(1, vol))
     setAmbientVolumeState(clamped)
+    volumeRef.current = clamped
     engineRef.current?.setMasterVolume(clamped)
+    saveAmbientState({
+      preset: presetRef.current,
+      volume: clamped,
+      enabled: enabledRef.current,
+    })
   }, [])
 
-  const applyMultiTrackUpdate = useCallback(
-    (nextRain: number, nextFire: number, nextWind: number) => {
-      volumesRef.current = { rain: nextRain, fire: nextFire, wind: nextWind }
-      setRainVolState(nextRain)
-      setFireVolState(nextFire)
-      setWindVolState(nextWind)
-
-      const hasSound = nextRain > 0 || nextFire > 0 || nextWind > 0
+  const setAmbientEnabled = useCallback(
+    (enabled: boolean) => {
+      setAmbientEnabledState(enabled)
+      enabledRef.current = enabled
       const engine = getOrCreateEngine()
+      engine.setEnabled(enabled)
 
-      if (hasSound) {
-        setAmbientEnabledState(true)
-        engine.setEnabled(true)
-        engine.setMultiTrackVolumes({
-          rain: nextRain,
-          fire: nextFire,
-          wind: nextWind,
-        }, true)
-
-        if (nextRain > 0 && nextFire === 0 && nextWind === 0) {
-          setAmbientPresetState('rain')
-        } else if (nextFire > 0 && nextRain === 0 && nextWind === 0) {
-          setAmbientPresetState('fire')
-        } else if (nextWind > 0 && nextRain === 0 && nextFire === 0) {
-          setAmbientPresetState('wind')
-        } else {
-          setAmbientPresetState('rain')
-        }
+      if (enabled) {
+        const curPreset = presetRef.current
+        const targetPreset = curPreset !== 'off' ? curPreset : 'rain'
+        setAmbientPresetState(targetPreset)
+        presetRef.current = targetPreset
+        engine.playPreset(targetPreset, volumeRef.current)
       } else {
-        setAmbientEnabledState(false)
-        engine.setEnabled(false)
         engine.stopAll()
-        setAmbientPresetState('off')
       }
 
       saveAmbientState({
-        preset: hasSound ? 'rain' : 'off',
-        volume: ambientVolume,
-        rain: nextRain,
-        fire: nextFire,
-        wind: nextWind,
+        preset: presetRef.current,
+        volume: volumeRef.current,
+        enabled,
       })
     },
-    [ambientVolume, getOrCreateEngine]
+    [getOrCreateEngine]
   )
 
+  const toggleAmbientEnabled = useCallback(() => {
+    setAmbientEnabled(!enabledRef.current)
+  }, [setAmbientEnabled])
+
+  // 兼容遗留组件引用的 dummy/映射方法
   const setRainVol = useCallback((val: number) => {
-    applyMultiTrackUpdate(val, volumesRef.current.fire, volumesRef.current.wind)
-  }, [applyMultiTrackUpdate])
+    if (val > 0) startAmbientAudio('rain', val / 100)
+    else if (presetRef.current === 'rain') stopAmbientAudio()
+  }, [startAmbientAudio, stopAmbientAudio])
 
   const setFireVol = useCallback((val: number) => {
-    applyMultiTrackUpdate(volumesRef.current.rain, val, volumesRef.current.wind)
-  }, [applyMultiTrackUpdate])
+    if (val > 0) startAmbientAudio('fire', val / 100)
+    else if (presetRef.current === 'fire') stopAmbientAudio()
+  }, [startAmbientAudio, stopAmbientAudio])
 
   const setWindVol = useCallback((val: number) => {
-    applyMultiTrackUpdate(volumesRef.current.rain, volumesRef.current.fire, val)
-  }, [applyMultiTrackUpdate])
+    if (val > 0) startAmbientAudio('wind', val / 100)
+    else if (presetRef.current === 'wind') stopAmbientAudio()
+  }, [startAmbientAudio, stopAmbientAudio])
 
   useEffect(() => {
     return () => {
@@ -222,8 +172,10 @@ export function useAmbientMixer(
     }
   }, [])
 
-  const isAmbientActive =
-    ambientEnabled && (ambientPreset !== 'off' || rainVol > 0 || fireVol > 0 || windVol > 0)
+  const isAmbientActive = ambientEnabled && ambientPreset !== 'off'
+  const rainVol = ambientPreset === 'rain' && isAmbientActive ? Math.round(ambientVolume * 100) : 0
+  const fireVol = ambientPreset === 'fire' && isAmbientActive ? Math.round(ambientVolume * 100) : 0
+  const windVol = ambientPreset === 'wind' && isAmbientActive ? Math.round(ambientVolume * 100) : 0
 
   return {
     ambientEnabled,
@@ -245,3 +197,4 @@ export function useAmbientMixer(
     audioCtxRef,
   }
 }
+

@@ -54,10 +54,7 @@ impl ReaderRepository for SqliteReaderRepository {
                    cfi = excluded.cfi,
                    percentage = excluded.percentage,
                    device_name = excluded.device_name,
-                   updated_at = excluded.updated_at
-                 WHERE excluded.updated_at >= reading_progress.updated_at
-                    OR excluded.chapter_index > reading_progress.chapter_index
-                    OR (excluded.chapter_index = reading_progress.chapter_index AND excluded.percentage >= reading_progress.percentage)",
+                   updated_at = excluded.updated_at",
                 params![&p.book_id, p.chapter_index, p.scroll_offset, &p.cfi, p.percentage, &p.device_name, &p.updated_at],
             )?;
             Ok(())

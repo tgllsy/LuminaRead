@@ -106,6 +106,12 @@ pub struct UpdateConvFields {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ChatHistoryItemDto {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct CopilotRequestDto {
     #[serde(default)]
     pub mode: String,
@@ -119,6 +125,7 @@ pub struct CopilotRequestDto {
     pub question: Option<String>,
     pub current_percentage: Option<f64>,
     pub skip_log: Option<bool>,
+    pub history: Option<Vec<ChatHistoryItemDto>>,
 }
 
 #[async_trait]

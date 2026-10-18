@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react'
 import { ReaderArticleCanvas } from './ReaderArticleCanvas'
+import { CopilotEdgeTrigger } from './CopilotEdgeTrigger'
 import { useReaderSelectionCapture } from '../hooks/useReaderSelectionCapture'
 import { extractCleanSelectedText, getPdfFilterStyle } from '../helpers'
 import { FONT_CLASS_MAP } from '../constants'
@@ -57,11 +58,18 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
   const isPdfPageCanvas = book.format === 'pdf' && c.pdf.pdfMode === 'page_canvas'
   const isPaged = (isDualSpread || c.typo.typography.continuousScroll === false) && !isPdfPageCanvas
   const isPinnedDock = Boolean(c.vp.isSidebarPinned && c.vp.canPinSidebar && c.overlays.drawerOpen)
-  const pinnedPadding = isPinnedDock
-    ? c.vp.sidebarDockSide === 'left'
-      ? 'lg:pl-[360px] xl:pl-[380px]'
-      : 'lg:pr-[360px] xl:pr-[380px]'
+  const isCopilotDocked = Boolean(
+    c.overlays.copilotModal?.isOpen && (c.vp?.windowWidth ? c.vp.windowWidth >= 768 : true)
+  )
+
+  const leftPadding = isPinnedDock && c.vp.sidebarDockSide === 'left'
+    ? 'lg:pl-[360px] xl:pl-[380px]'
     : ''
+
+  const rightPadding = [
+    isPinnedDock && c.vp.sidebarDockSide === 'right' ? 'lg:pr-[360px] xl:pr-[380px]' : '',
+    isCopilotDocked ? 'md:pr-[420px] lg:pr-[450px] xl:pr-[480px] 2xl:pr-[500px]' : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div
@@ -73,11 +81,15 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
     >
       <main
         onClick={(e) => {
+          if (c.overlays.copilotModal?.isOpen) {
+            c.overlays.setCopilotModal((p: any) => ({ ...p, isOpen: false }))
+            return
+          }
           if (e.target === e.currentTarget && (isPaged || isPdfPageCanvas)) {
             c.gest.handleScreenHotzoneClick(e)
           }
         }}
-        className={`${pinnedPadding} transition-all duration-300 ${
+        className={`${leftPadding} ${rightPadding} transition-[padding,margin,width] duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${
           isPaged
             ? 'flex-1 min-w-0 h-full flex flex-col items-center justify-center px-0 sm:px-6 py-0 sm:py-3 relative overflow-hidden'
             : isPdfPageCanvas
@@ -89,6 +101,10 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
           articleRef={c.articleRef}
           readingEstimateText={readingEstimateText}
           onCanvasClick={(e) => {
+            if (c.overlays.copilotModal?.isOpen) {
+              c.overlays.setCopilotModal((p: any) => ({ ...p, isOpen: false }))
+              return
+            }
             if (Date.now() - lastSelectionTimeRef.current < 450) return
             if (Date.now() - c.gest.lastSwipeTimeRef.current < 450 || extractCleanSelectedText().length >= 2) return
             if (c.overlays.selectionState) {
@@ -202,6 +218,14 @@ export const ReaderMainStage: React.FC<ReaderMainStageProps> = (props) => {
             onDeleteBookmark={c.bm.handleDeleteBookmark}
           />
         </Suspense>
+      <CopilotEdgeTrigger
+        isOpen={Boolean(c.overlays.copilotModal?.isOpen)}
+        onClick={() => {
+          c.overlays.setCopilotModal({ isOpen: true, mode: 'spoiler_free_recap', text: '' })
+        }}
+        theme={c.typo.typography.theme}
+        isHidden={isHidden}
+      />
     </div>
   )
 }

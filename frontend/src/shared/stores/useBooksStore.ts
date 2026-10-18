@@ -60,9 +60,25 @@ export const useBooksStore = create<BooksState>((set, get) => ({
   },
 
   updateBookOptimistically: (bookId, patch) => {
-    set((state) => ({
-      books: state.books.map((b) => (b.id === bookId ? { ...b, ...patch } : b)),
-    }))
+    set((state) => {
+      const target = state.books.find((b) => b.id === bookId)
+      if (!target) return state
+
+      const updated = {
+        ...target,
+        ...patch,
+        last_read_at: patch.last_read_at || (patch.progress ? new Date().toISOString() : target.last_read_at),
+      }
+
+      if (patch.progress || patch.last_read_at) {
+        const others = state.books.filter((b) => b.id !== bookId)
+        return { books: [updated, ...others] }
+      }
+
+      return {
+        books: state.books.map((b) => (b.id === bookId ? updated : b)),
+      }
+    })
   },
 
   removeBookOptimistically: (bookId) => {

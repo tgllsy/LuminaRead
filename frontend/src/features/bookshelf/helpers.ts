@@ -1,5 +1,21 @@
 import type { BookSummary, ReadingLibrary, BookshelfFilterState } from './types'
+import { ELEGANT_BOOK_COVERS, type ElegantCoverTheme } from './constants'
 import { toSimplified, toTraditional } from '../../utils/chineseConversion'
+
+export function getBookCoverStyle(book: { id?: string; title?: string; cover_color?: string }): ElegantCoverTheme {
+  if (book.cover_color && book.cover_color !== '#1e3a8a') {
+    return { bg: book.cover_color, accent: '#93c5fd', spine: 'rgba(255,255,255,0.1)' }
+  }
+  let hash = 0
+  const key = book.id || book.title || 'book'
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash << 5) - hash + key.charCodeAt(i)
+    hash |= 0
+  }
+  const index = Math.abs(hash) % ELEGANT_BOOK_COVERS.length
+  return ELEGANT_BOOK_COVERS[index]
+}
+
 
 function matchesQueryVariants(text: string, queries: string[]): boolean {
   const lower = text.toLowerCase()
@@ -16,7 +32,7 @@ export function filterAndSearchBooks(
     ? Array.from(new Set([query, toSimplified(query), toTraditional(query)]))
     : []
 
-  return books.filter((b) => {
+  const filtered = books.filter((b) => {
     if (libraryFilter !== 'all') {
       const bLib = b.library_id || 'lib-default'
       if (bLib !== libraryFilter) return false
@@ -46,6 +62,12 @@ export function filterAndSearchBooks(
     }
 
     return true
+  })
+
+  return filtered.sort((a, b) => {
+    const timeA = a.last_read_at || a.progress?.updated_at || a.created_at || ''
+    const timeB = b.last_read_at || b.progress?.updated_at || b.created_at || ''
+    return timeB.localeCompare(timeA)
   })
 }
 

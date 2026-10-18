@@ -100,3 +100,44 @@ export function findSentenceRangeInText(
 
   return null
 }
+
+/**
+ * 根据段落整体播放比率计算当前活跃句以及在当前句内部的相对进度比例 (0.0 ~ 1.0)
+ */
+export function computeSentenceProgress(
+  fullPara: string,
+  progressRatio: number
+): { activeSentence: string; sentenceProgress: number; sentenceIndex: number } {
+  const sentences = indexParagraphSentences(fullPara)
+  if (sentences.length === 0) {
+    return { activeSentence: fullPara, sentenceProgress: progressRatio, sentenceIndex: 0 }
+  }
+
+  const totalChars = sentences.reduce((sum, s) => sum + s.text.length, 0)
+  if (totalChars === 0) {
+    return { activeSentence: sentences[0].text, sentenceProgress: 0, sentenceIndex: 0 }
+  }
+
+  const clampedRatio = Math.max(0, Math.min(1, progressRatio))
+  const targetCharPos = clampedRatio * totalChars
+
+  let running = 0
+  for (let i = 0; i < sentences.length; i++) {
+    const s = sentences[i]
+    const nextRunning = running + s.text.length
+    if (targetCharPos <= nextRunning || i === sentences.length - 1) {
+      const sentenceChars = Math.max(1, s.text.length)
+      const inSentencePos = targetCharPos - running
+      const sentenceProgress = Math.max(0, Math.min(1, inSentencePos / sentenceChars))
+      return {
+        activeSentence: s.text,
+        sentenceProgress,
+        sentenceIndex: i,
+      }
+    }
+    running = nextRunning
+  }
+
+  const last = sentences[sentences.length - 1]
+  return { activeSentence: last.text, sentenceProgress: 1, sentenceIndex: sentences.length - 1 }
+}

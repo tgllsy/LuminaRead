@@ -23,11 +23,9 @@ build-backend:
 		CXX=$(CXX_BIN) \
 		AR=$(AR_BIN) \
 		cargo rustc --release --bin luminaread -- \
-		-C target-feature=+crt-static \
 		-C linker=$(CC_BIN) \
 		-C link-arg=-Wl,--gc-sections \
-		-C link-arg=-Wl,--strip-all \
-		-C link-arg=-Wl,-O2
+		-C link-arg=-Wl,--strip-all
 	cp -f backend/target/release/luminaread ./luminaread
 	strip --strip-all -R .comment -R .note -R .note.ABI-tag -R .note.gnu.build-id ./luminaread 2>/dev/null || true
 

@@ -70,7 +70,15 @@ export function useAudioKeepAlive(
           wakeLockRef.current = lock
         }).catch(() => {})
       }
-      if (audioElRef.current?.src && audioElRef.current.paused && !audioElRef.current.ended) {
+      if (
+        document.visibilityState === 'visible' &&
+        audioElRef.current?.src &&
+        audioElRef.current.src !== window.location.href &&
+        audioElRef.current.paused &&
+        !audioElRef.current.ended &&
+        audioElRef.current.readyState >= 2 &&
+        audioElRef.current.currentTime > 0
+      ) {
         audioElRef.current.play().catch(() => {})
       }
       if (keepAliveCtxRef.current?.state === 'suspended') {

@@ -1,5 +1,6 @@
-import { computeActiveSentence, isNonSpokenMarkerParagraph } from '../helpers'
+import { computeActiveSentence, isNonSpokenMarkerParagraph, computeSentenceProgress } from '../helpers'
 import { resolveSentenceVoice } from './dialogueSpeaker'
+import { useTtsStore } from '../../../stores/ttsStore'
 
 export interface AudioSessionHandlers {
   sessionId: number
@@ -56,12 +57,54 @@ export function bindAudioEventListeners(
     persistCheckpoint, lastCheckpointWriteRef,
   } = handlers
 
+  let rafId: number | null = null
+
+  const stopRaf = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+  }
+
+  const tickHighFreq = () => {
+    if (sessionId !== getSessionId()) {
+      stopRaf()
+      return
+    }
+    if (!audio.paused && !audio.ended && Number.isFinite(audio.duration) && audio.duration > 0) {
+      const cur = audio.currentTime || 0
+      const dur = audio.duration
+      const ratio = Math.min(1, Math.max(0, cur / dur))
+      const { activeSentence, sentenceProgress } = computeSentenceProgress(text, ratio)
+      const store = useTtsStore.getState()
+      if (store.activeSentence !== activeSentence) {
+        store.setActiveSentence(activeSentence)
+      }
+      store.setSentenceProgress(sentenceProgress)
+      rafId = requestAnimationFrame(tickHighFreq)
+    } else {
+      stopRaf()
+    }
+  }
+
+  audio.onplay = () => {
+    if (sessionId !== getSessionId()) return
+    stopRaf()
+    rafId = requestAnimationFrame(tickHighFreq)
+  }
+
+  audio.onpause = () => {
+    stopRaf()
+  }
+
   audio.onloadedmetadata = () => {
     if (sessionId === getSessionId() && Number.isFinite(audio.duration) && audio.duration > 0) {
       onDurationChange(audio.duration)
       if (initialSeekSec > 0.5 && initialSeekSec < audio.duration - 0.5) {
         audio.currentTime = initialSeekSec
       }
+      stopRaf()
+      rafId = requestAnimationFrame(tickHighFreq)
     }
   }
 
@@ -78,13 +121,19 @@ export function bindAudioEventListeners(
       lastCheckpointWriteRef.current = now
       persistCheckpoint(idx, curSnip, cur, totalParas, voiceToUse, ttsRate)
     }
+
+    if (!rafId && !audio.paused && !audio.ended) {
+      rafId = requestAnimationFrame(tickHighFreq)
+    }
   }
 
   audio.onended = () => {
+    stopRaf()
     if (sessionId === getSessionId()) onEnded()
   }
 
   audio.onerror = () => {
+    stopRaf()
     if (sessionId === getSessionId()) onError()
   }
 }
@@ -150,7 +199,11 @@ export async function dispatchAudioPlayback(p: PlaybackDispatchParams): Promise<
         p.setCurrentTimeSec(cur); p.setDurationSec(dur)
         p.setParaProgress(Math.round(ratio * 100)); p.setActiveSentenceSnippet(snip)
       },
-      onEnded: () => { p.setParaProgress(100); p.onNextParagraph() },
+      onEnded: () => {
+        if (p.sessionId !== p.getSessionId()) return
+        p.setParaProgress(100)
+        p.onNextParagraph()
+      },
       onError: () => {
         if (p.sessionId !== p.getSessionId()) return
         p.setTtsLoading(false)
@@ -164,9 +217,34 @@ export async function dispatchAudioPlayback(p: PlaybackDispatchParams): Promise<
       persistCheckpoint: p.persistCheckpoint, lastCheckpointWriteRef: p.lastCheckpointWriteRef,
     })
 
+    if (p.sessionId !== p.getSessionId()) {
+      try {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+      } catch {}
+      return
+    }
+
     if (audio.paused) {
       const playPromise = audio.play()
-      if (playPromise !== undefined) await playPromise
+      if (playPromise !== undefined) {
+        try {
+          await playPromise
+        } catch (e: unknown) {
+          if (p.sessionId !== p.getSessionId()) return
+          throw e
+        }
+      }
+    }
+
+    if (p.sessionId !== p.getSessionId()) {
+      try {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+      } catch {}
+      return
     }
   } catch (err: unknown) {
     if (p.sessionId !== p.getSessionId()) return

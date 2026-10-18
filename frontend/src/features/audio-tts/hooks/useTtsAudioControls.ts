@@ -61,7 +61,13 @@ export function useTtsAudioControls(opts: UseTtsAudioControlsOptions) {
     abortActiveAudioElements: opts.abortActiveAudioElements ?? (() => {}), abortInflightRequests: opts.abortInflightRequests,
     getOrCreateAudioElement: opts.getOrCreateAudioElement,
     preloadStandbyDeck: (url, rate) => opts.deckManagerRef?.current?.preloadStandby(url, rate),
-    swapAndPlayDeck: () => opts.deckManagerRef?.current?.swapAndPlay() as HTMLAudioElement,
+    swapAndPlayDeck: () => {
+      const next = opts.deckManagerRef?.current?.swapAndPlay() as HTMLAudioElement
+      if (next && opts.audioElRef) {
+        opts.audioElRef.current = next
+      }
+      return next
+    },
     fetchParagraphNeuralAudio: opts.fetchParagraphNeuralAudio, prefetchParagraph: opts.prefetchParagraph,
     hasCachedAudio: opts.hasCachedAudio, persistListeningCheckpoint: opts.persistListeningCheckpoint,
     syncServerProgress: opts.syncServerProgress, setLastCacheStatus: opts.setLastCacheStatus,

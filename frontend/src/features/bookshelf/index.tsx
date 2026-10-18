@@ -6,7 +6,6 @@ import {
   BookshelfHeader,
   BookshelfHeroCard,
   LibraryTabBar,
-  CategoryPills,
   BookGrid,
   OrganizeBookModal,
   CreateLibraryModal,
@@ -86,7 +85,18 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
   const chineseVariant = useTypographyStore((s) => s.typography.chineseVariant ?? 'original')
   const mergedBooks = useMemo(() => convertBooksList(rawMergedBooks, chineseVariant), [rawMergedBooks, chineseVariant])
   const filteredBooks = useMemo(() => filterAndSearchBooks(mergedBooks, filter.filterState), [mergedBooks, filter.filterState])
-  const categories = useMemo(() => extractUniqueCategories(mergedBooks), [mergedBooks])
+  const categories = useMemo(() => {
+    const scopeBooks = filter.libraryFilter === 'all'
+      ? mergedBooks
+      : mergedBooks.filter((b) => (b.library_id || 'lib-default') === filter.libraryFilter)
+    return extractUniqueCategories(scopeBooks)
+  }, [mergedBooks, filter.libraryFilter])
+
+  useEffect(() => {
+    if (filter.categoryFilter !== 'all' && !categories.includes(filter.categoryFilter)) {
+      filter.setCategoryFilter('all')
+    }
+  }, [categories, filter.categoryFilter, filter.setCategoryFilter])
 
   const triggerUploadWithFiles = (files: File[]) => {
     const supportedExts = ['.epub', '.pdf', '.txt', '.md', '.markdown', '.mobi', '.azw', '.azw3', '.prc']
@@ -161,18 +171,27 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
         onOpenNotesHub={onOpenNotesHub}
       />
       <div className="mb-4"><DailyReviewCard onJumpToHighlight={onOpenBook} onOpenNotesHub={onOpenNotesHub} /></div>
-      <BookshelfHeader
-        totalBooksCount={mergedBooks.length} statusFilter={filter.statusFilter} viewMode={filter.viewMode} localFilterText={filter.localFilterText}
-        onStatusFilterChange={filter.setStatusFilter} onViewModeChange={filter.setViewMode} onFilterTextChange={filter.setLocalFilterText}
-        onTriggerUpload={() => fileInputRef.current?.click()} onOpenDiscovery={onOpenDiscovery} onOpenSourceSettings={onOpenSourceSettings} onOpenStats={onOpenStats}
-        onOpenGlobalSearch={onOpenGlobalSearch}
-      />
-      <LibraryTabBar
-        libraries={libraries} activeLibraryId={filter.libraryFilter} totalBooksCount={mergedBooks.length} onSelectLibrary={filter.setLibraryFilter}
-        onOpenCreateModal={() => setLibraryModalState({ isOpen: true, targetLib: null })} onOpenEditModal={(_e, lib) => setLibraryModalState({ isOpen: true, targetLib: lib })}
-        onDeleteLibrary={(_e, lib) => handleDeleteLibrary(lib)}
-      />
-      <CategoryPills categories={categories} activeCategory={filter.categoryFilter} onSelectCategory={filter.setCategoryFilter} />
+      <div className="sticky top-16 z-20 bg-[#f7f8fa]/95 backdrop-blur-md pt-2 pb-2.5 mb-5 border-b border-slate-200/60 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 transition-all">
+        <BookshelfHeader
+          libraries={libraries}
+          activeLibraryId={filter.libraryFilter}
+          totalBooksCount={mergedBooks.length}
+          onSelectLibrary={filter.setLibraryFilter}
+          onOpenCreateModal={() => setLibraryModalState({ isOpen: true, targetLib: null })}
+          onOpenEditModal={(_e, lib) => setLibraryModalState({ isOpen: true, targetLib: lib })}
+          onDeleteLibrary={(_e, lib) => handleDeleteLibrary(lib)}
+          statusFilter={filter.statusFilter}
+          onStatusFilterChange={filter.setStatusFilter}
+          categories={categories}
+          activeCategory={filter.categoryFilter}
+          onSelectCategory={filter.setCategoryFilter}
+          viewMode={filter.viewMode}
+          localFilterText={filter.localFilterText}
+          onViewModeChange={filter.setViewMode}
+          onFilterTextChange={filter.setLocalFilterText}
+          onOpenGlobalSearch={onOpenGlobalSearch}
+        />
+      </div>
       <BookGrid
         books={filteredBooks} viewMode={filter.viewMode} openTabBookIds={openTabBookIds} uploadAlerts={ops.uploadAlerts}
         onOpenBook={onOpenBook} onOpenOrganize={(_e, book) => setOrganizingBook(book)} onDeleteBook={(_e, id, title, skip) => ops.deleteBook(id, title, skip)}

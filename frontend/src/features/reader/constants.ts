@@ -52,10 +52,10 @@ export const THEME_STYLES: Record<
     subtext: 'text-slate-400',
   },
   eink: {
-    outer: 'bg-[#e8eaed] text-black eink-mode',
-    page: 'bg-[#f1f3f5] text-black border-2 border-black eink-mode',
-    header: 'bg-[#f1f3f5] border-b-2 border-black text-black eink-mode',
-    subtext: 'text-black',
+    outer: 'bg-white text-black eink-mode',
+    page: 'bg-white text-black border border-black/25 shadow-none eink-mode',
+    header: 'bg-white border-b border-black/15 text-black eink-mode',
+    subtext: 'text-black font-medium',
   },
 }
 
@@ -71,10 +71,10 @@ export const BG_TEXTURE_STYLES: Record<
     subtext: 'text-[#6e665c]',
   },
   grain: {
-    outer: 'bg-[#e8eaed] text-black eink-mode',
-    page: 'bg-[#f1f3f5] text-black border-2 border-black eink-mode',
-    header: 'bg-[#f1f3f5] border-b-2 border-black text-black eink-mode',
-    subtext: 'text-black',
+    outer: 'bg-white text-black eink-mode',
+    page: 'bg-white text-black border border-black/25 shadow-none eink-mode',
+    header: 'bg-white border-b border-black/15 text-black eink-mode',
+    subtext: 'text-black font-medium',
   },
   dune: {
     outer: 'bg-gradient-to-b from-[#efe3d6] via-[#e8d1be] to-[#dcc0a8] text-[#3a2a1d]',
@@ -91,6 +91,9 @@ export const BG_TEXTURE_STYLES: Record<
 }
 
 export function getEffectiveThemeStyle(typography: Pick<ReaderTypography, 'theme' | 'bgTexture'>) {
+  if (typography.theme === 'eink') {
+    return THEME_STYLES.eink
+  }
   if (typography.bgTexture && typography.bgTexture !== 'plain') {
     const texStyle = BG_TEXTURE_STYLES[typography.bgTexture]
     if (texStyle) return texStyle

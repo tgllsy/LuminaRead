@@ -12,6 +12,7 @@ interface TtsStoreState {
   openTtsModalNonce: number
   listeningCapsuleDismissed: boolean
   activeSentence: string
+  sentenceProgress: number
   resumeTargetBookId: string | null
   resumeRequestTimestamp: number
 
@@ -20,6 +21,7 @@ interface TtsStoreState {
   setCheckpoint: (checkpoint: TtsCheckpoint | null) => void
   setActivePara: (paraIdx: number | null) => void
   setActiveSentence: (sentence: string) => void
+  setSentenceProgress: (prog: number) => void
   setFocusedPara: (target: { chapterIndex: number; paragraphIndex: number } | null) => void
   triggerResumeTts: (targetBookId?: string) => void
   clearResumeRequest: () => void
@@ -44,6 +46,7 @@ export const useTtsStore = create<TtsStoreState>((set) => ({
   openTtsModalNonce: 0,
   listeningCapsuleDismissed: false,
   activeSentence: '',
+  sentenceProgress: 0,
   resumeTargetBookId: null,
   resumeRequestTimestamp: 0,
 
@@ -59,6 +62,7 @@ export const useTtsStore = create<TtsStoreState>((set) => ({
   setCheckpoint: (checkpoint) => set({ checkpoint }),
   setActivePara: (activePara) => set({ activePara }),
   setActiveSentence: (activeSentence) => set({ activeSentence }),
+  setSentenceProgress: (sentenceProgress) => set({ sentenceProgress }),
   setFocusedPara: (focusedPara) => set({ focusedPara }),
   triggerResumeTts: (targetBookId?: string) =>
     set((s) => ({

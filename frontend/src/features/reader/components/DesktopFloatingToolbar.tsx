@@ -23,6 +23,7 @@ interface DesktopFloatingToolbarProps {
   onOpenDrawerTab: (tab: 'toc' | 'search' | 'notes') => void
   dockSide?: 'left' | 'right' | 'none'
   onOpenCopilot: () => void
+  isCopilotOpen?: boolean
   onOpenTTS: () => void
   highlightsCount: number
   isTtsActive: boolean
@@ -44,6 +45,7 @@ export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
   onOpenDrawerTab,
   dockSide = 'none',
   onOpenCopilot,
+  isCopilotOpen = false,
   onOpenTTS,
   highlightsCount,
   isTtsActive,
@@ -61,13 +63,16 @@ export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
     : 'bg-white/95 border-slate-200/90 text-slate-700 hover:text-[#1b88ee]'
 
   const isDockedRight = drawerOpen && dockSide === 'right'
+  const rightPositionClass = isCopilotOpen
+    ? 'right-[440px] md:right-[470px] lg:right-[500px] xl:right-[520px]'
+    : isDockedRight
+    ? 'right-[335px] lg:right-[365px] xl:right-[395px]'
+    : 'right-4 xl:right-8'
 
   return (
     <aside
       data-no-hud-toggle="true"
-      className={`hidden lg:flex fixed top-1/2 -translate-y-1/2 z-30 flex-col gap-1.5 max-h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1 transition-all duration-300 ${
-        isDockedRight ? 'right-[335px] lg:right-[365px] xl:right-[395px]' : 'right-4 xl:right-8'
-      }`}
+      className={`hidden lg:flex fixed top-1/2 -translate-y-1/2 z-30 flex-col gap-1.5 max-h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1 transition-all duration-300 cubic-bezier(0.16, 1, 0.3, 1) ${rightPositionClass}`}
     >
       {/* 1. 目录 (TOC) */}
       <button
@@ -233,8 +238,12 @@ export const DesktopFloatingToolbar: React.FC<DesktopFloatingToolbarProps> = ({
       <button
         type="button"
         onClick={onOpenCopilot}
-        className={`w-12 h-12 rounded-full shadow-md border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 ${baseBtnClass}`}
-        title="AI 伴读与防剧透导读"
+        className={`w-12 h-12 rounded-full shadow-md border backdrop-blur-md flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 cursor-pointer ${
+          isCopilotOpen
+            ? 'bg-[#1b88ee] border-[#1b88ee] text-white shadow-lg shadow-blue-500/25 ring-2 ring-blue-400/30'
+            : baseBtnClass
+        }`}
+        title={isCopilotOpen ? '收回 AI 伴读边栏' : '展开 AI 伴读边栏'}
       >
         <span className="text-xs font-extrabold leading-none">
           AI<sup className="text-[8px] ml-0.5">+</sup>

@@ -59,7 +59,7 @@ export function computeSpreadsSync(input: Omit<PaginationInput, 'reqId'>): PageS
 
   const state: ParagraphLayoutState = {
     currentPage: [],
-    currentHeightPx: 48, // Reserve ~48px at top of Page 1 for chapter title
+    currentHeightPx: 72, // Reserve ~72px at top of Page 1 for chapter title with borders & paddings
     singlePages: [],
   }
 

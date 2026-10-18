@@ -11,6 +11,25 @@ export interface GaplessAudioDeckManager {
   setPlaybackRate: (rate: number) => void
 }
 
+const registeredDeckAudios = new Set<HTMLAudioElement>()
+
+export function stopAllRegisteredDeckAudios(exceptEl?: HTMLAudioElement | null): void {
+  for (const el of registeredDeckAudios) {
+    if (exceptEl && el === exceptEl) continue
+    try {
+      el.pause()
+      el.removeAttribute('src')
+      el.load()
+      el.onended = null
+      el.onerror = null
+      el.ontimeupdate = null
+      el.onloadedmetadata = null
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function createConfiguredAudioElement(): HTMLAudioElement {
   const el = new Audio()
   el.preload = 'auto'
@@ -18,6 +37,7 @@ function createConfiguredAudioElement(): HTMLAudioElement {
   if ('preservesPitch' in el) {
     ;(el as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true
   }
+  registeredDeckAudios.add(el)
   return el
 }
 
@@ -54,24 +74,14 @@ export function createGaplessAudioDeckPool(): GaplessAudioDeckManager {
 
     try {
       prev.pause()
+      prev.removeAttribute('src')
+      prev.load()
       prev.onended = null
       prev.onerror = null
       prev.ontimeupdate = null
       prev.onloadedmetadata = null
     } catch {
       // ignore
-    }
-
-    // Start standby deck immediately within the synchronous onended tick if preloaded
-    if (next.src && next.paused) {
-      try {
-        const playResult = next.play()
-        if (playResult !== undefined) {
-          playResult.catch(() => {})
-        }
-      } catch {
-        // ignore
-      }
     }
 
     return next

@@ -1,4 +1,5 @@
 import { useTtsStore } from '../../../stores/ttsStore'
+import { stopAllRegisteredDeckAudios } from './gaplessAudioDeck'
 
 interface ActiveTtsSession {
   bookId: string
@@ -58,6 +59,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function stopLocalTts(reason?: string): void {
+  stopAllRegisteredDeckAudios()
   if (activeSession) {
     const s = activeSession
     activeSession = null
@@ -105,6 +107,7 @@ export function claimGlobalTtsSession(
   stop: () => void,
   audioEl?: HTMLAudioElement | null
 ): void {
+  stopAllRegisteredDeckAudios(audioEl)
   if (activeSession) {
     if (activeSession.bookId !== bookId) {
       stopLocalTts(`Switching TTS session from ${activeSession.bookId} to ${bookId}`)

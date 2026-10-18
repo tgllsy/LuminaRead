@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Sparkles, ChevronRight, User } from 'lucide-react'
-import type { NeuralVoiceOption } from '../types'
+import type { NeuralVoiceOption, AmbientPreset } from '../types'
 import { DEFAULT_VOICES } from '../constants'
 import { AmbientMixerWidget } from './AmbientMixerWidget'
 import { TheaterVoiceLibraryModal } from './TheaterVoiceLibraryModal'
@@ -14,12 +14,16 @@ interface TheaterLeftStageProps {
   effectiveVoice: string
   voices?: NeuralVoiceOption[]
   onVoiceChange: (voiceId: string) => void
-  rainVol: number
-  fireVol: number
-  windVol: number
-  onChangeRain: (val: number) => void
-  onChangeFire: (val: number) => void
-  onChangeWind: (val: number) => void
+  ambientPreset?: AmbientPreset
+  ambientVolume?: number
+  onSelectAmbientPreset?: (preset: AmbientPreset) => void
+  onChangeAmbientVolume?: (vol: number) => void
+  rainVol?: number
+  fireVol?: number
+  windVol?: number
+  onChangeRain?: (val: number) => void
+  onChangeFire?: (val: number) => void
+  onChangeWind?: (val: number) => void
   onOpenAmbientModal?: () => void
   ambientEnabled?: boolean
   onToggleAmbientEnabled?: () => void
@@ -41,6 +45,10 @@ export const TheaterLeftStage: React.FC<TheaterLeftStageProps> = ({
   effectiveVoice,
   voices = DEFAULT_VOICES,
   onVoiceChange,
+  ambientPreset,
+  ambientVolume,
+  onSelectAmbientPreset,
+  onChangeAmbientVolume,
   rainVol,
   fireVol,
   windVol,
@@ -52,6 +60,7 @@ export const TheaterLeftStage: React.FC<TheaterLeftStageProps> = ({
   onToggleAmbientEnabled,
 }) => {
   const [showVoiceLibrary, setShowVoiceLibrary] = useState(false)
+
 
   const activeVoiceObj = voices.find((v) => v.id === effectiveVoice)
 
@@ -155,6 +164,10 @@ export const TheaterLeftStage: React.FC<TheaterLeftStageProps> = ({
           </div>
 
           <AmbientMixerWidget
+            ambientPreset={ambientPreset}
+            ambientVolume={ambientVolume}
+            onSelectPreset={onSelectAmbientPreset}
+            onVolumeChange={onChangeAmbientVolume}
             rainVol={rainVol}
             fireVol={fireVol}
             windVol={windVol}

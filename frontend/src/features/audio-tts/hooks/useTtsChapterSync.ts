@@ -62,18 +62,11 @@ export function useTtsChapterSync({
 }: UseTtsChapterSyncOptions) {
   useTtsDrawerKeyboard(isOpen, activeDrawer, setActiveDrawer, onClose)
 
-  useEffect(() => {
-    const p = pendingResumeRef.current
-    if (p && p.bookId === bookId && p.chapterIndex === chapterIndex && paragraphs.length > 0) {
-      pendingResumeRef.current = null
-      speakParagraphAtIndex(p.paragraphIndex, undefined, p.audioTimeSec)
-    }
-  }, [bookId, chapterIndex, paragraphs, speakParagraphAtIndex, pendingResumeRef])
-
   const prevBookIdForChapRef = useRef(bookId)
   const waitingForParasRef = useRef(false)
 
   useEffect(() => {
+    // 1. 书籍切换：彻底重置并停止
     if (prevBookIdForChapRef.current !== bookId) {
       prevBookIdForChapRef.current = bookId
       prevChapterIndexRef.current = chapterIndex
@@ -83,24 +76,36 @@ export function useTtsChapterSync({
       return
     }
 
+    // 2. 如果正文段落尚未就绪，等待加载就绪
+    if (paragraphs.length === 0) {
+      waitingForParasRef.current = true
+      return
+    }
+    const hadWaited = waitingForParasRef.current
+    waitingForParasRef.current = false
+
     const chapterChanged = prevChapterIndexRef.current !== chapterIndex
-    if (chapterChanged || waitingForParasRef.current) {
-      if (paragraphs.length === 0) {
-        waitingForParasRef.current = true
-        return
-      }
-      waitingForParasRef.current = false
-      prevChapterIndexRef.current = chapterIndex
-      if (pendingResumeRef.current && pendingResumeRef.current.chapterIndex === chapterIndex) {
-        return
-      }
-      if (autoAdvanceChapterRef.current) {
-        autoAdvanceChapterRef.current = false
-        speakParagraphAtIndex(0)
-      } else if (ttsPlaying || ttsPaused) {
-        stopTTS()
-        onActiveParagraphChange(null)
-      }
+    prevChapterIndexRef.current = chapterIndex
+
+    // 3. 优先级 1：检查是否有待处理的恢复播放请求（pendingResume）
+    const pending = pendingResumeRef.current
+    if (pending && pending.bookId === bookId && pending.chapterIndex === chapterIndex) {
+      pendingResumeRef.current = null
+      speakParagraphAtIndex(pending.paragraphIndex, undefined, pending.audioTimeSec)
+      return
+    }
+
+    // 4. 优先级 2：自动顺延下一章
+    if (autoAdvanceChapterRef.current && (chapterChanged || hadWaited)) {
+      autoAdvanceChapterRef.current = false
+      speakParagraphAtIndex(0)
+      return
+    }
+
+    // 5. 优先级 3：章节改变且不是听书驱动（用户外部翻章），若正在播放则停止
+    if (chapterChanged && (ttsPlaying || ttsPaused)) {
+      stopTTS()
+      onActiveParagraphChange(null)
     }
   }, [
     bookId,

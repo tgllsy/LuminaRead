@@ -7,11 +7,13 @@ import {
   getRunsPlainText,
   sliceRichRuns,
   wrapWithRichStyles,
+  renderRunWithKeyword,
   type RichTextRun,
 } from '../helpers/richTextHelpers'
 import { computeHighlightSpanForParagraph } from '../helpers/highlightRangeHelpers'
 import { findEntitiesInText } from '../helpers/entityMatcherHelpers'
 import { findSentenceRangeInText } from '../../audio-tts/helpers/sentenceIndexer'
+import { KtvSentenceHighlight } from './KtvSentenceHighlight'
 
 interface ParagraphHighlightedSpansProps {
   displayPara: string
@@ -26,49 +28,12 @@ interface ParagraphHighlightedSpansProps {
   isTtsActive?: boolean
   touchStartRef: React.MutableRefObject<{ x: number; y: number; time: number } | null>
   onOpenCitationMarker: (rawMarker: string, sourceParaIdx: number) => void
-  onSelectHighlightForNote: (
-    hl: HighlightItem,
-    pIdx: number,
-    anchorRect?: import('../../reader-controls/types').SelectionAnchorRect | null
-  ) => void
-  onOpenEntityWiki?: (
-    term: string,
-    anchorRect?: import('../../reader-controls/types').SelectionAnchorRect | null
-  ) => void
+  onSelectHighlightForNote: (hl: HighlightItem, pIdx: number, anchorRect?: import('../../reader-controls/types').SelectionAnchorRect | null) => void
+  onOpenEntityWiki?: (term: string, anchorRect?: import('../../reader-controls/types').SelectionAnchorRect | null) => void
 }
 
 const CITATION_REGEX =
   /(〔(?:注)?\d{1,3}〕|\^?\[(?:(?:注)?\d{1,3}|[①-⑳])\]|【(?:注)?\d{1,3}】|[①-⑳⑴-⒇]|\(注\d{1,3}\)|（注\d{1,3}）|\(\d{1,3}\)|（\d{1,3}）)/g
-
-function renderRunWithKeyword(
-  text: string,
-  styles: RichTextRun['styles'],
-  keyPrefix: string,
-  keyword?: string
-): React.ReactNode {
-  if (!keyword || !text.includes(keyword)) {
-    return wrapWithRichStyles(text, styles, keyPrefix)
-  }
-  const parts = text.split(keyword)
-  const nodes: React.ReactNode[] = []
-  parts.forEach((p, idx) => {
-    if (idx > 0) {
-      nodes.push(
-        <mark key={`${keyPrefix}-kw-${idx}`} className="bg-amber-300 text-slate-950 font-bold px-0.5 rounded">
-          {wrapWithRichStyles(keyword, styles, `${keyPrefix}-kwt-${idx}`)}
-        </mark>
-      )
-    }
-    if (p) {
-      nodes.push(
-        <React.Fragment key={`${keyPrefix}-p-${idx}`}>
-          {wrapWithRichStyles(p, styles, `${keyPrefix}-pt-${idx}`)}
-        </React.Fragment>
-      )
-    }
-  })
-  return <React.Fragment key={keyPrefix}>{nodes}</React.Fragment>
-}
 
 export const ParagraphHighlightedSpans: React.FC<ParagraphHighlightedSpansProps> = ({
   displayPara,
@@ -122,7 +87,7 @@ export const ParagraphHighlightedSpans: React.FC<ParagraphHighlightedSpansProps>
               onOpenCitationMarker(part, pIdx)
             }}
             title={`点击查看注释 ${part}`}
-            className="reader-ui-badge indent-0 tracking-normal inline-flex items-center justify-center px-1 py-[1px] mx-0.5 -top-1 text-[0.72em] font-semibold leading-none rounded bg-blue-500/15 text-blue-600 dark:text-blue-300 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors select-none"
+            className="reader-ui-badge indent-0 tracking-normal inline-flex items-center justify-center px-1.5 py-[1px] mx-0.5 -top-1 text-[0.72em] font-semibold leading-none rounded-md bg-blue-50 border border-blue-200/80 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700/50 dark:text-blue-300 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors select-none"
           >
             {part.replace(/^（/, '(').replace(/）$/, ')')}
           </sup>
@@ -293,12 +258,14 @@ export const ParagraphHighlightedSpans: React.FC<ParagraphHighlightedSpansProps>
   }
 
   if (ttsRange) {
+    const activeSentenceText = plainText.slice(ttsRange.start, ttsRange.end)
     return (
       <>
         {renderRunsWithEntities(0, ttsRange.start, `${itemKey}-tts-pre`)}
-        <span className="reader-tts-active-sentence" data-tts-sentence-active="true">
-          {renderRunsWithEntities(ttsRange.start, ttsRange.end, `${itemKey}-tts-active`)}
-        </span>
+        <KtvSentenceHighlight
+          sentenceText={activeSentenceText}
+          fallbackContent={renderRunsWithEntities(ttsRange.start, ttsRange.end, `${itemKey}-tts-active`)}
+        />
         {renderRunsWithEntities(ttsRange.end, plainText.length, `${itemKey}-tts-post`)}
       </>
     )

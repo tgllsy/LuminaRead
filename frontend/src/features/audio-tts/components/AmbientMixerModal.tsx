@@ -190,7 +190,13 @@ export const AmbientMixerModal: React.FC<AmbientMixerModalProps> = ({
           step={0.05}
           value={ambientVolume}
           disabled={!isPlaying}
-          onChange={(e) => onVolumeChange(Number(e.target.value))}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation()
+            onVolumeChange(Number(e.target.value))
+          }}
           className="flex-1 accent-[#1b88ee] h-1.5 cursor-pointer disabled:cursor-not-allowed"
         />
         <span className={`text-xs font-mono w-10 text-right ${mutedTextCls}`}>

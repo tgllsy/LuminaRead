@@ -1,6 +1,8 @@
 import type { BookSummary, ReaderTypography } from '../../types'
 
-export type CopilotLayoutMode = 'modal' | 'dock-right' | 'dock-left'
+export type CopilotLayoutMode = 'studio' | 'modal' | 'dock-right' | 'dock-left'
+
+export type CognitiveMode = 'socratic' | 'causal_graph' | 'intertextual'
 
 export type CopilotMode =
   | 'spoiler_free_recap'
@@ -9,6 +11,7 @@ export type CopilotMode =
   | 'example'
   | 'socratic'
   | 'bilingual'
+  | 'intertextual'
   | 'custom'
 
 export type CopilotChatMode =
@@ -17,7 +20,26 @@ export type CopilotChatMode =
   | 'example'
   | 'socratic'
   | 'bilingual'
+  | 'intertextual'
   | 'custom'
+
+export interface SemanticNode {
+  id: string
+  label: string
+  category?: 'mechanism' | 'entity' | 'concept'
+}
+
+export interface IntertextualBookComparison {
+  relatedBookTitle: string
+  relatedAuthor: string
+  chapterContext: string
+  quote: string
+  dimension: string
+  currentBookView: string
+  relatedBookView: string
+  currentBookPerspective?: string
+  relatedBookPerspective?: string
+}
 
 export interface CharacterNode {
   id: string
@@ -57,6 +79,29 @@ export interface SpoilerFreeRecapData {
   }
 }
 
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  title?: string
+  mode?: CopilotChatMode
+  follow_ups?: string[]
+  citations?: Array<{
+    chapter_index: number
+    chapter_title: string
+    paragraph_index: number
+    snippet: string
+  }>
+  timestamp: number
+  selectedText?: string
+  isError?: boolean
+}
+
 export interface CopilotQueryPayload {
   mode: CopilotChatMode
   book_id: string
@@ -68,6 +113,7 @@ export interface CopilotQueryPayload {
   question?: string
   skip_log?: boolean
   force_new?: boolean
+  history?: ChatHistoryItem[]
 }
 
 export interface CopilotRecapPayload {
@@ -104,6 +150,7 @@ export interface AICopilotModalProps {
   currentChapterIndex: number
   currentChapterTitle: string
   chapterExcerpt?: string
+  chapterText?: string
   theme?: ReaderTypography['theme']
   initialMode?:
     | 'spoiler_free_recap'
@@ -111,6 +158,7 @@ export interface AICopilotModalProps {
     | 'example'
     | 'socratic'
     | 'bilingual'
+    | 'intertextual'
   selectedText?: string
   paragraphIndex?: number
   onSaveInsightAsNote: (text: string, noteContent: string) => void

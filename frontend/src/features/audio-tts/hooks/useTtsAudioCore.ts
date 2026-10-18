@@ -7,6 +7,7 @@ import type { useTtsPlaybackState } from './useTtsPlaybackState'
 import { useTtsStop } from './useTtsStop'
 import { useTtsStore } from '../../../stores/ttsStore'
 import { claimGlobalTtsSession } from '../helpers/globalTtsCoordinator'
+import { stopAllRegisteredDeckAudios } from '../helpers/gaplessAudioDeck'
 import { useWebSpeechFallback } from './useWebSpeechFallback'
 
 interface AudioCoreOptions {
@@ -95,9 +96,9 @@ export function useTtsAudioCore(opts: AudioCoreOptions) {
     autoAdvanceChapterRef: opts.autoAdvanceChapterRef,
     abortActiveAudioElements: () => {
       cancelFallback()
-      opts.abortActiveAudioElements()
+      optsRef.current.abortActiveAudioElements?.()
     },
-    abortInflightRequests: opts.abortInflightRequests,
+    abortInflightRequests: () => optsRef.current.abortInflightRequests?.(),
   })
 
   const speakParagraphAtIndex = useCallback(
@@ -108,6 +109,7 @@ export function useTtsAudioCore(opts: AudioCoreOptions) {
 
       const sessionId = ++playbackSessionRef.current
       if (!isAutoAdvance) {
+        stopAllRegisteredDeckAudios(curOpts.getOrCreateAudioElement())
         curOpts.abortActiveAudioElements()
         cancelFallback()
       }

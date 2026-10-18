@@ -94,7 +94,7 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
           lineHeight: typography.lineHeight,
           fontFamily: FONT_FAMILY_MAP[typography.fontFamily],
         }}
-        className={`${fontClass} flex-1 min-h-0 grid grid-cols-2 gap-8 xl:gap-12 items-stretch overflow-hidden relative [perspective:2600px] [transform-style:preserve-3d]` }
+        className={`${fontClass} flex-1 min-h-0 grid grid-cols-2 gap-8 xl:gap-12 items-stretch overflow-hidden relative`}
       >
         {/* Left Page Column */}
         <div
@@ -110,8 +110,8 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
           }}
           className={`${leftColSlideClass} flex flex-col justify-between h-full min-h-0 overflow-hidden pr-1 relative`}
         >
-          <div className="mb-2 flex items-center justify-between text-[11px] font-sans opacity-40 select-none shrink-0">
-            <span className="truncate max-w-[260px]">{book.title}</span>
+          <div className="mb-2 flex items-center justify-between text-[11px] font-sans opacity-75 select-none shrink-0 border-b border-current/10 pb-1">
+            <span className="truncate max-w-[260px] font-medium">{book.title}</span>
             {book.format === 'pdf' && (
               <button
                 type="button"
@@ -126,8 +126,8 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
               </button>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden pb-1">
-            {clampedSpreadIndex === 0 && !activeLeaf && (
+          <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] pb-2 sm:pb-3">
+            {clampedSpreadIndex === 0 && (
               <h1 className="text-lg xl:text-xl font-bold tracking-tight mb-3 pb-2 border-b border-current/10">
                 {currentChapter.title}
               </h1>
@@ -155,7 +155,7 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
             <span className="font-mono">{progressPercent}%</span>
           </div>
           {baseRightSpread && baseRightSpread.right.length > 0 ? (
-            <div className="flex-1 min-h-0 overflow-hidden pb-1">
+            <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] pb-2 sm:pb-3">
               {baseRightSpread.right.map((sliceItem) => renderParagraph(sliceItem, chapterIndex))}
             </div>
           ) : (
@@ -231,13 +231,13 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
                 {readingEstimateText}
               </span>
             )}
-            <span className="text-[11px] font-mono opacity-45">
+            <span className="text-[11px] font-mono opacity-75 font-medium">
               {currentSpread?.leftPageNum} / {currentSpread?.totalPages}
             </span>
           </div>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono opacity-45">
+          <span className="text-[11px] font-mono opacity-75 font-medium">
             {currentSpread && currentSpread.right.length > 0
               ? `${currentSpread.rightPageNum} / ${currentSpread.totalPages}`
               : `${currentSpread?.totalPages} / ${currentSpread?.totalPages}`}

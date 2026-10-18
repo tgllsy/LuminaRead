@@ -8,10 +8,10 @@ import type {
 
 export const copilotApi = {
   fetchRecap: (payload: CopilotRecapPayload, signal?: AbortSignal): Promise<SpoilerFreeRecapData> => {
-    return apiClient.post<SpoilerFreeRecapData>('/api/ai/copilot', payload, { signal })
+    return apiClient.post<SpoilerFreeRecapData>('/api/ai/copilot', payload, { signal, timeoutMs: 60000 })
   },
 
   queryCopilot: (payload: CopilotQueryPayload, signal?: AbortSignal): Promise<CopilotResponse> => {
-    return apiClient.post<CopilotResponse>('/api/ai/copilot', payload, { signal })
+    return apiClient.post<CopilotResponse>('/api/ai/copilot', payload, { signal, timeoutMs: 60000 })
   },
 }

@@ -96,13 +96,18 @@ export function useAmbientAndTtsController(props: AmbientAndTTSBarProps) {
     if (listeningCapsuleDismissed && amb.ambientPreset !== 'off') { amb.stopAmbientAudio(); amb.setAmbientPreset('off') }
   }, [listeningCapsuleDismissed, amb.ambientPreset, amb.stopAmbientAudio, amb.setAmbientPreset])
 
+  const stopAmbientRef = useRef(amb.stopAmbientAudio)
+  stopAmbientRef.current = amb.stopAmbientAudio
+  const onActiveParaChangeRef = useRef(onActiveParagraphChange)
+  onActiveParaChangeRef.current = onActiveParagraphChange
+
   useEffect(() => {
     return () => {
       stopTtsRef.current()
-      amb.stopAmbientAudio()
-      onActiveParagraphChange(null)
+      stopAmbientRef.current()
+      onActiveParaChangeRef.current(null)
     }
-  }, [amb.stopAmbientAudio, onActiveParagraphChange])
+  }, [])
 
   // Viewport pre-warming to guarantee instant playback on click
   useEffect(() => {

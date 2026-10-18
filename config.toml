@@ -63,3 +63,11 @@ standard_opds_url = "https://standardebooks.org/opds"
 calibre_opds_url = "https://opds.calibre-ebook.com"
 wikisource_api_url = "https://zh.wikisource.org/w/api.php"
 libgen_url = "https://libgen.li"
+
+[ai]
+# DeepSeek / OpenAI 兼容 API 配置 (真实大模型伴读推演)
+api_key = ""
+api_base_url = "https://api.deepseek.com/v1"
+model = "deepseek-v4-flash"
+temperature = 0.7
+max_tokens = 2048

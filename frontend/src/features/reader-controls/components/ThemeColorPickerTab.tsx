@@ -1,7 +1,87 @@
 import React from 'react'
-import { Sun, Moon } from 'lucide-react'
+import { Sun, Moon, Check } from 'lucide-react'
 import { BRIGHTNESS_BOUNDS } from '../constants'
 import type { ThemeColorPickerTabProps } from '../types'
+
+interface ReadingThemeItem {
+  id: string
+  label: string
+  previewBg: string
+  textColor: string
+  borderColor: string
+  patch: {
+    theme: 'light' | 'sepia_green' | 'parchment' | 'dark' | 'eink'
+    bgTexture: 'plain' | 'paper' | 'grain' | 'dune' | 'moonlight'
+    eInkMode: boolean
+  }
+  isMatch: (theme: string, bgTexture: string) => boolean
+}
+
+const READING_THEMES: ReadingThemeItem[] = [
+  {
+    id: 'light',
+    label: '纸白',
+    previewBg: 'bg-white',
+    textColor: 'text-slate-900',
+    borderColor: 'border-slate-300',
+    patch: { theme: 'light', bgTexture: 'plain', eInkMode: false },
+    isMatch: (t, bg) => t === 'light' && (bg === 'plain' || !bg),
+  },
+  {
+    id: 'parchment',
+    label: '羊皮纸',
+    previewBg: 'bg-[#f4ede1]',
+    textColor: 'text-[#382b1e]',
+    borderColor: 'border-[#dfceb5]',
+    patch: { theme: 'parchment', bgTexture: 'plain', eInkMode: false },
+    isMatch: (t) => t === 'parchment',
+  },
+  {
+    id: 'sepia_green',
+    label: '豆沙绿',
+    previewBg: 'bg-[#dcecd2]',
+    textColor: 'text-[#1b2e1b]',
+    borderColor: 'border-[#b9d6ab]',
+    patch: { theme: 'sepia_green', bgTexture: 'plain', eInkMode: false },
+    isMatch: (t) => t === 'sepia_green',
+  },
+  {
+    id: 'paper',
+    label: '宣纸',
+    previewBg: 'bg-[#f5f4f0]',
+    textColor: 'text-[#2c2620]',
+    borderColor: 'border-[#dedad0]',
+    patch: { theme: 'light', bgTexture: 'paper', eInkMode: false },
+    isMatch: (t, bg) => t === 'light' && bg === 'paper',
+  },
+  {
+    id: 'moonlight',
+    label: '静谧月夜',
+    previewBg: 'bg-gradient-to-br from-[#d5e8f6] via-[#e2f0f9] to-[#eef6fc]',
+    textColor: 'text-[#1a2e40]',
+    borderColor: 'border-[#b9d4e8]',
+    patch: { theme: 'light', bgTexture: 'moonlight', eInkMode: false },
+    isMatch: (t, bg) => t === 'light' && bg === 'moonlight',
+  },
+  {
+    id: 'eink',
+    label: '墨水屏',
+    previewBg: 'bg-white',
+    textColor: 'text-black',
+    borderColor: 'border-black',
+    patch: { theme: 'eink', bgTexture: 'plain', eInkMode: true },
+    isMatch: (t) => t === 'eink',
+  },
+  {
+    id: 'dark',
+    label: '深邃暗夜',
+    previewBg: 'bg-[#090a0f]',
+    textColor: 'text-slate-100',
+    borderColor: 'border-slate-800',
+    patch: { theme: 'dark', bgTexture: 'plain', eInkMode: false },
+    isMatch: (t) => t === 'dark',
+  },
+]
 
 export const ThemeColorPickerTab: React.FC<ThemeColorPickerTabProps> = ({
   isDark,
@@ -11,56 +91,71 @@ export const ThemeColorPickerTab: React.FC<ThemeColorPickerTabProps> = ({
   brRatio,
   onChange,
 }) => (
-  <div className="space-y-4 pb-3">
+  <div className="space-y-4 pb-2">
     <BrightnessSlider isDark={isDark} brClamped={brClamped} brRatio={brRatio} onChange={onChange} />
+    <ThemeCardsGrid currentTheme={theme} currentBgTexture={bgTexture} onChange={onChange} />
+  </div>
+)
 
-    <div>
-      <div className="text-xs text-slate-400 mb-2 font-medium">颜色</div>
-      <div className="grid grid-cols-4 gap-3">
-        <button
-          type="button"
-          onClick={() => onChange({ theme: 'light', bgTexture: 'plain' })}
-          aria-label="纯白主题"
-          className={`h-11 rounded-xl bg-white transition-all flex items-center justify-center ${
-            theme === 'light' && bgTexture === 'plain'
-              ? 'border-2 border-[#1b88ee] shadow-xs'
-              : 'border border-slate-200/90 hover:border-slate-300'
-          }`}
-        />
-        <button
-          type="button"
-          onClick={() => onChange({ theme: 'parchment', bgTexture: 'plain' })}
-          aria-label="暖黄羊皮纸主题"
-          className={`h-11 rounded-xl bg-[#f3ead8] transition-all flex items-center justify-center ${
-            theme === 'parchment' && bgTexture === 'plain'
-              ? 'border-2 border-[#1b88ee] shadow-xs'
-              : 'border border-[#e6dac3]'
-          }`}
-        />
-        <button
-          type="button"
-          onClick={() => onChange({ theme: 'sepia_green', bgTexture: 'plain' })}
-          aria-label="护眼豆沙绿主题"
-          className={`h-11 rounded-xl bg-[#d6ebd2] transition-all flex items-center justify-center ${
-            theme === 'sepia_green' && bgTexture === 'plain'
-              ? 'border-2 border-[#1b88ee] shadow-xs'
-              : 'border border-[#c1dfc0]'
-          }`}
-        />
-        <button
-          type="button"
-          onClick={() => onChange({ theme: 'dark', bgTexture: 'plain' })}
-          aria-label="深邃暗夜主题"
-          className={`h-11 rounded-xl bg-[#0a0b0d] transition-all flex items-center justify-center ${
-            theme === 'dark' ? 'border-2 border-[#1b88ee] shadow-xs' : 'border border-slate-800'
-          }`}
-        >
-          <Moon className="w-4 h-4 text-[#1b88ee] fill-[#1b88ee]" />
-        </button>
-      </div>
+const ThemeCardsGrid: React.FC<{
+  currentTheme: string
+  currentBgTexture: string
+  onChange: (patch: any) => void
+}> = ({ currentTheme, currentBgTexture, onChange }) => (
+  <div>
+    <div className="flex items-center justify-between text-xs text-slate-400 mb-2 font-medium">
+      <span>阅读主题</span>
+      <span className="text-[11px] opacity-75">一键应用底色与排版对比</span>
     </div>
+    <div className="grid grid-cols-4 gap-2.5">
+      {READING_THEMES.map((item) => {
+        const selected = item.isMatch(currentTheme, currentBgTexture)
+        const isEink = item.id === 'eink'
+        const isDarkTheme = item.id === 'dark'
 
-    <BackgroundTextureSwatches theme={theme} bgTexture={bgTexture} onChange={onChange} />
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onChange(item.patch)}
+            className={`group flex flex-col items-center gap-1.5 p-1.5 rounded-2xl transition-all select-none ${
+              selected
+                ? 'ring-2 ring-[#1b88ee] bg-[#1b88ee]/8 shadow-xs'
+                : 'hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+          >
+            <div
+              className={`w-full h-11 rounded-xl ${item.previewBg} ${item.borderColor} border flex items-center justify-center relative shadow-2xs transition-transform group-hover:scale-[1.03]`}
+            >
+              {isDarkTheme ? (
+                <Moon className="w-4 h-4 text-amber-300 fill-amber-300/80" />
+              ) : isEink ? (
+                <span className="text-[10px] font-mono font-bold text-black border border-black px-1 rounded-sm">
+                  INK
+                </span>
+              ) : (
+                <span className={`text-xs font-serif font-bold ${item.textColor}`}>
+                  文
+                </span>
+              )}
+
+              {selected && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1b88ee] text-white flex items-center justify-center shadow-xs">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                </div>
+              )}
+            </div>
+            <span
+              className={`text-[11px] font-medium leading-none truncate max-w-full ${
+                selected ? 'text-[#1b88ee] font-semibold' : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {item.label}
+            </span>
+          </button>
+        )
+      })}
+    </div>
   </div>
 )
 
@@ -96,60 +191,6 @@ const BrightnessSlider: React.FC<
       >
         {brClamped}%
       </div>
-    </div>
-  </div>
-)
-
-const BackgroundTextureSwatches: React.FC<
-  Pick<ThemeColorPickerTabProps, 'theme' | 'bgTexture' | 'onChange'>
-> = ({ theme, bgTexture, onChange }) => (
-  <div>
-    <div className="text-xs text-slate-400 mb-2 font-medium">背景</div>
-    <div className="grid grid-cols-5 gap-2.5">
-      <button
-        type="button"
-        onClick={() => onChange({ theme: 'light', bgTexture: 'plain' })}
-        title="纯净白纸"
-        className={`h-10 rounded-full bg-white transition-all ${
-          theme === 'light' && bgTexture === 'plain' ? 'border-2 border-[#1b88ee]' : 'border border-slate-200/90'
-        }`}
-      />
-      <button
-        type="button"
-        onClick={() => onChange({ theme: 'light', bgTexture: 'paper' })}
-        title="宣纸肌理"
-        className={`h-10 rounded-full bg-[#f5f4f0] transition-all ${
-          bgTexture === 'paper' ? 'border-2 border-[#1b88ee]' : 'border border-slate-200/80'
-        }`}
-      />
-      <button
-        type="button"
-        onClick={() => onChange({ theme: 'eink', bgTexture: 'grain' })}
-        title="E-Ink 墨水屏零残影模式"
-        className={`h-10 rounded-full bg-[#f1f3f5] transition-all flex items-center justify-center text-[10px] font-mono text-slate-500 ${
-          theme === 'eink' || bgTexture === 'grain'
-            ? 'border-2 border-[#1b88ee] font-bold text-[#1b88ee]'
-            : 'border border-slate-200/80'
-        }`}
-      >
-        E-Ink
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange({ theme: 'parchment', bgTexture: 'dune' })}
-        title="暖阳沙丘"
-        className={`h-10 rounded-full bg-gradient-to-b from-[#f9f2ec] via-[#f2dfd0] to-[#e5cbb4] transition-all ${
-          bgTexture === 'dune' ? 'border-2 border-[#1b88ee]' : 'border border-[#e5d2c0]'
-        }`}
-      />
-      <button
-        type="button"
-        onClick={() => onChange({ theme: 'light', bgTexture: 'moonlight' })}
-        title="静谧月夜"
-        className={`h-10 rounded-full bg-gradient-to-br from-[#b0cee6] via-[#c2dced] to-[#e2f0f9] transition-all ${
-          bgTexture === 'moonlight' ? 'border-2 border-[#1b88ee]' : 'border border-[#b9d4e8]'
-        }`}
-      />
     </div>
   </div>
 )

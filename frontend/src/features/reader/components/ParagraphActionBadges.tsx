@@ -44,9 +44,9 @@ export const ParagraphActionBadges: React.FC<ParagraphActionBadgesProps> = ({
       {canSpeak && !isRefDivider && isTtsActive && (
         <span
           data-no-hud-toggle="true"
-          className="reader-ui-badge indent-0 tracking-normal select-none inline-flex items-center gap-1.5 ml-2 px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-300 text-[11px] font-sans font-semibold align-middle"
+          className="reader-ui-badge indent-0 tracking-normal select-none inline-flex items-center gap-1.5 ml-2 px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700/50 dark:text-blue-200 text-[11px] font-sans font-semibold align-middle shadow-2xs"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-ping" />
           <span>正在朗读</span>
         </span>
       )}

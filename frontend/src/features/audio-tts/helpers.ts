@@ -55,6 +55,7 @@ export {
   indexParagraphSentences,
   computeActiveSentenceInfo,
   findSentenceRangeInText,
+  computeSentenceProgress,
 } from './helpers/sentenceIndexer'
 
 export {

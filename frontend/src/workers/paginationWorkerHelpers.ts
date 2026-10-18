@@ -56,7 +56,7 @@ export function calculatePageLayoutMetrics(
   const charsPerLine = Math.max(12, Math.floor(singleColWidthPx / charWidthPx))
   const lineHeightPx = fontSize * lineHeight
   const paraGapPx = 12
-  const colBodyHeightPx = Math.max(240, windowHeight - (isSingleCol ? 164 : 252))
+  const colBodyHeightPx = Math.max(240, windowHeight - (isSingleCol ? 164 : 260))
   return { dualCardWidth, singleColWidthPx, charsPerLine, lineHeightPx, paraGapPx, colBodyHeightPx }
 }
 
@@ -99,7 +99,10 @@ export function computeSpecialBlockHeight(params: SpecialBlockParams): number {
   const indentChars = style === 'normal' && firstLineIndent !== false ? 2 : 0
   const lines = Math.max(1, Math.ceil((trimmedLen + indentChars) / charsPerLine))
   let blockPx = lines * lineHeightPx + paraGapPx + (style === 'subheading' ? 22 : 0)
-  if (bilingualMode) blockPx *= 1.65
+  if (bilingualMode) {
+    const bilingualLines = Math.max(2, Math.ceil(lines * 1.15))
+    blockPx += Math.round(bilingualLines * (lineHeightPx * 0.95)) + 40
+  }
   return blockPx
 }
 
@@ -243,7 +246,7 @@ export function layoutSingleParagraphItem(
   const blockquoteData = parseBlockquoteMarker(p)
 
   const isAtomic = isImg || Boolean(tableData) || Boolean(poetryData)
-  const isSpecial = isAtomic || Boolean(fnDef) || isRefDiv || Boolean(blockquoteData) || sem.style !== 'normal'
+  const isSpecial = isAtomic || Boolean(fnDef) || isRefDiv || Boolean(blockquoteData) || sem.style !== 'normal' || Boolean(bilingualMode)
 
   if (isSpecial) {
     const blockPx = computeSpecialBlockHeight({

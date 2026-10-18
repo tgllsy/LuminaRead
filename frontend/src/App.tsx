@@ -43,24 +43,12 @@ if (typeof window !== 'undefined') {
 }
 
 const ReaderWorkspace = lazyWithRetry(loadReaderWorkspace)
-const BookDiscoveryModal = lazyWithRetry(() =>
-  import('./features/discovery').then((m) => ({ default: m.BookDiscoveryModal }))
-)
-const SourceSettingsModal = lazyWithRetry(() =>
-  import('./features/discovery').then((m) => ({ default: m.SourceSettingsModal }))
-)
-const ReadingStatsModal = lazyWithRetry(() =>
-  import('./features/search-stats').then((m) => ({ default: m.ReadingStatsModal }))
-)
-const GlobalSearchModal = lazyWithRetry(() =>
-  import('./features/search-stats').then((m) => ({ default: m.GlobalSearchModal }))
-)
-const NotesAndAICenterView = lazyWithRetry(() =>
-  import('./features/notes').then((m) => ({ default: m.NotesAndAICenterView }))
-)
-const BlackGoldTheaterModal = lazyWithRetry(() =>
-  import('./features/audio-tts').then((m) => ({ default: m.BlackGoldTheaterModal }))
-)
+const BookDiscoveryModal = lazyWithRetry(() => import('./features/discovery').then((m) => ({ default: m.BookDiscoveryModal })))
+const SourceSettingsModal = lazyWithRetry(() => import('./features/discovery').then((m) => ({ default: m.SourceSettingsModal })))
+const ReadingStatsModal = lazyWithRetry(() => import('./features/search-stats').then((m) => ({ default: m.ReadingStatsModal })))
+const GlobalSearchModal = lazyWithRetry(() => import('./features/search-stats').then((m) => ({ default: m.GlobalSearchModal })))
+const NotesAndAICenterView = lazyWithRetry(() => import('./features/notes').then((m) => ({ default: m.NotesAndAICenterView })))
+const BlackGoldTheaterModal = lazyWithRetry(() => import('./features/audio-tts').then((m) => ({ default: m.BlackGoldTheaterModal })))
 
 function useAppActions() {
   const { books, fetchBooks } = useBooksStore()
@@ -240,7 +228,10 @@ const AppPageRouter: React.FC<{
 export const App: React.FC = () => {
   const { books, fetchBooks, nav, tts, globalSearchInitQuery, handleBookDownloaded, handleResumeGlobalListening, handleOpenGlobalSearch } = useAppActions()
   const handleChapterChange = useCallback((ch: number) => nav.setChapterIndex(ch, true), [nav.setChapterIndex])
-  const handleBackToShelf = useCallback(() => nav.closeReader(true), [nav.closeReader])
+  const handleBackToShelf = useCallback(() => {
+    nav.closeReader(true)
+    fetchBooks(true)
+  }, [nav.closeReader, fetchBooks])
   const handleOpenDiscoveryFromReader = useCallback(() => { nav.closeReader(true); nav.setActivePage('discovery') }, [nav.closeReader, nav.setActivePage])
   const handleBooksChanged = useCallback(() => fetchBooks(true), [fetchBooks])
   const handleDismissCapsule = useCallback(() => {

@@ -2,32 +2,23 @@ import { AMBIENT_SOUND_CONFIGS } from '../constants'
 import type { AmbientPreset } from '../types'
 
 export interface MultiTrackVolumes {
-  rain: number // 0 - 100
-  fire: number // 0 - 100
-  wind: number // 0 - 100
-}
-
-const TRACK_PATHS: Record<'rain' | 'fire' | 'wind', string> = {
-  rain: '/audio/ambient/rain.mp3',
-  fire: '/audio/ambient/fire.mp3',
-  wind: '/audio/ambient/wind.mp3',
+  rain: number
+  fire: number
+  wind: number
 }
 
 class AmbientAudioTrack {
   public audio: HTMLAudioElement
-  private fadeTimer: number | null = null
   private isPlayPending = false
-  public targetRatio: number = 0
 
   constructor(src: string) {
     this.audio = new Audio(src)
     this.audio.loop = true
-    this.audio.preload = 'none'
+    this.audio.preload = 'auto'
     this.audio.volume = 0
   }
 
   public setVolumeImmediate(vol: number): void {
-    this.clearFade()
     const clamped = Math.max(0, Math.min(1, vol))
     this.audio.volume = clamped
     if (clamped > 0.005) {
@@ -35,35 +26,6 @@ class AmbientAudioTrack {
     } else {
       this.safePause()
     }
-  }
-
-  public fadeTo(targetVol: number, durationMs = 200): void {
-    this.clearFade()
-    const clamped = Math.max(0, Math.min(1, targetVol))
-    if (clamped > 0.005) {
-      this.safePlay()
-    }
-    const start = this.audio.volume
-    const diff = clamped - start
-    if (Math.abs(diff) < 0.01) {
-      this.audio.volume = clamped
-      if (clamped <= 0.005) this.safePause()
-      return
-    }
-
-    const steps = 8
-    const stepTime = durationMs / steps
-    let currentStep = 0
-    this.fadeTimer = window.setInterval(() => {
-      currentStep++
-      const factor = currentStep / steps
-      this.audio.volume = Math.max(0, Math.min(1, start + diff * factor))
-      if (currentStep >= steps) {
-        this.clearFade()
-        this.audio.volume = clamped
-        if (clamped <= 0.005) this.safePause()
-      }
-    }, stepTime)
   }
 
   public safePlay(): void {
@@ -88,34 +50,35 @@ class AmbientAudioTrack {
     }
   }
 
-  private clearFade(): void {
-    if (this.fadeTimer !== null) {
-      clearInterval(this.fadeTimer)
-      this.fadeTimer = null
-    }
-  }
-
   public dispose(): void {
-    this.clearFade()
     this.safePause()
     try {
       this.audio.src = ''
+      this.audio.load()
     } catch {}
   }
 }
 
+/**
+ * 阅境单一白噪音独占音频引擎
+ * 仅同时播放单一环境音效，拖动音量滑块即时线性响应
+ */
 export class AmbientAudioEngine {
-  private naturalTracks: Map<'rain' | 'fire' | 'wind', AmbientAudioTrack> = new Map()
-  private soloTrack: AmbientAudioTrack | null = null
-  private currentSoloPreset: AmbientPreset = 'off'
+  private currentTrack: AmbientAudioTrack | null = null
+  private currentPreset: AmbientPreset = 'off'
   private masterVolume: number = 0.5
   private isEnabled: boolean = false
-  private savedMultiVols: MultiTrackVolumes = { rain: 0, fire: 0, wind: 0 }
-
-  constructor() {}
 
   public getEnabled(): boolean {
     return this.isEnabled
+  }
+
+  public getCurrentPreset(): AmbientPreset {
+    return this.currentPreset
+  }
+
+  public getMasterVolume(): number {
+    return this.masterVolume
   }
 
   public setEnabled(enabled: boolean): void {
@@ -123,68 +86,24 @@ export class AmbientAudioEngine {
     if (!enabled) {
       this.stopAll()
     } else {
-      if (this.currentSoloPreset !== 'off' && this.currentSoloPreset !== 'rain' && this.currentSoloPreset !== 'fire' && this.currentSoloPreset !== 'wind') {
-        this.playPreset(this.currentSoloPreset)
-      } else if (this.savedMultiVols.rain > 0 || this.savedMultiVols.fire > 0 || this.savedMultiVols.wind > 0) {
-        this.setMultiTrackVolumes(this.savedMultiVols, false)
-      } else if (this.currentSoloPreset === 'rain' || this.currentSoloPreset === 'fire' || this.currentSoloPreset === 'wind') {
-        this.playPreset(this.currentSoloPreset)
-      } else {
-        this.playPreset('rain')
-      }
+      const targetPreset = this.currentPreset !== 'off' ? this.currentPreset : 'rain'
+      this.playPreset(targetPreset, this.masterVolume)
     }
   }
 
-  private getOrCreateTrack(key: 'rain' | 'fire' | 'wind'): AmbientAudioTrack {
-    let track = this.naturalTracks.get(key)
-    if (!track) {
-      track = new AmbientAudioTrack(TRACK_PATHS[key])
-      this.naturalTracks.set(key, track)
-    }
-    return track
-  }
-
+  /**
+   * 实时线性设置主音量（滑块拖拽时即时生效，无任何定时器延迟）
+   */
   public setMasterVolume(vol: number): void {
     this.masterVolume = Math.max(0, Math.min(1, vol))
-    if (this.isEnabled) {
-      this.applyAllVolumes(false)
+    if (this.currentTrack && this.isEnabled && this.currentPreset !== 'off') {
+      this.currentTrack.setVolumeImmediate(this.masterVolume)
     }
   }
 
-  public setMultiTrackVolumes(vols: MultiTrackVolumes, immediate = true): void {
-    this.savedMultiVols = { ...vols }
-
-    if (!this.isEnabled) {
-      return
-    }
-
-    const rTrack = this.getOrCreateTrack('rain')
-    const fTrack = this.getOrCreateTrack('fire')
-    const wTrack = this.getOrCreateTrack('wind')
-
-    rTrack.targetRatio = Math.max(0, Math.min(1, vols.rain / 100))
-    fTrack.targetRatio = Math.max(0, Math.min(1, vols.fire / 100))
-    wTrack.targetRatio = Math.max(0, Math.min(1, vols.wind / 100))
-
-    const rVol = rTrack.targetRatio * this.masterVolume
-    const fVol = fTrack.targetRatio * this.masterVolume
-    const wVol = wTrack.targetRatio * this.masterVolume
-
-    if (immediate) {
-      rTrack.setVolumeImmediate(rVol)
-      fTrack.setVolumeImmediate(fVol)
-      wTrack.setVolumeImmediate(wVol)
-    } else {
-      rTrack.fadeTo(rVol)
-      fTrack.fadeTo(fVol)
-      wTrack.fadeTo(wVol)
-    }
-
-    if (this.soloTrack && (vols.rain > 0 || vols.fire > 0 || vols.wind > 0)) {
-      this.stopSoloPreset()
-    }
-  }
-
+  /**
+   * 播放指定白噪音/环境音（独占单音源播放）
+   */
   public playPreset(preset: AmbientPreset, volume?: number): void {
     if (volume !== undefined) {
       this.masterVolume = Math.max(0, Math.min(1, volume))
@@ -195,77 +114,66 @@ export class AmbientAudioEngine {
       return
     }
 
-    this.currentSoloPreset = preset
-
-    if (!this.isEnabled) {
-      return
-    }
-
-    if (preset === 'rain' || preset === 'fire' || preset === 'wind') {
-      this.stopSoloPreset()
-      this.setMultiTrackVolumes(
-        {
-          rain: preset === 'rain' ? 80 : 0,
-          fire: preset === 'fire' ? 80 : 0,
-          wind: preset === 'wind' ? 80 : 0,
-        },
-        false
-      )
-      this.currentSoloPreset = preset
-      return
-    }
-
-    // 独立音源 (waves, study, cafe, pink_noise, white_noise, brown_noise)
-    this.naturalTracks.forEach((t) => {
-      t.targetRatio = 0
-      t.fadeTo(0, 150)
-    })
-
     const config = AMBIENT_SOUND_CONFIGS[preset]
-    if (!config?.audioSrc) return
-
-    if (this.currentSoloPreset !== preset || !this.soloTrack) {
-      this.stopSoloPreset()
-      this.soloTrack = new AmbientAudioTrack(config.audioSrc)
-      this.currentSoloPreset = preset
+    if (!config?.audioSrc) {
+      this.stopAll()
+      return
     }
 
-    this.soloTrack.fadeTo(this.masterVolume, 250)
+    // 若当前已在播放同一音源，只需更新音量与确保播放
+    if (this.currentPreset === preset && this.currentTrack) {
+      if (this.isEnabled) {
+        this.currentTrack.setVolumeImmediate(this.masterVolume)
+        this.currentTrack.safePlay()
+      }
+      return
+    }
+
+    // 切换新音源：释放旧音轨并创建新音轨
+    if (this.currentTrack) {
+      this.currentTrack.dispose()
+      this.currentTrack = null
+    }
+
+    this.currentPreset = preset
+    const newTrack = new AmbientAudioTrack(config.audioSrc)
+    this.currentTrack = newTrack
+
+    if (this.isEnabled) {
+      newTrack.setVolumeImmediate(this.masterVolume)
+      newTrack.safePlay()
+    }
   }
 
-  private stopSoloPreset(): void {
-    if (this.soloTrack) {
-      this.soloTrack.fadeTo(0, 150)
-      this.soloTrack.dispose()
-      this.soloTrack = null
+  /**
+   * 兼容旧版多轨接口：自动映射为单一音源
+   */
+  public setMultiTrackVolumes(vols: MultiTrackVolumes, _immediate = true): void {
+    if (!this.isEnabled) return
+    if (vols.rain > 0) {
+      this.setMasterVolume(vols.rain / 100)
+      this.playPreset('rain')
+    } else if (vols.fire > 0) {
+      this.setMasterVolume(vols.fire / 100)
+      this.playPreset('fire')
+    } else if (vols.wind > 0) {
+      this.setMasterVolume(vols.wind / 100)
+      this.playPreset('wind')
+    } else {
+      this.stopAll()
     }
-    this.currentSoloPreset = 'off'
   }
 
   public stopAll(): void {
-    this.naturalTracks.forEach((track) => {
-      track.targetRatio = 0
-      track.setVolumeImmediate(0)
-    })
-    this.stopSoloPreset()
-  }
-
-  private applyAllVolumes(immediate = false): void {
-    this.naturalTracks.forEach((track) => {
-      const vol = track.targetRatio * this.masterVolume
-      if (immediate) track.setVolumeImmediate(vol)
-      else track.fadeTo(vol)
-    })
-    if (this.soloTrack && this.currentSoloPreset !== 'off') {
-      if (immediate) this.soloTrack.setVolumeImmediate(this.masterVolume)
-      else this.soloTrack.fadeTo(this.masterVolume)
+    if (this.currentTrack) {
+      this.currentTrack.dispose()
+      this.currentTrack = null
     }
+    this.currentPreset = 'off'
   }
 
   public dispose(): void {
     this.stopAll()
-    this.naturalTracks.forEach((track) => track.dispose())
-    this.naturalTracks.clear()
-    this.stopSoloPreset()
   }
 }
+

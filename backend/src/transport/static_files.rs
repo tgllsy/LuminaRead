@@ -35,7 +35,8 @@ fn accepts_gzip(headers: &HeaderMap) -> bool {
 }
 
 fn serve_embedded_asset(asset: &'static EmbeddedAsset, headers: &HeaderMap, cache_ctrl: &'static str) -> Response {
-    if asset.is_gzipped && accepts_gzip(headers) {
+    let is_media = asset.mime.starts_with("audio/") || asset.mime.starts_with("video/");
+    if asset.is_gzipped && accepts_gzip(headers) && !is_media {
         return (
             StatusCode::OK,
             [

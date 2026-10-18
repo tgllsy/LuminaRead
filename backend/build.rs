@@ -103,14 +103,17 @@ fn main() {
         let raw_len = fs::metadata(abs_path).map(|m| m.len()).unwrap_or(0);
 
         let mut use_gz = false;
-        if let Ok(out) = Command::new("gzip")
-            .args(["-9", "-n", "-c"])
-            .arg(abs_path)
-            .output()
-        {
-            if out.status.success() && (out.stdout.len() as u64) < raw_len {
-                if fs::write(&gz_file, &out.stdout).is_ok() {
-                    use_gz = true;
+        let is_media = mime.starts_with("audio/") || mime.starts_with("video/");
+        if !is_media {
+            if let Ok(out) = Command::new("gzip")
+                .args(["-9", "-n", "-c"])
+                .arg(abs_path)
+                .output()
+            {
+                if out.status.success() && (out.stdout.len() as u64) < raw_len {
+                    if fs::write(&gz_file, &out.stdout).is_ok() {
+                        use_gz = true;
+                    }
                 }
             }
         }

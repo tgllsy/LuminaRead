@@ -122,7 +122,13 @@ const ReaderAuxiliaryDialogs: React.FC<
   onCreateOrUpdateHighlight, onDeleteHighlight, onSaveInsightAsNote,
   onJumpToFootnoteTarget, onJumpToBibliography, onShowToast, onStartTtsAtParagraph,
   onSelectChapter,
-}) => (
+}) => {
+  const [copilotMounted, setCopilotMounted] = React.useState(copilotModal.isOpen)
+  React.useEffect(() => {
+    if (copilotModal.isOpen) setCopilotMounted(true)
+  }, [copilotModal.isOpen])
+
+  return (
   <>
     {selectionState && (
       <SelectionPopover
@@ -143,10 +149,11 @@ const ReaderAuxiliaryDialogs: React.FC<
       />
     )}
     <React.Suspense fallback={null}>
-      {copilotModal.isOpen && (
+      {(copilotModal.isOpen || copilotMounted) && (
         <AICopilotModal
           isOpen={copilotModal.isOpen} onClose={() => setCopilotModal((p) => ({ ...p, isOpen: false }))}
           book={book} currentChapterIndex={chapterIndex} currentChapterTitle={currentChapter.title}
+          chapterText={paragraphs.join('\n\n')}
           initialMode={copilotModal.mode} selectedText={copilotModal.text} paragraphIndex={copilotModal.paragraphIndex ?? 0}
           chapterExcerpt={paragraphs.slice(0, 4).join('\n').slice(0, 320)} theme={typography.theme}
           onSaveInsightAsNote={onSaveInsightAsNote}
@@ -187,7 +194,8 @@ const ReaderAuxiliaryDialogs: React.FC<
       )}
     </React.Suspense>
   </>
-)
+  )
+}
 
 export const ReaderModalsLayer: React.FC<ReaderModalsLayerProps> = (props) => {
   const {

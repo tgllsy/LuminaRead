@@ -1,6 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { copilotApi } from '../api'
 import type { SpoilerFreeRecapData, CharacterNode } from '../types'
+
+const recapCache = new Map<string, SpoilerFreeRecapData>()
 
 export function useCopilotRecap() {
   const [recapData, setRecapData] = useState<SpoilerFreeRecapData | null>(null)
@@ -9,7 +11,17 @@ export function useCopilotRecap() {
   const [selectedChar, setSelectedChar] = useState<CharacterNode | null>(null)
 
   const loadRecap = useCallback(
-    async (bookId: string, currentChapterIndex: number, currentPercentage = 0) => {
+    async (bookId: string, currentChapterIndex: number, currentPercentage = 0, force = false) => {
+      const cacheKey = `${bookId}_${currentChapterIndex}`
+      if (!force && recapCache.has(cacheKey)) {
+        const cached = recapCache.get(cacheKey)!
+        setRecapData(cached)
+        if (cached.character_graph.nodes.length > 0) {
+          setSelectedChar(cached.character_graph.nodes[0])
+        }
+        return
+      }
+
       setRecapLoading(true)
       setRecapError(null)
       try {
@@ -39,6 +51,7 @@ export function useCopilotRecap() {
             edges: Array.isArray(data?.character_graph?.edges) ? data.character_graph.edges : [],
           },
         }
+        recapCache.set(cacheKey, normalizedData)
         setRecapData(normalizedData)
         if (normalizedNodes.length > 0) {
           setSelectedChar(normalizedNodes[0])

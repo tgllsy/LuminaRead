@@ -219,3 +219,33 @@ export function wrapWithRichStyles(
   }
   return current
 }
+
+export function renderRunWithKeyword(
+  text: string,
+  styles: RichTextRun['styles'],
+  keyPrefix: string,
+  keyword?: string
+): React.ReactNode {
+  if (!keyword || !text.includes(keyword)) {
+    return wrapWithRichStyles(text, styles, keyPrefix)
+  }
+  const parts = text.split(keyword)
+  const nodes: React.ReactNode[] = []
+  parts.forEach((p, idx) => {
+    if (idx > 0) {
+      nodes.push(
+        <mark key={`${keyPrefix}-kw-${idx}`} className="bg-amber-300 text-slate-950 font-bold px-0.5 rounded">
+          {wrapWithRichStyles(keyword, styles, `${keyPrefix}-kwt-${idx}`)}
+        </mark>
+      )
+    }
+    if (p) {
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-p-${idx}`}>
+          {wrapWithRichStyles(p, styles, `${keyPrefix}-pt-${idx}`)}
+        </React.Fragment>
+      )
+    }
+  })
+  return <React.Fragment key={keyPrefix}>{nodes}</React.Fragment>
+}

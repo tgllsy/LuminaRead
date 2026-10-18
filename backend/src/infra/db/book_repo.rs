@@ -103,7 +103,13 @@ impl BookRepository for SqliteBookRepository {
                      FROM books b
                      LEFT JOIN reading_progress rp ON rp.book_id = b.id
                      WHERE b.library_id = ?
-                     ORDER BY b.created_at DESC",
+                     ORDER BY 
+                        CASE 
+                            WHEN (b.last_read_at IS NOT NULL AND b.last_read_at != '') OR rp.updated_at IS NOT NULL THEN 0 
+                            ELSE 1 
+                        END ASC,
+                        COALESCE(NULLIF(b.last_read_at, ''), rp.updated_at, '') DESC,
+                        b.created_at DESC",
                     true,
                 ),
                 _ => (
@@ -114,7 +120,13 @@ impl BookRepository for SqliteBookRepository {
                             rp.chapter_index, rp.scroll_offset, rp.cfi, rp.percentage, rp.device_name, rp.updated_at
                      FROM books b
                      LEFT JOIN reading_progress rp ON rp.book_id = b.id
-                     ORDER BY b.created_at DESC",
+                     ORDER BY 
+                        CASE 
+                            WHEN (b.last_read_at IS NOT NULL AND b.last_read_at != '') OR rp.updated_at IS NOT NULL THEN 0 
+                            ELSE 1 
+                        END ASC,
+                        COALESCE(NULLIF(b.last_read_at, ''), rp.updated_at, '') DESC,
+                        b.created_at DESC",
                     false,
                 ),
             };

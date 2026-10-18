@@ -75,6 +75,27 @@ impl Default for EndpointsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiConfig {
+    pub api_key: String,
+    pub api_base_url: String,
+    pub model: String,
+    pub temperature: f32,
+    pub max_tokens: usize,
+}
+
+impl Default for AiConfig {
+    fn default() -> Self {
+        Self {
+            api_key: std::env::var("AI_API_KEY").unwrap_or_default(),
+            api_base_url: std::env::var("AI_BASE_URL").unwrap_or_else(|_| "https://api.deepseek.com/v1".to_string()),
+            model: std::env::var("AI_MODEL").unwrap_or_else(|_| "deepseek-v4-flash".to_string()),
+            temperature: 0.7,
+            max_tokens: 2048,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub config_file: PathBuf,
     pub host: String,
@@ -99,6 +120,7 @@ pub struct AppConfig {
     pub clean_cache_on_start: bool,
     pub reset_db_on_start: bool,
     pub endpoints: EndpointsConfig,
+    pub ai: AiConfig,
 }
 
 impl AppConfig {
@@ -150,6 +172,7 @@ impl AppConfig {
             clean_cache_on_start: false,
             reset_db_on_start: false,
             endpoints: EndpointsConfig::default(),
+            ai: AiConfig::default(),
         }
     }
 
@@ -647,6 +670,19 @@ impl AppConfig {
                 "calibre_opds_url" | "endpoints.calibre_opds_url" => self.endpoints.calibre_opds_url = v,
                 "wikisource_api_url" | "endpoints.wikisource_api_url" => self.endpoints.wikisource_api_url = v,
                 "libgen_url" | "endpoints.libgen_url" => self.endpoints.libgen_url = v,
+                "ai_api_key" | "ai.api_key" => self.ai.api_key = v,
+                "ai_base_url" | "ai.api_base_url" => self.ai.api_base_url = v.trim_end_matches('/').to_string(),
+                "ai_model" | "ai.model" => self.ai.model = v,
+                "ai_temperature" | "ai.temperature" => {
+                    if let Ok(temp) = v.parse::<f32>() {
+                        self.ai.temperature = temp;
+                    }
+                }
+                "ai_max_tokens" | "ai.max_tokens" => {
+                    if let Ok(tok) = v.parse::<usize>() {
+                        self.ai.max_tokens = tok;
+                    }
+                }
                 _ => {}
             }
         }
@@ -694,6 +730,13 @@ impl AppConfig {
         if let Some(v) = get_str(ep, "calibre_opds_url") { self.endpoints.calibre_opds_url = v; }
         if let Some(v) = get_str(ep, "wikisource_api_url") { self.endpoints.wikisource_api_url = v; }
         if let Some(v) = get_str(ep, "libgen_url") { self.endpoints.libgen_url = v; }
+
+        let ai = patch.get("ai").unwrap_or(patch);
+        if let Some(v) = get_str(ai, "api_key") { self.ai.api_key = v; }
+        if let Some(v) = get_str(ai, "api_base_url") { self.ai.api_base_url = v.trim_end_matches('/').to_string(); }
+        if let Some(v) = get_str(ai, "model") { self.ai.model = v; }
+        if let Some(v) = ai.get("temperature").and_then(|v| v.as_f64()) { self.ai.temperature = v as f32; }
+        if let Some(v) = ai.get("max_tokens").and_then(|v| v.as_u64()) { self.ai.max_tokens = v as usize; }
 
         self.recompute_derived_paths(explicit_db);
     }
@@ -765,6 +808,14 @@ standard_opds_url = "{standard_opds_url}"
 calibre_opds_url = "{calibre_opds_url}"
 wikisource_api_url = "{wikisource_api_url}"
 libgen_url = "{libgen_url}"
+
+[ai]
+# DeepSeek / OpenAI 兼容 API 配置 (真实大模型伴读推演)
+api_key = "{ai_api_key}"
+api_base_url = "{ai_base_url}"
+model = "{ai_model}"
+temperature = {ai_temperature}
+max_tokens = {ai_max_tokens}
 "#,
             host = self.host,
             port = self.port,
@@ -798,6 +849,11 @@ libgen_url = "{libgen_url}"
             calibre_opds_url = self.endpoints.calibre_opds_url,
             wikisource_api_url = self.endpoints.wikisource_api_url,
             libgen_url = self.endpoints.libgen_url,
+            ai_api_key = escape_toml_str(&self.ai.api_key),
+            ai_base_url = escape_toml_str(&self.ai.api_base_url),
+            ai_model = escape_toml_str(&self.ai.model),
+            ai_temperature = self.ai.temperature,
+            ai_max_tokens = self.ai.max_tokens,
         )
     }
 
@@ -908,9 +964,10 @@ fn parse_simple_toml(content: &str) -> HashMap<String, String> {
                 continue;
             }
             let val = clean_toml_value(raw_v);
-            map.insert(key.to_string(), val.clone());
             if !section.is_empty() {
                 map.insert(format!("{}.{}", section, key), val);
+            } else {
+                map.insert(key.to_string(), val);
             }
         }
     }
@@ -948,4 +1005,30 @@ fn clean_toml_value(raw: &str) -> String {
     // Strip inline comment for unquoted values
     let without_comment = t.split('#').next().unwrap_or(t).trim();
     without_comment.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_toml_section_isolation() {
+        let toml_str = r#"
+[server]
+host = "0.0.0.0"
+port = 3456
+api_base_url = ""
+
+[ai]
+api_key = "sk-test"
+api_base_url = "https://api.deepseek.com/v1"
+model = "deepseek-v4-flash"
+"#;
+        let mut cfg = AppConfig::default_resolved();
+        cfg.apply_file_content(toml_str);
+
+        assert_eq!(cfg.api_base_url, "");
+        assert_eq!(cfg.ai.api_base_url, "https://api.deepseek.com/v1");
+        assert_eq!(cfg.ai.api_key, "sk-test");
+    }
 }

@@ -18,13 +18,23 @@ export const BookshelfHeroCard: React.FC<BookshelfHeroCardProps> = ({
 }) => {
   const triggerResumeTts = useTtsStore((s) => s.triggerResumeTts)
 
-  // 优先选取正在读且有进度的书籍，其次回退至书架第一本书
+  // 优先选取最近阅读过的书籍（按阅读时间/更新时间倒序），其次回退至书架第一本书
   const heroBook = React.useMemo(() => {
     if (!books || books.length === 0) return null
-    const readingBook = books.find(
-      (b) => (b.progress?.percentage ?? 0) > 0 && b.status !== 'finished'
-    )
-    return readingBook || books[0]
+
+    const readCandidates = books
+      .filter((b) => Boolean(b.last_read_at || (b.progress?.percentage ?? 0) > 0))
+      .sort((a, b) => {
+        const timeA = a.last_read_at || a.progress?.updated_at || ''
+        const timeB = b.last_read_at || b.progress?.updated_at || ''
+        return timeB.localeCompare(timeA)
+      })
+
+    const activeRecent = readCandidates.find((b) => b.status !== 'finished')
+    if (activeRecent) return activeRecent
+
+    if (readCandidates.length > 0) return readCandidates[0]
+    return books[0]
   }, [books])
 
   if (!heroBook) return null

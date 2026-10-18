@@ -102,7 +102,7 @@ pub struct Book {
 
 impl Book {
     pub fn mark_as_reading(&mut self, now: String) {
-        if self.status == BookStatus::Unread {
+        if self.status != BookStatus::Reading && self.status != BookStatus::Finished {
             self.status = BookStatus::Reading;
         }
         self.last_read_at = now;
@@ -110,9 +110,12 @@ impl Book {
 
     pub fn record_reading_session(&mut self, additional_seconds: i64, percentage: f64) {
         self.total_reading_seconds = self.total_reading_seconds.saturating_add(additional_seconds);
-        let normalized = if percentage > 1.0 { percentage / 100.0 } else { percentage };
-        if normalized >= 0.99 && self.status != BookStatus::Finished {
+        let clamped = percentage.max(0.0).min(100.0);
+        let normalized = if clamped > 1.0 { clamped / 100.0 } else { clamped };
+        if normalized >= 0.98 {
             self.status = BookStatus::Finished;
+        } else if self.status == BookStatus::Finished {
+            self.status = BookStatus::Reading;
         }
     }
 }

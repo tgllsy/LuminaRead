@@ -69,6 +69,8 @@ export const DualSpreadTurnLeaf: React.FC<DualSpreadTurnLeafProps> = ({
   const backSlices = isNext ? targetSpread.left : targetSpread.right
   const frontTitle = isNext ? currentChapter.title : book.title
   const backTitle = isNext ? book.title : currentChapter.title
+  const frontIsFirstPage = !isNext && turningSpread.leftPageNum === 1
+  const backIsFirstPage = isNext && targetSpread.leftPageNum === 1
 
   return (
     <div
@@ -87,7 +89,12 @@ export const DualSpreadTurnLeaf: React.FC<DualSpreadTurnLeafProps> = ({
           <span className="truncate max-w-[240px]">{frontTitle}</span>
           {isNext && <span className="font-mono">{progressPercent}%</span>}
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden pb-1">
+        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] pb-2 sm:pb-3">
+          {frontIsFirstPage && (
+            <h1 className="text-lg xl:text-xl font-bold tracking-tight mb-3 pb-2 border-b border-current/10">
+              {currentChapter.title}
+            </h1>
+          )}
           {frontSlices.map((item) => renderParagraph(item, chapterIndex))}
         </div>
         <div
@@ -111,7 +118,12 @@ export const DualSpreadTurnLeaf: React.FC<DualSpreadTurnLeafProps> = ({
           <span className="truncate max-w-[240px]">{backTitle}</span>
           {!isNext && <span className="font-mono">{progressPercent}%</span>}
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden pb-1">
+        <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] pb-2 sm:pb-3">
+          {backIsFirstPage && (
+            <h1 className="text-lg xl:text-xl font-bold tracking-tight mb-3 pb-2 border-b border-current/10">
+              {currentChapter.title}
+            </h1>
+          )}
           {backSlices.map((item) => renderParagraph(item, chapterIndex))}
         </div>
         <div

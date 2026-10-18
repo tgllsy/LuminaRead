@@ -104,6 +104,7 @@ pub async fn create_conversation(
                 question: p.question.clone(),
                 current_percentage: None,
                 skip_log: Some(true),
+                history: None,
             })
             .await
         {

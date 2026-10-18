@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import type { BookSummary, JumpTarget } from '../types'
 import { prefetchBook } from '../../../utils/bookCache'
+import { getBookCoverStyle } from '../helpers'
 
 interface BookCardProps {
   book: BookSummary
@@ -25,6 +26,7 @@ export const BookCard: React.FC<BookCardProps> = ({
   const isError = book.status === 'error' || (book.status as string) === 'failed'
   const importPct = Math.min(99, Math.max(2, Math.round(book.import_progress ?? 5)))
   const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const coverTheme = React.useMemo(() => getBookCoverStyle(book), [book])
 
   const handlePointerEnter = () => {
     if (isImporting || isError) return
@@ -59,23 +61,38 @@ export const BookCard: React.FC<BookCardProps> = ({
       className={`group flex flex-col active:scale-[0.98] transition-transform ${isImporting ? 'cursor-wait' : isError ? 'cursor-default' : 'cursor-pointer'}`}
     >
       <div
-        className={`aspect-[3/4.2] w-full rounded-2xl p-3.5 text-white flex flex-col justify-between shadow-[0_4px_16px_rgba(15,23,42,0.08)] transition-all duration-200 select-none relative overflow-hidden ${
+        className={`aspect-[3/4.2] w-full rounded-2xl p-3 text-white flex flex-col justify-between shadow-[0_4px_16px_rgba(15,23,42,0.08)] transition-all duration-200 select-none relative overflow-hidden ${
           isError
             ? 'ring-2 ring-rose-500/90 shadow-rose-500/15'
             : isImporting
             ? 'ring-2 ring-[#1b88ee]/80 shadow-blue-500/15'
             : 'group-hover:shadow-[0_12px_24px_rgba(15,23,42,0.14)] group-hover:-translate-y-1'
         }`}
-        style={{ backgroundColor: book.cover_color || '#1e3a8a' }}
+        style={{ backgroundColor: coverTheme.bg }}
       >
-        {book.cover_url && (
+        {book.cover_url ? (
           <img
             src={book.cover_url}
             alt={book.title}
             loading="lazy"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
-            className="absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300"
+            className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 group-hover:scale-[1.02]"
           />
+        ) : (
+          <div className="absolute inset-0 flex flex-col justify-between p-3.5 z-10 select-none">
+            {/* 书脊质感阴影线 */}
+            <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gradient-to-r from-black/40 via-white/10 to-transparent pointer-events-none" />
+            <div className="my-auto pl-1 pr-1">
+              <div className="font-serif font-bold text-xs sm:text-sm leading-snug line-clamp-4 tracking-wide text-white drop-shadow-xs">
+                {book.title}
+              </div>
+              {book.author && (
+                <div className="mt-2 text-[10px] sm:text-[11px] opacity-80 truncate font-sans text-slate-200">
+                  {book.author}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         <BookCardOverlays
@@ -83,14 +100,15 @@ export const BookCard: React.FC<BookCardProps> = ({
           onOpenOrganize={onOpenOrganize} onDeleteBook={onDeleteBook}
         />
 
-        <div className="flex items-center justify-between text-[9px] font-mono opacity-80 z-20">
-          <span className="uppercase">{book.format}</span>
+        {/* 格式标签 */}
+        <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
+          <span className="px-1.5 py-0.5 rounded bg-black/40 backdrop-blur-md text-[9px] font-mono font-semibold uppercase text-white/90 shadow-2xs">
+            {book.format}
+          </span>
         </div>
-        <div className="font-serif font-bold text-xs sm:text-sm leading-snug line-clamp-3 my-auto z-20">{book.title}</div>
-        <div className="text-[10px] opacity-80 truncate z-20">{book.author}</div>
 
         {!isImporting && !isError && (
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1 z-20 pointer-events-none">
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1 z-20 pointer-events-none shadow-2xs">
             {book.status === 'finished' ? (
               <span className="text-emerald-400 font-bold">✓ 已读完</span>
             ) : pct > 0 ? (
@@ -104,6 +122,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           </div>
         )}
       </div>
+
 
       <div className="mt-2.5 space-y-0.5 px-0.5">
         <h3 className={`text-[13px] sm:text-[14px] font-semibold line-clamp-2 leading-snug transition-colors ${isError ? 'text-rose-600' : 'text-slate-800 group-hover:text-[#1b88ee]'}`}>
