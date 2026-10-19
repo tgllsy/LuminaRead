@@ -285,14 +285,28 @@ html.eink-mode {
 }
 
 /* 彻底屏蔽任何滚动条的实用类（防水平与垂直溢出条伪影） */
-.scrollbar-none {
+.scrollbar-none,
+.no-scrollbar {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
-.scrollbar-none::-webkit-scrollbar {
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+}
+
+/* 强约束书架卡片标题截断（防止浏览器翻译插件注入标签破坏 -webkit-box 导致多行撑破网格） */
+.book-card-title-clamp {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  line-clamp: 2 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  word-break: break-word !important;
+  max-height: 2.75em !important;
 }
 
 @keyframes dualPageFlipNext {

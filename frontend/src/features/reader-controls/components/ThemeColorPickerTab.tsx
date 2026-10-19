@@ -163,16 +163,18 @@ const BrightnessSlider: React.FC<
   Pick<ThemeColorPickerTabProps, 'isDark' | 'brClamped' | 'brRatio' | 'onChange'>
 > = ({ isDark, brClamped, brRatio, onChange }) => (
   <div
-    className={`h-11 rounded-full px-3.5 flex items-center gap-2 relative select-none ${
+    className={`h-11 rounded-full px-3.5 flex items-center gap-2.5 relative select-none ${
       isDark ? 'bg-slate-800' : 'bg-[#eff0f2]'
     }`}
   >
-    <Sun className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none" />
+    <Sun className="w-4 h-4 text-amber-500 shrink-0 pointer-events-none" />
     <div className="flex-1 relative h-full flex items-center">
-      <div
-        style={{ width: `${brRatio * 100}%` }}
-        className="h-1.5 rounded-full bg-[#1b88ee]/35 pointer-events-none"
-      />
+      <div className={`w-full h-1.5 rounded-full overflow-hidden pointer-events-none ${isDark ? 'bg-slate-700' : 'bg-slate-300/80'}`}>
+        <div
+          style={{ width: `${brRatio * 100}%` }}
+          className="h-full rounded-full bg-[#1b88ee]"
+        />
+      </div>
       <input
         type="range"
         min={BRIGHTNESS_BOUNDS.min}
@@ -185,8 +187,8 @@ const BrightnessSlider: React.FC<
       />
       <div
         style={{ left: `calc(${brRatio * 100}% - ${brRatio * 34}px)` }}
-        className={`absolute top-1/2 -translate-y-1/2 w-[34px] h-[34px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.16)] flex items-center justify-center text-[10px] font-mono font-semibold pointer-events-none z-20 ${
-          isDark ? 'bg-slate-700 text-slate-100' : 'bg-white text-slate-700'
+        className={`absolute top-1/2 -translate-y-1/2 w-[34px] h-[34px] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.2)] border flex items-center justify-center text-[10px] font-mono font-bold pointer-events-none z-20 ${
+          isDark ? 'bg-slate-700 border-slate-500 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
         }`}
       >
         {brClamped}%

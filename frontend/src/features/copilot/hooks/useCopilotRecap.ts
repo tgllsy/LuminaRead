@@ -4,6 +4,8 @@ import type { SpoilerFreeRecapData, CharacterNode } from '../types'
 
 const recapCache = new Map<string, SpoilerFreeRecapData>()
 
+const FRONT_MATTER_RE = /^(\s*(书名页|版权页|扉页|封面|目录|版权信息|出版说明|献词|致谢|Cover|Title\s*Page|Copyright|Table\s*of\s*Contents|Contents)\s*)$/i
+
 export function useCopilotRecap() {
   const [recapData, setRecapData] = useState<SpoilerFreeRecapData | null>(null)
   const [recapLoading, setRecapLoading] = useState(false)
@@ -32,7 +34,7 @@ export function useCopilotRecap() {
           current_percentage: currentPercentage,
         })
         const rawNodes = Array.isArray(data?.character_graph?.nodes) ? data.character_graph.nodes : []
-        const normalizedNodes: CharacterNode[] = rawNodes.map((n, idx) => ({
+        const allNodes: CharacterNode[] = rawNodes.map((n, idx) => ({
           id: n.id || `char_${idx}`,
           name: n.name || '核心意象',
           role: n.role || '叙事要素',
@@ -41,11 +43,15 @@ export function useCopilotRecap() {
           statusUpToNow: n.statusUpToNow || '已在当前已读章节中出场并参与核心情节推进。',
           keyEvents: Array.isArray(n.keyEvents) && n.keyEvents.length > 0 ? n.keyEvents : ['第 1 章起持续参与叙事脉络演进'],
         }))
+        const filteredNodes = allNodes.filter((n) => !FRONT_MATTER_RE.test(n.name))
+        const normalizedNodes = filteredNodes.length > 0 ? filteredNodes : allNodes
+        const rawPoints = Array.isArray(data?.recap_points) ? data.recap_points : []
+        const filteredPoints = rawPoints.filter((pt) => !FRONT_MATTER_RE.test(pt.chapter_title || ''))
         const normalizedData: SpoilerFreeRecapData = {
           ...data,
           visible_chapters_count: data?.visible_chapters_count ?? 1,
           hidden_chapters_count: data?.hidden_chapters_count ?? 0,
-          recap_points: Array.isArray(data?.recap_points) ? data.recap_points : [],
+          recap_points: filteredPoints.length > 0 ? filteredPoints : rawPoints,
           character_graph: {
             nodes: normalizedNodes,
             edges: Array.isArray(data?.character_graph?.edges) ? data.character_graph.edges : [],

@@ -48,7 +48,7 @@ export const BookGrid: React.FC<BookGridProps> = ({
       />
 
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-5 sm:gap-x-7 gap-y-8 pt-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3.5 sm:gap-x-7 gap-y-5 sm:gap-y-8 pt-1.5 sm:pt-2">
           {books.map((book) => (
             <BookCard
               key={book.id}

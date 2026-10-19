@@ -1,5 +1,5 @@
-import React from 'react'
-import { X } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { X, Headphones } from 'lucide-react'
 import type { ReaderTypography, ReturnAnchorState } from '../types'
 
 interface ReaderBottomBarProps {
@@ -31,58 +31,60 @@ const MobileFloatingThumbOrbs: React.FC<{
   isTtsActive: boolean
   isTtsPlaying: boolean
   isTtsAmbientActive: boolean
-  onOpenCopilot: () => void
   onOpenTTS: () => void
-}> = ({ isDark, isScrolling, isTtsActive, isTtsPlaying, isTtsAmbientActive, onOpenCopilot, onOpenTTS }) => (
-  <div
-    data-no-hud-toggle="true"
-    className={`lg:hidden fixed right-4 bottom-[max(1.5rem,env(safe-area-inset-bottom,0px)+0.75rem)] z-40 flex items-center gap-2.5 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-      isScrolling ? 'opacity-0 translate-y-3 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
-    }`}
-  >
-    <button
-      type="button" onClick={onOpenCopilot} title="AI 伴读与章节导读"
-      className={`w-11 h-11 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center font-bold text-[13px] tracking-tight transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-[0.97] ${
-        isDark ? 'liquid-glass-dark text-[#f2f2f7] hover:bg-[#3a3a3c]' : 'liquid-glass text-[#1e1f22] hover:bg-white'
-      }`}
-    >
-      <span>AI<sup className="text-[9px] font-extrabold ml-0.5">+</sup></span>
-    </button>
+}> = ({ isDark, isScrolling, isTtsActive, isTtsPlaying, isTtsAmbientActive, onOpenTTS }) => {
+  const [swipedHidden, setSwipedHidden] = useState(false)
+  const startYRef = useRef<number | null>(null)
 
-    <button
-      type="button" onClick={onOpenTTS}
-      title={isTtsActive ? '伴读已折叠至悬浮球 · 点击展开' : '打开阅境伴读听书'}
-      className={`relative w-11 h-11 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center justify-center font-bold text-[14px] transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-[0.97] ${
-        isTtsActive
-          ? isDark
-            ? 'bg-amber-500 border border-amber-400 text-slate-950 ring-4 ring-amber-400/25'
-            : 'bg-emerald-700 border border-emerald-700 text-white ring-4 ring-emerald-600/25'
-          : isDark
-          ? 'liquid-glass-dark text-[#f2f2f7] hover:bg-[#3a3a3c]'
-          : 'liquid-glass text-[#1e1f22] hover:bg-white'
+  React.useEffect(() => {
+    if (!isScrolling) setSwipedHidden(false)
+  }, [isScrolling])
+
+  return (
+    <div
+      data-no-hud-toggle="true"
+      onTouchStart={(e) => { startYRef.current = e.touches[0]?.clientY ?? null }}
+      onTouchMove={(e) => {
+        if (startYRef.current !== null && (e.touches[0]?.clientY ?? 0) - startYRef.current > 24) {
+          setSwipedHidden(true)
+        }
+      }}
+      onTouchEnd={() => { startYRef.current = null }}
+      className={`lg:hidden fixed right-4 bottom-[max(1.25rem,env(safe-area-inset-bottom,0px)+0.5rem)] z-40 flex items-center gap-2 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        isScrolling || swipedHidden ? 'opacity-0 translate-y-12 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
       }`}
     >
-      <span>听</span>
-      {isTtsActive && (
-        <span
-          className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 ${
-            isTtsPlaying || isTtsAmbientActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-          }`}
-        />
-      )}
-    </button>
-  </div>
-)
+      <button
+        type="button" onClick={onOpenTTS}
+        title="下滑隐藏 · 点击展开听书播放器"
+        className={`relative w-11 h-11 rounded-full shadow-[0_6px_20px_rgba(27,136,238,0.35)] flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-95 ${
+          isDark
+            ? 'bg-gradient-to-tr from-[#1b88ee] to-sky-400 border border-sky-300/40 text-white ring-4 ring-[#1b88ee]/20'
+            : 'bg-gradient-to-tr from-[#1b88ee] to-sky-400 border border-white text-white ring-4 ring-[#1b88ee]/20'
+        }`}
+      >
+        <Headphones className={`w-5 h-5 text-white ${isTtsPlaying ? 'animate-pulse' : ''}`} />
+        {isTtsActive && (
+          <span
+            className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 ${
+              isTtsPlaying || isTtsAmbientActive ? 'bg-amber-300 animate-ping' : 'bg-emerald-400'
+            }`}
+          />
+        )}
+      </button>
+    </div>
+  )
+}
 
 export const ReaderBottomBar: React.FC<ReaderBottomBarProps> = ({
   typography, isScrolling, immersiveHudVisible, showTypography, showAmbientTTS,
   drawerOpen, isCopilotOpen, hasSelection, hasFootnoteModal,
-  isTtsActive, isTtsPlaying, isTtsAmbientActive, onOpenCopilot, onOpenTTS,
+  isTtsActive, isTtsPlaying, isTtsAmbientActive, onOpenTTS,
   bookmarkToast, returnAnchor, onReturnToAnchor, onClearReturnAnchor,
   readingEstimateText, isPageCanvas,
 }) => {
   const showMobileFloatingButtons =
-    !immersiveHudVisible && !showTypography && !showAmbientTTS &&
+    isTtsActive && !immersiveHudVisible && !showTypography && !showAmbientTTS &&
     !drawerOpen && !isCopilotOpen && !hasSelection && !hasFootnoteModal
 
   return (
@@ -128,7 +130,7 @@ export const ReaderBottomBar: React.FC<ReaderBottomBarProps> = ({
         <MobileFloatingThumbOrbs
           isDark={typography.theme === 'dark'} isScrolling={isScrolling}
           isTtsActive={isTtsActive} isTtsPlaying={isTtsPlaying} isTtsAmbientActive={isTtsAmbientActive}
-          onOpenCopilot={onOpenCopilot} onOpenTTS={onOpenTTS}
+          onOpenTTS={onOpenTTS}
         />
       )}
     </>

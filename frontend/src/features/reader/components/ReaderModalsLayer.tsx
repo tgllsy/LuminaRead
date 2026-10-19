@@ -134,6 +134,7 @@ const ReaderAuxiliaryDialogs: React.FC<
       <SelectionPopover
         selectedText={selectionState.text} paragraphIndex={selectionState.paragraphIndex}
         existingHighlight={selectionState.existing} openNoteEditorInitially={selectionState.openNoteEditorInitially}
+        anchorRect={selectionState.anchorRect}
         theme={typography.theme}
         onClose={() => {
           if (typeof window !== 'undefined') {

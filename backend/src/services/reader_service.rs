@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::Local;
 use std::sync::Arc;
+use crate::domain::entities::book::BookStatus;
 use crate::domain::entities::reader::{Bookmark, Highlight, ReadingProgress};
 use crate::domain::traits::{BookRepository, ReaderRepository};
 use crate::error::{AppResult, DomainError};
@@ -26,9 +27,20 @@ impl ReaderService for ReaderServiceImpl {
             .ok_or_else(|| DomainError::BookNotFound(id.to_string()))?;
 
         let now = Local::now().to_rfc3339();
-        book.mark_as_reading(now.clone());
+        let pct = dto.percentage.max(0.0).min(100.0);
+        if pct >= 98.0 {
+            book.status = BookStatus::Finished;
+        } else if pct > 0.0 || book.status == BookStatus::Finished {
+            book.status = BookStatus::Reading;
+        } else if book.status != BookStatus::Finished {
+            book.mark_as_reading(now.clone());
+        }
+        book.last_read_at = now.clone();
+
         if let Some(secs) = dto.duration_seconds {
-            book.record_reading_session(secs, dto.percentage);
+            if secs > 0 {
+                book.total_reading_seconds = book.total_reading_seconds.saturating_add(secs);
+            }
         }
 
         let progress = ReadingProgress {

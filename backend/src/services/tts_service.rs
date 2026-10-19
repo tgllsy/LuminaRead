@@ -161,6 +161,92 @@ fn trigger_tts_cache_maintenance(cache_dir: &Path) {
     }
 }
 
+fn strip_citation_markers(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let chars: Vec<char> = input.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
+
+    while i < len {
+        let ch = chars[i];
+
+        // 1. Circled citation numbers: ①..⑳, ⑴..⒇, ⒈..⒛
+        if matches!(ch, '\u{2460}'..='\u{2473}' | '\u{2474}'..='\u{2487}' | '\u{2488}'..='\u{249B}') {
+            i += 1;
+            continue;
+        }
+
+        // 2. Caret superscripts: ^(9)^ or ^(text) or ^[text] or ^123^
+        if ch == '^' {
+            let mut j = i + 1;
+            if j < len && (chars[j] == '(' || chars[j] == '（' || chars[j] == '[') {
+                let close = match chars[j] {
+                    '(' => ')',
+                    '（' => '）',
+                    '[' => ']',
+                    _ => ')',
+                };
+                let mut depth = 1;
+                j += 1;
+                while j < len && depth > 0 {
+                    if chars[j] == chars[i + 1] {
+                        depth += 1;
+                    } else if chars[j] == close {
+                        depth -= 1;
+                    }
+                    j += 1;
+                }
+                if j < len && chars[j] == '^' {
+                    j += 1;
+                }
+                i = j;
+                continue;
+            } else if j < len && chars[j].is_ascii_digit() {
+                while j < len && chars[j].is_ascii_digit() {
+                    j += 1;
+                }
+                if j < len && chars[j] == '^' {
+                    j += 1;
+                }
+                i = j;
+                continue;
+            }
+        }
+
+        // 3. Parentheses or brackets containing ONLY numbers or "注+numbers":
+        // e.g. (22), （22）, (注1), （注1）, [1], 【1】, 〔1〕, 〔注1〕
+        if matches!(ch, '(' | '（' | '[' | '【' | '〔') {
+            let close = match ch {
+                '(' => ')',
+                '（' => '）',
+                '[' => ']',
+                '【' => '】',
+                '〔' => '〕',
+                _ => ')',
+            };
+            let mut j = i + 1;
+            // Check for optional "注"
+            if j < len && chars[j] == '注' {
+                j += 1;
+            }
+            let start_digits = j;
+            while j < len && chars[j].is_ascii_digit() {
+                j += 1;
+            }
+            // If it had at least one digit and closes right away (and at most 4 digits, typical footnote)
+            if j > start_digits && (j - start_digits) <= 4 && j < len && chars[j] == close {
+                i = j + 1;
+                continue;
+            }
+        }
+
+        out.push(ch);
+        i += 1;
+    }
+
+    out
+}
+
 fn sanitize_tts_text(text: &str) -> String {
     let mut s = text.trim();
     while s.starts_with('>') {
@@ -178,7 +264,8 @@ fn sanitize_tts_text(text: &str) -> String {
         .replace("&#39;", "'")
         .replace("&amp;", "&");
 
-    let chars: Vec<char> = unescaped.chars().collect();
+    let stripped_citations = strip_citation_markers(&unescaped);
+    let chars: Vec<char> = stripped_citations.chars().collect();
     let mut cleaned = String::with_capacity(chars.len());
     let len = chars.len();
 
@@ -409,12 +496,48 @@ fn resolve_dual_role_voices<'a>(
 
 fn map_to_edge_voice<'a>(voice: &'a str) -> (&'a str, &'static str, &'static str) {
     match voice {
+        // 1. 官方原生支持的 Edge Neural 中文与方言音色
+        "zh-CN-XiaoxiaoNeural" => ("zh-CN-XiaoxiaoNeural", "+0Hz", "+0%"),
+        "zh-CN-YunxiNeural" => ("zh-CN-YunxiNeural", "+0Hz", "+0%"),
+        "zh-CN-YunjianNeural" => ("zh-CN-YunjianNeural", "+0Hz", "+0%"),
+        "zh-CN-XiaoyiNeural" => ("zh-CN-XiaoyiNeural", "+0Hz", "+0%"),
+        "zh-CN-YunyangNeural" => ("zh-CN-YunyangNeural", "+0Hz", "+0%"),
+        "zh-CN-YunxiaNeural" => ("zh-CN-YunxiaNeural", "+0Hz", "+0%"),
+        "zh-CN-liaoning-XiaobeiNeural" => ("zh-CN-liaoning-XiaobeiNeural", "+0Hz", "+0%"),
+        "zh-CN-shaanxi-XiaoniNeural" => ("zh-CN-shaanxi-XiaoniNeural", "+0Hz", "+0%"),
+        "zh-TW-HsiaoChenNeural" => ("zh-TW-HsiaoChenNeural", "+0Hz", "+0%"),
+        "zh-TW-HsiaoYuNeural" => ("zh-TW-HsiaoYuNeural", "+0Hz", "+0%"),
+        "zh-TW-YunJheNeural" => ("zh-TW-YunJheNeural", "+0Hz", "+0%"),
+        "zh-HK-HiuMaanNeural" => ("zh-HK-HiuMaanNeural", "+0Hz", "+0%"),
+        "zh-HK-HiuGaaiNeural" => ("zh-HK-HiuGaaiNeural", "+0Hz", "+0%"),
+        "zh-HK-WanLungNeural" => ("zh-HK-WanLungNeural", "+0Hz", "+0%"),
+
+        // 2. 官方原生支持的 Edge Neural 英文与多语言音色
+        "en-US-AvaMultilingualNeural" => ("en-US-AvaMultilingualNeural", "+0Hz", "+0%"),
+        "en-US-BrianMultilingualNeural" => ("en-US-BrianMultilingualNeural", "+0Hz", "+0%"),
+        "en-US-AndrewMultilingualNeural" => ("en-US-AndrewMultilingualNeural", "+0Hz", "+0%"),
+        "en-US-EmmaMultilingualNeural" => ("en-US-EmmaMultilingualNeural", "+0Hz", "+0%"),
+        "en-US-JennyNeural" => ("en-US-JennyNeural", "+0Hz", "+0%"),
+        "en-US-GuyNeural" => ("en-US-GuyNeural", "+0Hz", "+0%"),
+        "en-US-AriaNeural" => ("en-US-AriaNeural", "+0Hz", "+0%"),
+
+        // 3. 常见历史 / Azure 专属不可用音色映射兜底 (映射到声线最接近的 Edge 原生音色，确保秒开绝不超时)
+        "zh-CN-XiaochenNeural" | "zh-CN-XiaohanNeural" | "zh-CN-XiaoqiuNeural" | "zh-CN-XiaoruiNeural" | "zh-CN-XiaozhenNeural" => ("zh-CN-XiaoxiaoNeural", "+0Hz", "+0%"),
+        "zh-CN-XiaomengNeural" | "zh-CN-XiaomoNeural" | "zh-CN-XiaoshuangNeural" => ("zh-CN-XiaoyiNeural", "+0Hz", "+0%"),
+        "zh-CN-XiaoyanNeural" | "zh-CN-XiaoyouNeural" => ("zh-CN-XiaoxiaoNeural", "-1Hz", "-2%"),
+        "zh-CN-YunfengNeural" | "zh-CN-YunzeNeural" => ("zh-CN-YunjianNeural", "-1Hz", "+0%"),
+        "zh-CN-YunhaoNeural" => ("zh-CN-YunxiNeural", "+1Hz", "+0%"),
+        "zh-CN-YunyeNeural" => ("zh-CN-YunyangNeural", "+0Hz", "+0%"),
+
+        // 4. 云端虚拟模型音效映射
         "cloud-doubao-cancan" => ("zh-CN-XiaoxiaoNeural", "+2Hz", "+1%"),
         "cloud-lidan-chat" => ("zh-CN-YunxiNeural", "-3Hz", "-4%"),
         "cloud-xunfei-lingfeizhe" => ("zh-CN-YunyangNeural", "-2Hz", "+0%"),
-        v if (v.starts_with("zh-") || v.starts_with("en-")) && v.ends_with("Neural") => (v, "+0Hz", "+0%"),
-        "en-US-JennyNeural" => ("en-US-JennyNeural", "+0Hz", "+0%"),
+
+        // 5. 其它英文音色兜底至 en-US-JennyNeural
         v if v.starts_with("en-") => ("en-US-JennyNeural", "+0Hz", "+0%"),
+
+        // 6. 全局安全兜底至旗舰女声
         _ => ("zh-CN-XiaoxiaoNeural", "+0Hz", "+0%"),
     }
 }
@@ -585,7 +708,7 @@ async fn synthesize_via_edge_tts(
             }
         };
 
-        if tokio::time::timeout(std::time::Duration::from_secs(10), timeout_task)
+        if tokio::time::timeout(std::time::Duration::from_secs(6), timeout_task)
             .await
             .is_ok()
             && is_valid_mp3_buffer(&audio_bytes)
@@ -1147,208 +1270,16 @@ impl TtsService for TtsServiceImpl {
                 "description": "字正腔圆的标准播音腔，发音清晰笃定，适合财经商业、社科社论与深度报道"
             },
             {
-                "id": "en-US-AvaMultilingualNeural",
-                "name": "Ava · 中英双语女声",
-                "shortName": "Ava (中英双语)",
-                "badge": "中英双语 · 无缝混排",
-                "category": "bilingual",
+                "id": "zh-TW-HsiaoYuNeural",
+                "name": "晓雨 · 恬静优雅女声",
+                "shortName": "晓雨 (台湾国语)",
+                "badge": "轻柔优雅 · 随笔/小说",
+                "category": "dialect",
                 "provider": "edge-neural",
                 "gender": "female",
-                "lang": "en-US",
-                "recommended": true,
-                "description": "中英双语无缝混读，适合英文原著与双语对照阅读"
-            },
-            {
-                "id": "en-US-BrianMultilingualNeural",
-                "name": "Brian · 慵懒播客男声",
-                "shortName": "Brian (松弛播客)",
-                "badge": "松弛漫谈 · 零机械感",
-                "category": "podcast",
-                "provider": "edge-neural",
-                "gender": "male",
-                "lang": "en-US",
-                "recommended": true,
-                "description": "跨语言自然男声，吐字松弛随性，像老友在书房随性漫谈"
-            },
-            {
-                "id": "zh-CN-YunxiaNeural",
-                "name": "云夏 · 青春活力男声",
-                "shortName": "云夏 (活力少年)",
-                "badge": "阳光少年 · 探险/成长",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "male",
-                "lang": "zh-CN",
-                "recommended": true,
-                "description": "明朗有生气的少年音，充满朝气与好奇心，适合青春文学与奇幻冒险"
-            },
-            {
-                "id": "zh-CN-XiaochenNeural",
-                "name": "晓辰 · 温暖治愈女声",
-                "shortName": "晓辰 (温暖治愈)",
-                "badge": "治愈温润 · 随笔/心理",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
+                "lang": "zh-TW",
                 "recommended": false,
-                "description": "如晨光般柔和的女声，节奏舒缓，适合心灵疗愈、温暖随笔与散文"
-            },
-            {
-                "id": "zh-CN-XiaohanNeural",
-                "name": "晓涵 · 情感充沛女声",
-                "shortName": "晓涵 (沉浸情感)",
-                "badge": "共情细腻 · 抒情/长篇",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "情绪饱满富有张力的成熟女声，擅长细腻人物内心独白与跌宕剧情"
-            },
-            {
-                "id": "zh-CN-XiaomengNeural",
-                "name": "晓梦 · 甜美清澈女声",
-                "shortName": "晓梦 (唯美清甜)",
-                "badge": "唯美轻柔 · 诗意/童话",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "空灵清丽的少女声线，如梦如幻，适合诗歌读本与童话奇境"
-            },
-            {
-                "id": "zh-CN-XiaomoNeural",
-                "name": "晓墨 · 文艺知性女声",
-                "shortName": "晓墨 (知性文艺)",
-                "badge": "书卷雅致 · 艺术/文史",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "从容内敛的书卷气女声，咬字文雅，适合文史评析、艺术随笔与人物传记"
-            },
-            {
-                "id": "zh-CN-XiaoqiuNeural",
-                "name": "晓秋 · 知性温婉女声",
-                "shortName": "晓秋 (温婉知性)",
-                "badge": "清雅明快 · 纪实/读书",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "吐字轻快温润，自然流畅，适合有声书朗读、纪实访谈与知识播客"
-            },
-            {
-                "id": "zh-CN-XiaoruiNeural",
-                "name": "晓睿 · 沉稳睿智女声",
-                "shortName": "晓睿 (睿智沉稳)",
-                "badge": "深邃从容 · 经管/思想",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "从容笃定的大气女声，逻辑感强，适合社会科学、政经通识与深度思考"
-            },
-            {
-                "id": "zh-CN-XiaoshuangNeural",
-                "name": "晓双 · 活泼天真童声",
-                "shortName": "晓双 (萌趣童声)",
-                "badge": "萌趣活泼 · 亲子/科普",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "稚气未脱的纯真童声，活泼亲近，适合少儿读物、自然绘本与趣味科普"
-            },
-            {
-                "id": "zh-CN-XiaoyanNeural",
-                "name": "晓颜 · 古典优雅女声",
-                "shortName": "晓颜 (温婉古典)",
-                "badge": "古风雅致 · 诗词/古籍",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "温婉恬静带有古韵，气若幽兰，适合古籍经典、唐诗宋词与国风小说"
-            },
-            {
-                "id": "zh-CN-XiaoyouNeural",
-                "name": "晓悠 · 轻柔慢调女声",
-                "shortName": "晓悠 (轻柔慢调)",
-                "badge": "慢调安神 · 睡前/冥想",
-                "category": "podcast",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "语速微慢、柔若微风的催眠声线，抚平焦躁，适合睡前长夜阅读与冥想"
-            },
-            {
-                "id": "zh-CN-XiaozhenNeural",
-                "name": "晓甄 · 商务从容女声",
-                "shortName": "晓甄 (商务从容)",
-                "badge": "干练从容 · 职场/商业",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "female",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "干练清晰的商务女性声音，发音准确专业，适合商业实操与职场成长"
-            },
-            {
-                "id": "zh-CN-YunfengNeural",
-                "name": "云枫 · 磁性故事男声",
-                "shortName": "云枫 (磁性故事)",
-                "badge": "悬疑侦探 · 刑侦/科幻",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "male",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "低沉富有磁性的演播男声，带有天然的故事悬念感，适合刑侦推理"
-            },
-            {
-                "id": "zh-CN-YunhaoNeural",
-                "name": "云皓 · 活力阳光男声",
-                "shortName": "云皓 (活力青年)",
-                "badge": "阳光率真 · 现代/传记",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "male",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "健康自信的青年男声，语调自然率真，适合人物传记、当代生活与运动纪实"
-            },
-            {
-                "id": "zh-CN-YunyeNeural",
-                "name": "云野 · 传统说书男声",
-                "shortName": "云野 (说书演播)",
-                "badge": "评书传奇 · 武侠/演义",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "male",
-                "lang": "zh-CN",
-                "recommended": true,
-                "description": "字正腔圆带有一丝评书味，起承转合韵律十足，极度适合武侠江湖与历史传奇"
-            },
-            {
-                "id": "zh-CN-YunzeNeural",
-                "name": "云泽 · 浑厚历史男声",
-                "shortName": "云泽 (浑厚纪录)",
-                "badge": "沉静史诗 · 纪录片/名著",
-                "category": "flagship",
-                "provider": "edge-neural",
-                "gender": "male",
-                "lang": "zh-CN",
-                "recommended": false,
-                "description": "宽广沉静的历史旁白音色，有如纪录片大师解说，极具沧桑沉稳质感"
+                "description": "清雅恬淡的台湾女声，吐字自然轻柔，适合现代文学与情感散文"
             },
             {
                 "id": "zh-TW-YunJheNeural",
@@ -1375,6 +1306,18 @@ impl TtsService for TtsServiceImpl {
                 "description": "纯正地道广府粤语女声，发音清雅悦耳，适合粤港文化读物与经典粤语书卷"
             },
             {
+                "id": "zh-HK-HiuGaaiNeural",
+                "name": "晓佳 · 粤语亲切女声",
+                "shortName": "晓佳 (生活粤语)",
+                "badge": "生动日常 · 粤语生活",
+                "category": "dialect",
+                "provider": "edge-neural",
+                "gender": "female",
+                "lang": "zh-HK",
+                "recommended": false,
+                "description": "生活气息浓厚的粤语女声，亲切自然，适合现代故事与随笔漫谈"
+            },
+            {
                 "id": "zh-HK-WanLungNeural",
                 "name": "云龙 · 粤语沉稳男声",
                 "shortName": "云龙 (沉稳粤语)",
@@ -1385,6 +1328,54 @@ impl TtsService for TtsServiceImpl {
                 "lang": "zh-HK",
                 "recommended": false,
                 "description": "雄浑庄重的粤语男声，抑扬顿挫富有感染力，适合粤语长篇名著演播"
+            },
+            {
+                "id": "zh-CN-liaoning-XiaobeiNeural",
+                "name": "小北 · 东北方言女声",
+                "shortName": "小北 (东北话)",
+                "badge": "诙谐风趣 · 故事市井",
+                "category": "dialect",
+                "provider": "edge-neural",
+                "gender": "female",
+                "lang": "zh-CN",
+                "recommended": false,
+                "description": "地道生动的东北口音，亲和风趣富有画面感，特别适合通俗演义与民俗小说"
+            },
+            {
+                "id": "zh-CN-shaanxi-XiaoniNeural",
+                "name": "小妮 · 陕西方言女声",
+                "shortName": "小妮 (陕西话)",
+                "badge": "质朴豪爽 · 乡土文学",
+                "category": "dialect",
+                "provider": "edge-neural",
+                "gender": "female",
+                "lang": "zh-CN",
+                "recommended": false,
+                "description": "纯朴醇厚的秦川乡音，真挚豪爽，极适合西北风情与乡土文学朗读"
+            },
+            {
+                "id": "en-US-AvaMultilingualNeural",
+                "name": "Ava · 中英双语女声",
+                "shortName": "Ava (中英双语)",
+                "badge": "中英双语 · 无缝混排",
+                "category": "bilingual",
+                "provider": "edge-neural",
+                "gender": "female",
+                "lang": "en-US",
+                "recommended": true,
+                "description": "原生支持中英双语自然切换，适合英文原著与双语夹杂文本"
+            },
+            {
+                "id": "en-US-BrianMultilingualNeural",
+                "name": "Brian · 慵懒播客男声",
+                "shortName": "Brian (松弛播客)",
+                "badge": "松弛漫谈 · 零机械感",
+                "category": "podcast",
+                "provider": "edge-neural",
+                "gender": "male",
+                "lang": "en-US",
+                "recommended": true,
+                "description": "跨语言自然男声，吐字松弛随性，像老友在书房随性漫谈"
             },
             {
                 "id": "en-US-AndrewMultilingualNeural",
@@ -1490,6 +1481,18 @@ mod tests {
 
         let multi_gt = ">>>   ";
         assert_eq!(sanitize_tts_text(multi_gt), "");
+
+        // Citation tests: (22), (23), ^(9)^, ^((新唐书...)), ①, while keeping normal (1984年) and (GDP)
+        let text_with_citations = "结果不一定对上级更有利。(22) 专职办事的人员实际权力很大。（23） 太常奏：“^(9)^” 以及^((新唐书卷五十一·后妃传))，包含①和[12]与〔注3〕。但在(1984年)成立的(GDP)机构仍保留。";
+        let cleaned_citations = sanitize_tts_text(text_with_citations);
+        assert!(!cleaned_citations.contains("22"));
+        assert!(!cleaned_citations.contains("23"));
+        assert!(!cleaned_citations.contains("新唐书"));
+        assert!(!cleaned_citations.contains('①'));
+        assert!(cleaned_citations.contains("结果不一定对上级更有利。"));
+        assert!(cleaned_citations.contains("专职办事的人员实际权力很大。"));
+        assert!(cleaned_citations.contains("(1984年)"));
+        assert!(cleaned_citations.contains("(GDP)"));
     }
 
     #[test]

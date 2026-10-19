@@ -103,13 +103,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     { key: 'discovery', label: '找书', icon: <Compass className="w-5 h-5" />, isActive: activePage === 'discovery', onClick: () => onSelectPage('discovery') },
     {
       key: 'tts',
-      label: '听书',
-      icon: (
-        <div className="relative">
-          <Headphones className={`w-5 h-5 ${isTtsPlaying ? 'animate-pulse text-amber-500' : ''}`} />
-          {isTtsActive && <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />}
-        </div>
-      ),
+      label: '',
+      isCenterFab: true,
+      icon: <Headphones className={`w-6 h-6 stroke-[2.2] text-white ${isTtsPlaying ? 'animate-pulse' : ''}`} />,
       isActive: activePage === 'tts',
       onClick: () => onSelectPage('tts'),
     },
@@ -119,20 +115,51 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 liquid-glass border-t-[0.5px] border-slate-200/80 px-3 pt-1.5 pb-[max(0.55rem,env(safe-area-inset-bottom,0px))] flex items-center justify-around text-xs select-none">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={item.onClick}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] cursor-pointer ${
-              item.isActive ? 'text-[#1b88ee] font-bold' : 'text-slate-400 hover:text-slate-800'
-            }`}
-          >
-            {item.icon}
-            <span className="text-[10px] leading-tight">{item.label}</span>
-          </button>
-        ))}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 liquid-glass border-t-[0.5px] border-slate-200/80 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] flex items-center justify-around text-xs select-none overflow-visible">
+        {navItems.map((item) => {
+          if (item.isCenterFab) {
+            return (
+              <div key={item.key} className="flex-1 flex items-center justify-center overflow-visible">
+                <button
+                  type="button"
+                  onClick={item.onClick}
+                  aria-label="听书"
+                  title="打开听书播放器"
+                  className={`relative -mt-6 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 cursor-pointer ring-4 ring-white ${
+                    isTtsPlaying
+                      ? 'bg-gradient-to-tr from-emerald-600 via-teal-500 to-amber-500 shadow-[0_-4px_20px_rgba(16,185,129,0.35),0_8px_22px_rgba(16,185,129,0.45)]'
+                      : item.isActive
+                      ? 'bg-gradient-to-tr from-indigo-600 via-[#1b88ee] to-sky-400 shadow-[0_-4px_20px_rgba(27,136,238,0.4),0_8px_24px_rgba(27,136,238,0.5)] scale-105'
+                      : 'bg-gradient-to-tr from-[#1b88ee] via-[#2b95f5] to-sky-400 shadow-[0_-4px_18px_rgba(27,136,238,0.28),0_6px_20px_rgba(27,136,238,0.42)] hover:brightness-105'
+                  }`}
+                >
+                  {item.icon}
+                  {isTtsActive && (
+                    <span
+                      className={`absolute top-0.5 right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                        isTtsPlaying ? 'bg-amber-300 animate-ping' : 'bg-emerald-400'
+                      }`}
+                    />
+                  )}
+                </button>
+              </div>
+            )
+          }
+
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={item.onClick}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] cursor-pointer ${
+                item.isActive ? 'text-[#1b88ee] font-bold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {item.icon}
+              <span className="text-[10px] leading-tight">{item.label}</span>
+            </button>
+          )
+        })}
       </nav>
 
       <MobileQuickHubSheet

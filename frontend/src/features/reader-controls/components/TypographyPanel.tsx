@@ -23,16 +23,40 @@ const MobileTypographyHudSheet: React.FC<
   isTtsActive = false, getChapterTitle, bookId, currentTab, setTab, showFontDrawer, setShowFontDrawer, ratios,
 }) => {
   const { isDark } = ratios
+  const [dragY, setDragY] = useState(0)
+  const touchStartYRef = React.useRef<number | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) touchStartYRef.current = e.touches[0].clientY
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartYRef.current === null || e.touches.length !== 1) return
+    const dy = e.touches[0].clientY - touchStartYRef.current
+    if (dy > 6) setDragY(dy)
+  }
+  const handleTouchEnd = () => {
+    const shouldClose = dragY > 64
+    setDragY(0)
+    touchStartYRef.current = null
+    if (shouldClose) onClose()
+  }
+
   return (
-    <div className="lg:hidden fixed inset-x-0 bottom-0 flex flex-col justify-end">
+    <div
+      style={dragY > 0 ? { transform: `translateY(${dragY}px)`, transition: 'none' } : undefined}
+      className="lg:hidden fixed inset-x-0 bottom-0 flex flex-col justify-end transition-transform duration-200 ease-out"
+    >
       <MobileFloatingActions onOpenAI={onOpenAI} onOpenTTS={onOpenTTS} isTtsActive={isTtsActive} isDark={isDark} />
       <div
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         className={`w-full sm:max-w-lg sm:mx-auto rounded-t-3xl px-5 pt-3.5 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] shadow-[0_-8px_36px_rgba(15,23,42,0.14)] border-t transition-colors ${
           isDark ? 'liquid-glass-dark bg-[#1c1c1e]/95 text-slate-100 border-slate-800' : 'liquid-glass bg-white/95 text-slate-900 border-slate-100'
         }`}
       >
-        <div className="flex justify-center pb-2.5">
+        <div className="flex justify-center pb-2.5 cursor-grab active:cursor-grabbing">
           <div className={`w-10 h-1.5 rounded-full ${isDark ? 'bg-white/20' : 'bg-slate-300/90'}`} />
         </div>
         {currentTab === 'progress' ? (

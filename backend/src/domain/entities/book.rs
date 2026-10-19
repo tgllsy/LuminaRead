@@ -111,10 +111,9 @@ impl Book {
     pub fn record_reading_session(&mut self, additional_seconds: i64, percentage: f64) {
         self.total_reading_seconds = self.total_reading_seconds.saturating_add(additional_seconds);
         let clamped = percentage.max(0.0).min(100.0);
-        let normalized = if clamped > 1.0 { clamped / 100.0 } else { clamped };
-        if normalized >= 0.98 {
+        if clamped >= 98.0 {
             self.status = BookStatus::Finished;
-        } else if self.status == BookStatus::Finished {
+        } else if self.status == BookStatus::Finished && clamped < 95.0 {
             self.status = BookStatus::Reading;
         }
     }

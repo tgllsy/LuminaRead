@@ -167,11 +167,11 @@ export const ReaderDualSpreadView: React.FC<ReaderDualSpreadViewProps> = ({
                 <BookOpen className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <div className="text-sm font-bold opacity-85">本章已读完</div>
+                <div className="text-sm font-bold opacity-85">—— 本章完 ——</div>
                 <div className="text-xs opacity-55 font-sans">
                   {chapterIndex < chapters.length - 1
-                    ? `下一章：${chapters[chapterIndex + 1]?.title || `第 ${chapterIndex + 2} 章`}`
-                    : '已读至全书最后一章'}
+                    ? `下章待续：${chapters[chapterIndex + 1]?.title || `第 ${chapterIndex + 2} 章`}`
+                    : '已读至全书末尾'}
                 </div>
               </div>
               {chapterIndex < chapters.length - 1 && (

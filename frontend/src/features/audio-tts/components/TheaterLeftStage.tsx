@@ -27,6 +27,8 @@ interface TheaterLeftStageProps {
   onOpenAmbientModal?: () => void
   ambientEnabled?: boolean
   onToggleAmbientEnabled?: () => void
+  externalVoiceModalOpen?: boolean
+  onSetExternalVoiceModalOpen?: (open: boolean) => void
 }
 
 const QUICK_VOICES = [
@@ -58,9 +60,12 @@ export const TheaterLeftStage: React.FC<TheaterLeftStageProps> = ({
   onOpenAmbientModal,
   ambientEnabled,
   onToggleAmbientEnabled,
+  externalVoiceModalOpen,
+  onSetExternalVoiceModalOpen,
 }) => {
-  const [showVoiceLibrary, setShowVoiceLibrary] = useState(false)
-
+  const [internalShowVoiceLibrary, setInternalShowVoiceLibrary] = useState(false)
+  const showVoiceLibrary = externalVoiceModalOpen ?? internalShowVoiceLibrary
+  const setShowVoiceLibrary = onSetExternalVoiceModalOpen ?? setInternalShowVoiceLibrary
 
   const activeVoiceObj = voices.find((v) => v.id === effectiveVoice)
 
@@ -74,14 +79,17 @@ export const TheaterLeftStage: React.FC<TheaterLeftStageProps> = ({
               className="relative w-44 h-60 rounded-2xl overflow-hidden shadow-2xl border border-white/20 p-4 flex flex-col justify-between"
               style={{ backgroundColor: coverColor }}
             >
-              {coverUrl && (
+              {coverUrl ? (
                 <img src={coverUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <>
+                  <div className="relative z-10 text-[10px] text-amber-300 font-mono tracking-wider uppercase">AUDIOBOOK</div>
+                  <div className="relative z-10">
+                    <h3 className="font-serif font-bold text-lg leading-snug text-white line-clamp-2">{title}</h3>
+                    <p className="text-xs text-slate-300 mt-1 truncate">{author}</p>
+                  </div>
+                </>
               )}
-              <div className="relative z-10 text-[10px] text-amber-300 font-mono tracking-wider uppercase">AUDIOBOOK</div>
-              <div className="relative z-10">
-                <h3 className="font-serif font-bold text-lg leading-snug text-white line-clamp-2">{title}</h3>
-                <p className="text-xs text-slate-300 mt-1 truncate">{author}</p>
-              </div>
             </div>
           </div>
 

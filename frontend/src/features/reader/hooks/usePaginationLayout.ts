@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { PageSpread, ReaderTypography } from '../types'
 import { computePaginationSpreads } from '../../../utils/paginationEngine'
+import { useTtsStore } from '../../../stores/ttsStore'
 
 interface UsePaginationLayoutOptions {
   paragraphs: string[]
@@ -10,6 +11,46 @@ interface UsePaginationLayoutOptions {
   focusParaIndex?: number | null
   pdfMode?: string
   enabled?: boolean
+}
+
+function findTargetSpreadIndex(
+  spreads: PageSpread[],
+  paraIdx: number,
+  paragraphs: string[],
+  activeSentence?: string
+): number {
+  if (spreads.length === 0) return -1
+
+  // 1. If activeSentence is present, find the exact slice in the paragraph
+  if (activeSentence && paragraphs[paraIdx]) {
+    const fullText = paragraphs[paraIdx]
+    const charOffset = fullText.indexOf(activeSentence)
+    if (charOffset >= 0) {
+      const exactIdx = spreads.findIndex((sp) => {
+        const matchLeft = sp.left.some(
+          (it) =>
+            it.pIdx === paraIdx &&
+            (it.sliceStart == null ||
+              (charOffset >= it.sliceStart && charOffset < (it.sliceEnd ?? Infinity)))
+        )
+        if (matchLeft) return true
+        return sp.right.some(
+          (it) =>
+            it.pIdx === paraIdx &&
+            (it.sliceStart == null ||
+              (charOffset >= it.sliceStart && charOffset < (it.sliceEnd ?? Infinity)))
+        )
+      })
+      if (exactIdx >= 0) return exactIdx
+    }
+  }
+
+  // 2. Fallback: find any spread containing this paragraph
+  return spreads.findIndex(
+    (sp) =>
+      sp.left.some((it) => it.pIdx === paraIdx) ||
+      sp.right.some((it) => it.pIdx === paraIdx)
+  )
 }
 
 export function usePaginationLayout({
@@ -26,6 +67,9 @@ export function usePaginationLayout({
   const [debouncedDims, setDebouncedDims] = useState({ windowWidth, windowHeight })
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const isTtsPlaying = useTtsStore((s) => s.audioStatus.playing)
+  const activeSentence = useTtsStore((s) => s.activeSentence)
+
   useEffect(() => {
     if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current)
     resizeTimerRef.current = setTimeout(() => {
@@ -40,6 +84,9 @@ export function usePaginationLayout({
   const activeHeight = debouncedDims.windowHeight
   const isSingleCol = typography.layoutMode === 'single' || activeWidth < 1024
   const [spreadIndex, setSpreadIndex] = useState(0)
+  const spreadIndexRef = useRef(spreadIndex)
+  spreadIndexRef.current = spreadIndex
+  const prevFocusParaRef = useRef<number | null | undefined>(focusParaIndex)
   const [fontLoadedTick, setFontLoadedTick] = useState(0)
 
   useEffect(() => {
@@ -107,11 +154,24 @@ export function usePaginationLayout({
 
   useEffect(() => {
     if (!enabled || focusParaIndex === null || focusParaIndex === undefined) return
-    const idx = paginatedSpreads.findIndex((sp) =>
-      sp.left.some((it) => it.pIdx === focusParaIndex) || sp.right.some((it) => it.pIdx === focusParaIndex)
+
+    const paraChanged = prevFocusParaRef.current !== focusParaIndex
+    prevFocusParaRef.current = focusParaIndex
+
+    // Only auto-turn if TTS is actively playing OR focusParaIndex just changed (e.g. jump/seek/search flash)
+    if (!isTtsPlaying && !paraChanged) return
+
+    const targetIdx = findTargetSpreadIndex(
+      paginatedSpreads,
+      focusParaIndex,
+      paragraphs,
+      isTtsPlaying ? activeSentence : undefined
     )
-    if (idx >= 0 && idx !== spreadIndex) setSpreadIndex(idx)
-  }, [enabled, focusParaIndex, paginatedSpreads, spreadIndex])
+
+    if (targetIdx >= 0 && targetIdx !== spreadIndexRef.current) {
+      setSpreadIndex(targetIdx)
+    }
+  }, [enabled, focusParaIndex, activeSentence, isTtsPlaying, paginatedSpreads, paragraphs])
 
   return { paginatedSpreads, spreadIndex, setSpreadIndex, clampedSpreadIndex, turnToLastSpreadRef }
 }

@@ -417,5 +417,16 @@ fn ensure_fts_populated(conn: &Connection) -> rusqlite::Result<()> {
         }
     }
 
+    // Self-healing migration: reset erroneously marked 'finished' status for books where progress < 95%
+    let _ = conn.execute(
+        "UPDATE books
+         SET status = 'reading'
+         WHERE status = 'finished'
+           AND id IN (
+             SELECT book_id FROM reading_progress WHERE percentage < 95.0
+           )",
+        [],
+    );
+
     Ok(())
 }

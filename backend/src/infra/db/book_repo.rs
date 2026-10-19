@@ -472,11 +472,11 @@ impl BookRepository for SqliteBookRepository {
     async fn record_session(&self, book_id: &str, duration_seconds: i64) -> AppResult<serde_json::Value> {
         let bid = book_id.to_string();
         self.db.interact(move |conn| {
-            let duration = duration_seconds.max(10);
+            let duration = duration_seconds.max(1).min(120);
             let now = chrono::Local::now();
             let date_str = now.format("%Y-%m-%d").to_string();
             let now_iso = now.to_rfc3339();
-            let pages = (duration / 60).max(1);
+            let pages = (duration as f64 / 120.0).round() as i64;
             let words = ((duration as f64 / 60.0) * 350.0).round() as i64;
 
             let existing: Option<String> = conn.query_row(

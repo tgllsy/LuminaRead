@@ -152,10 +152,11 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
         className="hidden"
       />
       <BookshelfHeroCard books={mergedBooks} onOpenBook={onOpenBook} onOpenNotesHub={onOpenNotesHub} />
-      <div className="mb-4"><DailyReviewCard onJumpToHighlight={onOpenBook} onOpenNotesHub={onOpenNotesHub} /></div>
-      <div className="sticky top-[calc(3.25rem+env(safe-area-inset-top,0px))] md:top-16 z-20 liquid-glass pt-2 pb-2.5 mb-5 border-b border-slate-200/60 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 transition-all">
+      <div className="mb-3 sm:mb-4"><DailyReviewCard onJumpToHighlight={onOpenBook} onOpenNotesHub={onOpenNotesHub} /></div>
+      <div className="sticky top-[calc(3rem+env(safe-area-inset-top,0px))] md:top-16 z-20 liquid-glass pt-1.5 sm:pt-2 pb-2 sm:pb-2.5 mb-3.5 sm:mb-5 border-b border-slate-200/60 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 transition-all">
         <BookshelfHeader
           libraries={libraries} activeLibraryId={filter.libraryFilter} totalBooksCount={mergedBooks.length}
+          filteredCount={filteredBooks.length}
           onSelectLibrary={filter.setLibraryFilter} onOpenCreateModal={() => setLibraryModalState({ isOpen: true, targetLib: null })}
           onOpenEditModal={(_e, lib) => setLibraryModalState({ isOpen: true, targetLib: lib })} onDeleteLibrary={(_e, lib) => handleDeleteLibrary(lib)}
           statusFilter={filter.statusFilter} onStatusFilterChange={filter.setStatusFilter}

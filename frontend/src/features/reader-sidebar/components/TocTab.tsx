@@ -41,9 +41,9 @@ export const TocTab: React.FC<TocTabProps> = ({
         isDark ? 'bg-[#1c1c1e]' : 'bg-white'
       }`}
     >
-      {/* 目录常驻定位切换栏 */}
+      {/* 目录常驻定位切换栏（仅桌面大屏显示） */}
       <div
-        className={`px-4 py-2 border-b flex items-center justify-between gap-2 text-xs ${
+        className={`hidden lg:flex px-4 py-2 border-b items-center justify-between gap-2 text-xs ${
           isDark ? 'border-white/8 bg-[#25262b]/60' : 'border-slate-100 bg-slate-50/80'
         }`}
       >

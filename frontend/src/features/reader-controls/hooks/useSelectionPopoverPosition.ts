@@ -10,7 +10,8 @@ export function useSelectionPopoverPosition(
   anchorRect: SelectionAnchorRect | null | undefined,
   selectedText: string,
   openNoteEditorInitially: boolean,
-  showNoteInput: boolean
+  showNoteInput: boolean,
+  paragraphIndex?: number
 ): {
   computedRect: SelectionAnchorRect | null
   desktopFloatingStyle: React.CSSProperties | undefined
@@ -30,6 +31,12 @@ export function useSelectionPopoverPosition(
       const rect = measureCurrentSelectionRect()
       if (rect) {
         setComputedRect(rect)
+      } else if (typeof paragraphIndex === 'number') {
+        const el = document.querySelector<HTMLElement>(`[data-para-index="${paragraphIndex}"]`)
+        if (el) {
+          const r = el.getBoundingClientRect()
+          setComputedRect({ top: r.top, left: r.left, bottom: r.bottom, width: r.width })
+        }
       }
     }
     updateRect()
@@ -43,12 +50,23 @@ export function useSelectionPopoverPosition(
       window.removeEventListener('scroll', onScrollOrResize)
       window.removeEventListener('resize', onScrollOrResize)
     }
-  }, [anchorRect, selectedText, openNoteEditorInitially])
+  }, [anchorRect, selectedText, openNoteEditorInitially, paragraphIndex])
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
   const floatingStyle = useMemo(() => {
-    if (typeof window === 'undefined' || !computedRect) return undefined
+    if (typeof window === 'undefined') return undefined
+    if (!computedRect) {
+      if (isMobile) return undefined
+      const popoverWidth = Math.min(500, window.innerWidth - 32)
+      return {
+        position: 'fixed' as const,
+        left: `${Math.round((window.innerWidth - popoverWidth) / 2)}px`,
+        top: `${Math.round(window.innerHeight * 0.35)}px`,
+        width: `${popoverWidth}px`,
+        transform: 'none',
+      }
+    }
     return calculatePopoverPosition(
       computedRect,
       showNoteInput,

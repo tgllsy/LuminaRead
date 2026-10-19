@@ -124,9 +124,12 @@ export const BookCard: React.FC<BookCardProps> = ({
       </div>
 
 
-      <div className="mt-2.5 space-y-0.5 px-0.5">
-        <h3 className={`text-[13px] sm:text-[14px] font-semibold line-clamp-2 leading-snug transition-colors ${isError ? 'text-rose-600' : 'text-slate-800 group-hover:text-[#1b88ee]'}`}>
-          {book.title}
+      <div className="mt-2 space-y-0.5 px-0.5 min-w-0">
+        <h3
+          title={book.title}
+          className={`text-[12px] sm:text-[14px] font-semibold line-clamp-2 book-card-title-clamp leading-snug transition-colors ${isError ? 'text-rose-600' : 'text-slate-800 group-hover:text-[#1b88ee]'}`}
+        >
+          {book.title.replace(/【.*?】/g, '').trim() || book.title}
         </h3>
         <div className="flex items-center justify-between gap-1 text-[11px] text-slate-400 whitespace-nowrap overflow-hidden">
           {isImporting ? (
@@ -136,7 +139,7 @@ export const BookCard: React.FC<BookCardProps> = ({
           ) : (
             <>
               <span className="shrink-0">{book.status === 'finished' ? '已读完' : pct > 0 ? `已读 ${pct}%` : '未读'}</span>
-              <span className="truncate max-w-[70px] sm:max-w-[80px] shrink-0 text-slate-400/80">{book.category || '未分类'}</span>
+              <span className="hidden sm:inline truncate max-w-[80px] shrink-0 text-slate-400/80">{book.category || '未分类'}</span>
             </>
           )}
         </div>

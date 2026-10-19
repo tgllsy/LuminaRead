@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Play, Pause, X } from 'lucide-react'
 import { useTtsStore } from '../../stores/ttsStore'
+import { useDraggableCapsule } from '../hooks/useDraggableCapsule'
 
 interface HeaderTtsIslandProps {
   onOpenTheater: () => void
@@ -21,6 +23,8 @@ export const HeaderTtsIsland: React.FC<HeaderTtsIslandProps> = ({
   const setListeningCapsuleDismissed = useTtsStore((s) => s.setListeningCapsuleDismissed)
 
   const [localDismissed, setLocalDismissed] = useState(false)
+  const isDetached = Boolean(floating)
+  const drag = useDraggableCapsule('reader_island', isDetached)
 
   // 播放状态恢复时自动唤醒
   useEffect(() => {
@@ -45,15 +49,26 @@ export const HeaderTtsIsland: React.FC<HeaderTtsIslandProps> = ({
     onClose?.()
   }
 
-  const containerCls = floating
-    ? 'fixed top-2.5 left-1/2 -translate-x-1/2 z-40 hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/95 backdrop-blur-xl text-white shadow-2xl shadow-black/40 border border-slate-700/80 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all group select-none animate-in fade-in slide-in-from-top-2 duration-200'
-    : 'hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/95 text-white shadow-lg shadow-slate-900/20 border border-slate-800 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all group select-none shrink-0'
+  const interactionCls = isDetached
+    ? drag.isDragging
+      ? 'cursor-grabbing scale-[1.03] transition-none shadow-2xl ring-2 ring-[#1b88ee]/40'
+      : 'cursor-grab hover:scale-[1.02] active:scale-[0.98] transition-all'
+    : 'cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all'
 
-  return (
+  const containerCls = isDetached
+    ? `fixed top-2.5 left-1/2 -translate-x-1/2 z-50 hidden md:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/95 backdrop-blur-xl text-white shadow-2xl shadow-black/40 border border-slate-700/80 group select-none ${interactionCls}`
+    : `hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/95 text-white shadow-lg shadow-slate-900/20 border border-slate-800 group select-none shrink-0 ${interactionCls}`
+
+  const node = (
     <div
+      ref={drag.ref}
+      data-no-hud-toggle="true"
+      style={drag.dragStyle}
+      onPointerDown={drag.onPointerDown}
+      onClickCapture={drag.onClickCapture}
       onClick={onOpenTheater}
       className={containerCls}
-      title="点击展开全屏听书大剧场"
+      title="按住可全屏自由拖动 · 点击展开全屏听书大剧场"
     >
       <div className="flex items-center gap-1 text-emerald-400 shrink-0">
         <span
@@ -105,4 +120,6 @@ export const HeaderTtsIsland: React.FC<HeaderTtsIslandProps> = ({
       </button>
     </div>
   )
+
+  return isDetached && typeof document !== 'undefined' ? createPortal(node, document.body) : node
 }

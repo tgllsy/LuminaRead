@@ -27,7 +27,7 @@ export const FontFamilyDrawer: React.FC<FontFamilyDrawerProps> = ({
 
   return (
     <div
-      className={`p-2.5 rounded-2xl grid grid-cols-2 gap-2 max-h-64 overflow-y-auto ${
+      className={`p-2 rounded-2xl grid grid-cols-2 gap-1.5 max-h-36 sm:max-h-56 overflow-y-auto scrollbar-none ${
         isDark ? 'bg-slate-800/80' : 'bg-[#f7f8fa]'
       }`}
     >
@@ -38,7 +38,7 @@ export const FontFamilyDrawer: React.FC<FontFamilyDrawerProps> = ({
             key={f.id}
             type="button"
             onClick={() => onChange({ fontFamily: f.id })}
-            className={`px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-all cursor-pointer ${
               active
                 ? `${f.className} bg-[#1b88ee] text-white font-semibold shadow-2xs`
                 : isDark

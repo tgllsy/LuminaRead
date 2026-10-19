@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { readerApi } from '../api'
 import { useBooksStore } from '../../../shared/stores/useBooksStore'
+import { useTtsStore } from '../../../stores/ttsStore'
 
 interface UseReadingProgressSyncOptions {
   activeBookId: string
@@ -12,6 +13,42 @@ interface UseReadingProgressSyncOptions {
   totalParagraphs?: number
   onBookStateUpdated?: () => void
   isHidden?: boolean
+}
+
+function useReadingHeartbeat(activeBookId: string, isHidden: boolean) {
+  const lastActiveRef = useRef<number>(Date.now())
+
+  useEffect(() => {
+    const markActive = () => {
+      lastActiveRef.current = Date.now()
+    }
+    window.addEventListener('pointerdown', markActive, { passive: true })
+    window.addEventListener('keydown', markActive, { passive: true })
+    window.addEventListener('wheel', markActive, { passive: true })
+    window.addEventListener('scroll', markActive, { passive: true })
+    window.addEventListener('touchstart', markActive, { passive: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', markActive)
+      window.removeEventListener('keydown', markActive)
+      window.removeEventListener('wheel', markActive)
+      window.removeEventListener('scroll', markActive)
+      window.removeEventListener('touchstart', markActive)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!activeBookId || isHidden) return
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const isUserActive = Date.now() - lastActiveRef.current < 90_000
+      const isTtsPlaying = useTtsStore.getState().audioStatus.playing
+      if (isUserActive || isTtsPlaying) {
+        readerApi.recordReadingSession(activeBookId, 30).catch(() => {})
+      }
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [activeBookId, isHidden])
 }
 
 function calculateProgressPercentage(
@@ -53,19 +90,10 @@ export function useReadingProgressSync({
   const getParaRef = useRef(getCurrentVisibleParagraphIndex)
   getParaRef.current = getCurrentVisibleParagraphIndex
 
-  // Heartbeat session timer
-  useEffect(() => {
-    if (!activeBookId || isHidden) return
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        readerApi.recordReadingSession(activeBookId, 30).catch(() => {})
-      }
-    }, 30000)
-    return () => clearInterval(timer)
-  }, [activeBookId, isHidden])
+  useReadingHeartbeat(activeBookId, isHidden)
 
   const reportProgress = useCallback(
-    async (chIdx: number, scrollOffset: number, percentage: number, delta: number = 30) => {
+    async (chIdx: number, scrollOffset: number, percentage: number, delta: number = 0) => {
       if (!activeBookId) return null
       try {
         lastReportedRef.current = { ch: chIdx, para: scrollOffset, spread: clampedSpreadIndex }
@@ -111,7 +139,7 @@ export function useReadingProgressSync({
         clampedSpreadIndex,
         totalSpreads
       )
-      reportProgress(chapterIndex, paraIdx, pct, 15).catch(() => {})
+      reportProgress(chapterIndex, paraIdx, pct, 0).catch(() => {})
     },
     [activeBookId, chapterIndex, clampedSpreadIndex, totalSpreads, totalChapters, totalParagraphs, reportProgress]
   )

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { RotateCcw, RotateCw, SkipBack, SkipForward, Play, Pause, Moon, Gauge, Check, Headphones } from 'lucide-react'
+import { RotateCcw, RotateCw, SkipBack, SkipForward, Play, Pause, Moon, Gauge, Check, Headphones, Mic } from 'lucide-react'
 import type { AmbientPreset } from '../types'
 import { AMBIENT_LABEL_MAP } from '../constants'
 
@@ -23,6 +23,8 @@ interface TheaterTransportBarProps {
   isAmbientActive?: boolean
   ambientPreset?: AmbientPreset
   onToggleAmbient?: () => void
+  onOpenVoiceModal?: () => void
+  activeVoiceLabel?: string
 }
 
 const SPEED_OPTIONS = [0.8, 1.0, 1.25, 1.5, 1.75, 2.0]
@@ -54,6 +56,8 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
   isAmbientActive = false,
   ambientPreset = 'off',
   onToggleAmbient,
+  onOpenVoiceModal,
+  activeVoiceLabel = '切换音色',
 }) => {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false)
   const [showTimerMenu, setShowTimerMenu] = useState(false)
@@ -83,16 +87,18 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
   }
 
   return (
-    <div className="h-20 bg-black/85 backdrop-blur-xl border-t border-white/10 px-6 lg:px-8 flex items-center justify-between shrink-0 z-30 select-none">
-      {/* Progress */}
-      <div className="w-56 hidden sm:block space-y-1.5 text-xs">
+    <div className="bg-black/90 backdrop-blur-xl border-t border-white/10 px-4 sm:px-6 lg:px-8 py-3 sm:py-0 sm:h-20 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 shrink-0 z-30 select-none">
+      {/* Progress Scrubber (Full width on mobile, left block on desktop) */}
+      <div className="w-full sm:w-52 lg:w-56 space-y-1 sm:space-y-1.5 text-xs">
         <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
           <span>正在朗读</span>
-          <span className="text-amber-400 font-bold">第 {currentParaIdx + 1} / {totalParagraphs} 段</span>
+          <span className="text-amber-400 font-bold">
+            第 {currentParaIdx + 1} / {totalParagraphs} 段 ({progressPct}%)
+          </span>
         </div>
         <div
           onClick={handleProgressBarClick}
-          className="h-2 bg-white/15 hover:bg-white/25 rounded-full overflow-hidden cursor-pointer relative group transition-all"
+          className="h-1.5 sm:h-2 bg-white/15 hover:bg-white/25 rounded-full overflow-hidden cursor-pointer relative group transition-all"
           title="点击跳转段落"
         >
           <div
@@ -102,8 +108,8 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
         </div>
       </div>
 
-      {/* Main Controls */}
-      <div className="flex items-center gap-4 sm:gap-6 mx-auto sm:mx-0">
+      {/* Main Playback Controls (Dead-center symmetric row) */}
+      <div className="flex items-center justify-center gap-5 sm:gap-6 w-full sm:w-auto">
         <button
           type="button"
           onClick={() => onSeekBySeconds?.(-15)}
@@ -146,22 +152,33 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
         </button>
       </div>
 
-      {/* Speed & Sleep Timer */}
-      <div className="flex items-center gap-2 sm:gap-2.5 text-xs">
-        {/* Ambient Noise Button */}
+      {/* Feature Pills: Voice (Mobile/Tablet), Ambient, Speed, Sleep Timer */}
+      <div className="flex items-center justify-center sm:justify-end gap-2 sm:gap-2.5 text-xs w-full sm:w-auto">
+        {onOpenVoiceModal && (
+          <button
+            type="button"
+            onClick={onOpenVoiceModal}
+            className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-slate-200 hover:text-white text-xs cursor-pointer transition-all active:scale-95"
+            title="选择朗读音色"
+          >
+            <Mic className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+            <span className="truncate max-w-[72px]">{activeVoiceLabel}</span>
+          </button>
+        )}
+
         {onToggleAmbient && (
           <button
             type="button"
             onClick={onToggleAmbient}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs cursor-pointer transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs cursor-pointer transition-all active:scale-95 ${
               isAmbientActive
                 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold shadow-sm shadow-emerald-500/20'
                 : 'bg-white/10 hover:bg-white/15 border-white/10 text-slate-300 hover:text-white'
             }`}
             title="调节白噪音与自然音效"
           >
-            <Headphones className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">
+            <Headphones className="w-3.5 h-3.5 shrink-0" />
+            <span>
               {isAmbientActive ? AMBIENT_LABEL_MAP[ambientPreset] || '白噪音' : '白噪音'}
             </span>
             {isAmbientActive && (
@@ -178,7 +195,7 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
               setShowSpeedMenu(!showSpeedMenu)
               setShowTimerMenu(false)
             }}
-            className="flex items-center gap-1 bg-white/10 hover:bg-white/15 px-2.5 py-1.5 rounded-xl border border-white/10 text-white font-mono font-bold cursor-pointer transition-colors"
+            className="flex items-center gap-1 bg-white/10 hover:bg-white/15 px-2.5 py-1.5 rounded-xl border border-white/10 text-white font-mono font-bold cursor-pointer transition-colors active:scale-95"
             title="点击选择语速"
           >
             <Gauge className="w-3.5 h-3.5 text-slate-400" />
@@ -220,12 +237,12 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
               setShowTimerMenu(!showTimerMenu)
               setShowSpeedMenu(false)
             }}
-            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-xl border border-white/10 text-slate-300 hover:text-white cursor-pointer transition-colors"
+            className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-2.5 sm:px-3 py-1.5 rounded-xl border border-white/10 text-slate-300 hover:text-white cursor-pointer transition-colors active:scale-95"
             title="点击选择定时关闭"
           >
-            <Moon className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden md:inline">
-              {sleepRemainingText || (internalSleepMinutes > 0 ? `${internalSleepMinutes} 分钟` : '已关闭')}
+            <Moon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-[11px] sm:text-xs">
+              {sleepRemainingText || (internalSleepMinutes > 0 ? `${internalSleepMinutes}分` : '定时')}
             </span>
           </button>
 
@@ -259,3 +276,4 @@ export const TheaterTransportBar: React.FC<TheaterTransportBarProps> = ({
     </div>
   )
 }
+

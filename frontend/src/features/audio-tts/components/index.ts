@@ -9,3 +9,6 @@ export { SpeedPickerModal } from './SpeedPickerModal'
 export { TimerPickerModal } from './TimerPickerModal'
 export { ParagraphPickerModal } from './ParagraphPickerModal'
 export { BlackGoldTheaterModal } from './BlackGoldTheaterModal'
+export { MobileMusicPlayerView } from './MobileMusicPlayerView'
+export { MobileVinylCoverStage } from './MobileVinylCoverStage'
+

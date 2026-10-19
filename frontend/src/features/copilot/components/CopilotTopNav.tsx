@@ -46,13 +46,13 @@ export const CopilotTopNav: React.FC<CopilotTopNavProps> = ({
       <button
         type="button"
         onClick={onClose}
-        className={`p-1.5 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0 cursor-pointer ${
-          isDark ? 'hover:bg-white/10 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+        className={`px-2 py-1.5 -ml-1 rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold shrink-0 cursor-pointer active:scale-95 ${
+          isDark ? 'hover:bg-white/10 text-slate-200' : 'hover:bg-slate-100 text-slate-700'
         }`}
         title="返回阅读"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span className="hidden xs:inline">返回</span>
+        <span>返回</span>
       </button>
 
       {/* 中部：三大核心认知模式 Switcher */}
@@ -68,7 +68,7 @@ export const CopilotTopNav: React.FC<CopilotTopNavProps> = ({
               key={mode.id}
               type="button"
               onClick={() => onSelectMode(mode.id)}
-              className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                 isActive
                   ? isDark
                     ? 'bg-[#18181b] text-white shadow-2xs font-bold'
@@ -86,8 +86,8 @@ export const CopilotTopNav: React.FC<CopilotTopNavProps> = ({
         })}
       </div>
 
-      {/* 右侧：心智绿灯与关闭按钮 */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      {/* 右侧：心智绿灯与关闭按钮（移动端仅保留状态灯，避免与左侧返回重复） */}
+      <div className="flex items-center gap-1.5 shrink-0 pr-1 sm:pr-0">
         <span
           className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
           title="心智模型实时挂载"
@@ -95,7 +95,7 @@ export const CopilotTopNav: React.FC<CopilotTopNavProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+          className={`hidden sm:inline-flex p-1.5 rounded-full transition-colors cursor-pointer ${
             isDark
               ? 'text-slate-400 hover:text-white hover:bg-white/10'
               : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'

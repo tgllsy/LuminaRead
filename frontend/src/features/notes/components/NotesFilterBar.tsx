@@ -39,12 +39,12 @@ export const NotesFilterBar: React.FC<NotesFilterBarProps> = ({
 
   return (
     <div className="space-y-2.5 mb-4">
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-200/60 w-fit overflow-x-auto scrollbar-none">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+        <div className="grid grid-cols-5 sm:flex items-center gap-1 p-1 rounded-xl bg-slate-200/60 w-full sm:w-fit overflow-x-auto scrollbar-none">
           {tabs.map((tab) => (
             <button
               key={tab.key} type="button" onClick={() => onSelectSubTab(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-center transition-all cursor-pointer whitespace-nowrap ${
                 activeSubTab === tab.key ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >

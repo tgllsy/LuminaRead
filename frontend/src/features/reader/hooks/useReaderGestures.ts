@@ -45,12 +45,14 @@ export function useReaderGestures({
     if (isHidden) return
     const onScroll = () => {
       const currentY = window.scrollY
-      if (Math.abs(currentY - lastScrollYRef.current) > 4) {
+      const deltaY = currentY - lastScrollYRef.current
+      if (deltaY > 6 && currentY > 36) {
         setIsScrolling(true)
         if (scrollIdleTimerRef.current !== null) window.clearTimeout(scrollIdleTimerRef.current)
-        scrollIdleTimerRef.current = window.setTimeout(() => setIsScrolling(false), 650)
+      } else if (deltaY < -6 || currentY <= 24) {
+        setIsScrolling(false)
       }
-      if (immersiveHudVisible && Math.abs(currentY - lastScrollYRef.current) > 48) {
+      if (immersiveHudVisible && Math.abs(deltaY) > 48) {
         setImmersiveHudVisible(false)
         setShowTypography(false)
       }

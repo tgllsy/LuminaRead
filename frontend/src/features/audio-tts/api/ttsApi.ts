@@ -90,13 +90,21 @@ export async function synthesizeSpeech(
   }
 }
 
+export interface UpdateTtsReadingProgressPayload {
+  chapter_index: number
+  scroll_offset: number
+  percentage: number
+  reading_seconds_delta?: number
+}
+
 export async function updateReadingProgress(
   bookId: string,
-  payload: { current_chapter: number; scroll_progress: number }
-): Promise<void> {
-  if (!bookId) return
-  await apiClient.put(
+  payload: UpdateTtsReadingProgressPayload
+): Promise<{ ok?: boolean; progress?: any }> {
+  if (!bookId) return {}
+  return apiClient.put(
     `/api/books/${encodeURIComponent(bookId)}/progress`,
     payload
   )
 }
+

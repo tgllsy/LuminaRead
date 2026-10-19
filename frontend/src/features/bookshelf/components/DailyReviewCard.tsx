@@ -46,7 +46,7 @@ export const DailyReviewCard: React.FC<DailyReviewCardProps> = ({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpenNotesHub() }}
-              className="px-2 sm:px-2.5 py-1 rounded-full bg-[#1b88ee]/10 hover:bg-[#1b88ee]/20 active:bg-[#1b88ee]/30 text-[#1b88ee] text-xs font-semibold flex items-center gap-1 transition-all active:scale-[0.97] cursor-pointer"
+              className={`${expanded ? 'flex' : 'hidden sm:flex'} px-2 sm:px-2.5 py-1 rounded-full bg-[#1b88ee]/10 hover:bg-[#1b88ee]/20 active:bg-[#1b88ee]/30 text-[#1b88ee] text-xs font-semibold items-center gap-1 transition-all active:scale-[0.97] cursor-pointer`}
             >
               <span className="hidden sm:inline">笔记 · 问书中心</span>
               <span className="sm:hidden">问书中心</span>

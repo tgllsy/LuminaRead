@@ -24,9 +24,13 @@ export function formatCountdown(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+export const CITATION_STRIP_REGEX =
+  /(〔(?:注)?\d{1,4}〕|\^?\[(?:(?:注)?\d{1,4}|[①-⑳])\]|【(?:注)?\d{1,4}】|[①-⑳⑴-⒇⒈-⒛]|\(注\d{1,4}\)|（注\d{1,4}）|\(\d{1,4}\)|（\d{1,4}）|\^\([^\)]+\)\^?|\^(?:\d{1,4}|\([^\)]+\)|\[\d+\])\^?|\^(?:[^^]+?)\^)/g
+
 export function cleanTtsSpokenText(text: string): string {
   return text
     .replace(/^>+\s*/, '')
+    .replace(CITATION_STRIP_REGEX, ' ')
     .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
     .replace(/&lsquo;|&rsquo;/g, "'")
     .replace(/&amp;/g, '&')
@@ -40,6 +44,7 @@ export function cleanTtsSpokenText(text: string): string {
 export function cleanTtsTextPreservingQuotes(text: string): string {
   return text
     .replace(/^>+\s*/, '')
+    .replace(CITATION_STRIP_REGEX, ' ')
     .replace(/&quot;/g, '"')
     .replace(/&ldquo;/g, '“')
     .replace(/&rdquo;/g, '”')

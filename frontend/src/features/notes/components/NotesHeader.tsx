@@ -28,30 +28,30 @@ export const NotesHeader: React.FC<NotesHeaderProps> = ({
   onExportLifeOs,
 }) => {
   return (
-    <div className="space-y-4 mb-6">
+    <div className="space-y-2.5 sm:space-y-4 mb-3.5 sm:mb-6">
       {/* Top Banner & Action Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+      <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 shrink-0">
               笔记与 AI
             </h2>
             {selectedBookTitle && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#1b88ee]/10 text-[#1b88ee] border border-[#1b88ee]/20 truncate max-w-[180px]">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#1b88ee]/10 text-[#1b88ee] border border-[#1b88ee]/20 truncate max-w-[120px] sm:max-w-[180px]">
                 {selectedBookTitle}
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="hidden sm:block text-xs text-slate-500 mt-0.5">
             全书划线、随想笔记与 AI 问答记录
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={onOpenAiWorkbench}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>AI 提问</span>
@@ -60,7 +60,7 @@ export const NotesHeader: React.FC<NotesHeaderProps> = ({
           <button
             type="button"
             onClick={onOpenCreateNote}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b88ee] hover:bg-[#1677d2] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#1b88ee] hover:bg-[#1677d2] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>写笔记</span>
@@ -87,37 +87,37 @@ export const NotesHeader: React.FC<NotesHeaderProps> = ({
       </div>
 
       {/* Compact Metrics Bar */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-3">
-        <div className="py-2 px-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-center">
-          <div className="flex items-center justify-between text-slate-400 mb-0.5">
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-3">
+        <div className="py-1.5 px-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex sm:flex-col items-center sm:items-stretch justify-between sm:justify-center">
+          <div className="flex items-center gap-1 sm:justify-between text-slate-500 sm:text-slate-400 sm:mb-0.5">
+            <Highlighter className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0 sm:order-2" />
             <span className="text-[11px] sm:text-xs">划线</span>
-            <Highlighter className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0" />
           </div>
-          <div className="text-base sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_highlights || 0}</div>
+          <div className="text-xs sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_highlights || 0}</div>
         </div>
 
-        <div className="py-2 px-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-center">
-          <div className="flex items-center justify-between text-slate-400 mb-0.5">
+        <div className="py-1.5 px-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex sm:flex-col items-center sm:items-stretch justify-between sm:justify-center">
+          <div className="flex items-center gap-1 sm:justify-between text-slate-500 sm:text-slate-400 sm:mb-0.5">
+            <MessageSquareQuote className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#1b88ee] shrink-0 sm:order-2" />
             <span className="text-[11px] sm:text-xs">随想</span>
-            <MessageSquareQuote className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#1b88ee] shrink-0" />
           </div>
-          <div className="text-base sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_notes || 0}</div>
+          <div className="text-xs sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_notes || 0}</div>
         </div>
 
-        <div className="py-2 px-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-center">
-          <div className="flex items-center justify-between text-slate-400 mb-0.5">
-            <span className="text-[11px] sm:text-xs">AI 对话</span>
-            <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-500 shrink-0" />
+        <div className="py-1.5 px-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex sm:flex-col items-center sm:items-stretch justify-between sm:justify-center">
+          <div className="flex items-center gap-1 sm:justify-between text-slate-500 sm:text-slate-400 sm:mb-0.5">
+            <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-500 shrink-0 sm:order-2" />
+            <span className="text-[11px] sm:text-xs">AI</span>
           </div>
-          <div className="text-base sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_ai_conversations || 0}</div>
+          <div className="text-xs sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_ai_conversations || 0}</div>
         </div>
 
-        <div className="py-2 px-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-center">
-          <div className="flex items-center justify-between text-slate-400 mb-0.5">
+        <div className="py-1.5 px-2 sm:p-3 rounded-xl sm:rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex sm:flex-col items-center sm:items-stretch justify-between sm:justify-center">
+          <div className="flex items-center gap-1 sm:justify-between text-slate-500 sm:text-slate-400 sm:mb-0.5">
+            <Bookmark className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0 sm:order-2" />
             <span className="text-[11px] sm:text-xs">书签</span>
-            <Bookmark className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
           </div>
-          <div className="text-base sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_bookmarks || 0}</div>
+          <div className="text-xs sm:text-lg font-bold text-slate-800 leading-tight">{stats?.total_bookmarks || 0}</div>
         </div>
       </div>
     </div>

@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react'
-import { Sparkles, Bookmark } from 'lucide-react'
+import { Headphones } from 'lucide-react'
+import { KaraokeParagraphContent } from './KaraokeParagraphContent'
 
 interface KaraokeTranscriptStreamProps {
   paragraphs: string[]
   currentParagraphIndex: number
   chapterTitle?: string
   onSelectParagraph: (idx: number) => void
-  onExtractQuote?: (text: string) => void
 }
 
 export const KaraokeTranscriptStream: React.FC<KaraokeTranscriptStreamProps> = ({
@@ -14,7 +14,6 @@ export const KaraokeTranscriptStream: React.FC<KaraokeTranscriptStreamProps> = (
   currentParagraphIndex,
   chapterTitle,
   onSelectParagraph,
-  onExtractQuote,
 }) => {
   const activeItemRef = useRef<HTMLDivElement>(null)
 
@@ -36,12 +35,15 @@ export const KaraokeTranscriptStream: React.FC<KaraokeTranscriptStreamProps> = (
         ]
 
   return (
-    <div className="flex-1 p-6 lg:p-10 overflow-y-auto space-y-6 font-serif text-slate-400 text-base leading-relaxed relative select-none">
-      <div className="text-xs font-sans text-slate-500 tracking-wider uppercase border-b border-white/10 pb-3 flex items-center justify-between">
-        <span>{chapterTitle || '当前章节'} · 点击任意段落即可插播</span>
-        <span className="text-amber-400 flex items-center gap-1">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>双击文字可沉淀金句</span>
+    <div
+      data-tts-scroll="true"
+      className="dark flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto space-y-4 sm:space-y-6 font-serif text-slate-300 text-[15px] sm:text-base leading-relaxed relative select-none"
+    >
+      <div className="text-[11px] sm:text-xs font-sans text-slate-400 border-b border-white/10 pb-2.5 flex items-center justify-between gap-2 min-w-0">
+        <span className="truncate min-w-0 flex-1">{chapterTitle || '当前章节'} · 点按段落插播</span>
+        <span className="text-sky-400 flex items-center gap-1 shrink-0 whitespace-nowrap">
+          <Headphones className="w-3.5 h-3.5" />
+          <span>KTV 实时伴读</span>
         </span>
       </div>
 
@@ -52,34 +54,19 @@ export const KaraokeTranscriptStream: React.FC<KaraokeTranscriptStreamProps> = (
           const opacityClass = isActive
             ? 'opacity-100'
             : dist === 1
-            ? 'opacity-60 hover:opacity-90'
-            : 'opacity-35 hover:opacity-80'
+            ? 'opacity-75 hover:opacity-95'
+            : 'opacity-50 hover:opacity-85'
 
           if (isActive) {
             return (
               <div
                 key={idx}
                 ref={activeItemRef}
-                onDoubleClick={() => onExtractQuote?.(paraText)}
-                className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-500/15 via-blue-500/10 to-transparent border-l-4 border-amber-400 shadow-xl space-y-2.5 relative transition-all"
+                className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-sky-500/15 via-blue-500/10 to-transparent border-l-4 border-sky-400 shadow-xl transition-all"
               >
-                <div className="flex items-center justify-between text-xs font-sans">
-                  <span className="text-amber-300 font-bold flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                    <span>正在朗读当前段落 (第 {idx + 1} 段)</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onExtractQuote?.(paraText)}
-                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[10px] text-white flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Bookmark className="w-3 h-3 text-amber-300" />
-                    <span>沉淀金句</span>
-                  </button>
+                <div className="text-white text-base sm:text-lg font-bold leading-relaxed text-justify tracking-wide">
+                  <KaraokeParagraphContent paraText={paraText} isActive={true} />
                 </div>
-                <p className="text-white text-base sm:text-lg font-bold leading-relaxed text-justify tracking-wide">
-                  {paraText}
-                </p>
               </div>
             )
           }
@@ -88,10 +75,9 @@ export const KaraokeTranscriptStream: React.FC<KaraokeTranscriptStreamProps> = (
             <p
               key={idx}
               onClick={() => onSelectParagraph(idx)}
-              onDoubleClick={() => onExtractQuote?.(paraText)}
               className={`indent-8 text-justify transition-all cursor-pointer ${opacityClass}`}
             >
-              {paraText}
+              <KaraokeParagraphContent paraText={paraText} isActive={false} />
             </p>
           )
         })}

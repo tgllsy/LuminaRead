@@ -73,18 +73,26 @@ export const ReaderContinuousScrollView: React.FC<ReaderContinuousScrollViewProp
                 chapterStreamRefs.current[streamChIdx] = el
               }}
             >
-              {idxInStream > 0 && (
-                <div className="mt-14 mb-7 pt-10 border-t border-current/10 space-y-2 select-none">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#1b88ee]/10 text-[#1b88ee] text-[11px] font-sans font-semibold">
-                    <span>
-                      章节连读 · 第 {streamChIdx + 1} / {chapters.length} 章
-                    </span>
+              {idxInStream > 0 && (() => {
+                const p0 = (streamParas[0] || '').trim()
+                const nTitle = (streamChObj.title || '').replace(/^#{1,6}\s*/, '').replace(/\s+/g, '')
+                const nP0 = p0.replace(/^#{1,6}\s*/, '').replace(/\s+/g, '')
+                const hasInlineH = p0.startsWith('#') && nTitle.length > 0 && (nP0 === nTitle || nP0.includes(nTitle) || nTitle.includes(nP0))
+                return (
+                  <div className="mt-12 mb-5 pt-8 border-t border-current/10 space-y-2 select-none">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#1b88ee]/10 text-[#1b88ee] text-[11px] font-sans font-semibold">
+                      <span>
+                        章节连读 · 第 {streamChIdx + 1} / {chapters.length} 章
+                      </span>
+                    </div>
+                    {!hasInlineH && (
+                      <h2 className="text-lg sm:text-2xl font-bold tracking-tight">
+                        {streamChObj.title}
+                      </h2>
+                    )}
                   </div>
-                  <h2 className="text-lg sm:text-2xl font-bold tracking-tight">
-                    {streamChObj.title}
-                  </h2>
-                </div>
-              )}
+                )
+              })()}
 
               {streamParas.length > 0 ? (
                 streamParas.map((_, pIdx) => renderParagraph(pIdx, streamChIdx, streamParas))

@@ -117,6 +117,20 @@ export const ReaderArticleCanvas: React.FC<ReaderArticleCanvasProps> = ({
     ? `${Math.max(960, typography.pageWidth + 200)}px`
     : `${typography.pageWidth}px`
 
+  const firstStreamCh = chapters[connectedChapterIndices[0]] || currentChapter
+  const firstParaRaw = (
+    connectedChapterIndices[0] === chapterIndex
+      ? paragraphs[0]
+      : String(firstStreamCh?.content || '').split(/\n{2,}|\n/)[0]
+  ) || ''
+  const normChTitle = (firstStreamCh?.title || '').replace(/^#{1,6}\s*/, '').replace(/\s+/g, '')
+  const normFirstPara = firstParaRaw.trim().replace(/^#{1,6}\s*/, '').replace(/\s+/g, '')
+  const hasInlineChapterHeading =
+    firstParaRaw.trim().startsWith('#') &&
+    normChTitle.length > 0 &&
+    (normFirstPara === normChTitle || normFirstPara.includes(normChTitle) || normChTitle.includes(normFirstPara))
+  const showTopCanvasHeader = !isDualSpread && isContinuousSingleScroll && (!hasInlineChapterHeading || Boolean(returnAnchor) || book.format === 'pdf')
+
   return (
     <article
       ref={articleRef}
@@ -132,19 +146,21 @@ export const ReaderArticleCanvas: React.FC<ReaderArticleCanvasProps> = ({
           ? 'min-h-[calc(100dvh-2.25rem)] sm:min-h-0 rounded-none sm:rounded-3xl border-0 sm:border px-2 sm:px-6 py-2 sm:py-4 pb-20 sm:pb-28'
           : !isContinuousSingleScroll
           ? 'h-[calc(100dvh-2.25rem)] sm:h-[calc(100vh-3.5rem)] flex flex-col justify-between rounded-none sm:rounded-3xl border-0 sm:border px-4 py-3 sm:px-8 sm:py-6 overflow-hidden'
-          : 'min-h-[calc(100dvh-2.25rem)] sm:min-h-0 rounded-none sm:rounded-3xl border-0 sm:border px-5 py-6 sm:p-10 md:p-14'
+          : 'min-h-[calc(100dvh-2.25rem)] sm:min-h-0 rounded-none sm:rounded-3xl border-0 sm:border px-5 py-5 sm:p-10 md:p-14'
       } ${themeStyle.page} ${fontClass}`}
     >
       {isDualSpread && (
         <div className="hidden lg:block absolute inset-y-5 left-1/2 w-px bg-current/10 pointer-events-none" />
       )}
 
-      {!isDualSpread && isContinuousSingleScroll && (
-        <div className="mb-7 sm:mb-9 pb-3 border-b border-current/8 space-y-3">
+      {showTopCanvasHeader && (
+        <div className="mb-6 sm:mb-9 pb-3 border-b border-current/8 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-lg sm:text-2xl font-bold tracking-tight">
-              {chapters[connectedChapterIndices[0]]?.title || currentChapter.title}
-            </h1>
+            {!hasInlineChapterHeading && (
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight">
+                {firstStreamCh?.title || currentChapter.title}
+              </h1>
+            )}
             {returnAnchor && (
               <button
                 type="button"

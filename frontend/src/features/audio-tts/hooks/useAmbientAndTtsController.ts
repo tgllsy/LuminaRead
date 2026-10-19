@@ -60,13 +60,14 @@ export function useAmbientAndTtsController(props: AmbientAndTTSBarProps) {
     bookId = '', bookTitle = '阅境在读书籍', bookAuthor = '阅境伴读', chapterTitle = '',
     coverUrl = '', coverColor = '#2b593f', paragraphs, chapterIndex = 0, hasNextChapter = true,
     activeParagraphIndex, onActiveParagraphChange, onNextChapter, getVisibleParagraphIndex,
+    totalChapters = 1,
   } = props
   const [activeDrawer, setActiveDrawer] = useState<ActiveTtsDrawer>('none')
   const vm = useVoicesManager(isOpen)
   const amb = useAmbientMixer('off', 0.35)
   const pb = useAudioPlayback(vm.ttsRate)
   const syn = useTtsSynthesis()
-  const cp = useTtsCheckpoint({ bookId, bookTitle, bookAuthor, coverUrl, coverColor, chapterIndex, chapterTitle, isOpen, onCheckpointSaved })
+  const cp = useTtsCheckpoint({ bookId, bookTitle, bookAuthor, coverUrl, coverColor, chapterIndex, chapterTitle, totalChapters, isOpen, onCheckpointSaved })
 
   const stopTtsRef = useRef<() => void>(() => {})
   const slp = useSleepTimer(useCallback(() => {

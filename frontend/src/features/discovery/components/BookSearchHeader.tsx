@@ -39,11 +39,15 @@ export const BookSearchHeader: React.FC<BookSearchHeaderProps> = ({
     <div
       className={
         asPage
-          ? 'bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-4 sm:p-8 shadow-2xs space-y-4 sm:space-y-5 min-w-0 max-w-full'
-          : 'px-4 py-4 sm:px-7 sm:py-6 bg-white border-b border-slate-100 space-y-4 shrink-0 min-w-0 max-w-full'
+          ? 'bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 p-3.5 sm:p-8 shadow-2xs space-y-3 sm:space-y-5 min-w-0 max-w-full'
+          : 'px-4 py-3.5 sm:px-7 sm:py-6 bg-white border-b border-slate-100 space-y-3.5 shrink-0 min-w-0 max-w-full'
       }
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+      <div
+        className={`${
+          asPage ? 'hidden md:flex' : 'flex'
+        } flex-wrap items-center justify-between gap-3 min-w-0`}
+      >
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-2xl bg-[#1b88ee]/10 text-[#1b88ee] flex items-center justify-center shrink-0">
             <Compass className="w-5 h-5" />
@@ -99,27 +103,27 @@ export const BookSearchHeader: React.FC<BookSearchHeaderProps> = ({
         className="flex gap-2 sm:gap-2.5 min-w-0"
       >
         <div className="relative flex-1 min-w-0">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="搜索书名、作者或 ISBN..."
-            className="w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-[#f4f5f7] focus:bg-white rounded-full border border-transparent focus:border-[#1b88ee] text-xs sm:text-sm text-slate-800 focus:outline-none transition-all"
+            className="w-full pl-9 sm:pl-11 pr-3 sm:pr-4 py-2 sm:py-3 bg-[#f4f5f7] focus:bg-white rounded-full border border-transparent focus:border-[#1b88ee] text-xs sm:text-sm text-slate-800 focus:outline-none transition-all"
           />
         </div>
         <button
           type="submit"
-          className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-[#1b88ee] hover:bg-[#1677d2] text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-xs shrink-0 transition-colors cursor-pointer"
+          className="px-4 sm:px-6 py-2 sm:py-3 rounded-full bg-[#1b88ee] hover:bg-[#1677d2] text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-xs shrink-0 transition-colors cursor-pointer active:scale-95"
         >
           <Search className="w-4 h-4" />
           <span>搜索</span>
         </button>
       </form>
 
-      <div className="space-y-3 pt-1 min-w-0">
-        <div className="w-full min-w-0 overflow-x-auto no-scrollbar -mx-0.5 px-0.5">
-          <div className="flex items-center gap-1.5 pb-1 sm:pb-0 w-max">
+      <div className="space-y-2.5 min-w-0">
+        <div className="w-full min-w-0 overflow-x-auto scrollbar-none -mx-0.5 px-0.5">
+          <div className="flex items-center gap-1.5 w-max">
             {SOURCE_TABS.map((tab) => {
               const active = sourceFilter === tab.id
               return (
@@ -147,31 +151,31 @@ export const BookSearchHeader: React.FC<BookSearchHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center bg-[#f4f5f7] p-0.5 rounded-full overflow-x-auto max-w-full">
+        <div className="flex items-center justify-between gap-2 min-w-0 overflow-x-auto scrollbar-none">
+          <div className="flex items-center bg-[#f4f5f7] p-0.5 rounded-full shrink-0">
             {LANG_FILTERS.map((lng) => (
               <button
                 key={lng.id}
                 type="button"
                 onClick={() => onLangChange(lng.id)}
-                className={`px-2.5 py-1 rounded-full text-xs transition-all shrink-0 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs transition-all shrink-0 cursor-pointer ${
                   langFilter === lng.id
                     ? 'bg-white text-slate-900 font-semibold shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                {lng.label}
+                {lng.label === '全部语言' ? '全语种' : lng.label}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center bg-[#f4f5f7] p-0.5 rounded-full overflow-x-auto max-w-full">
+          <div className="flex items-center bg-[#f4f5f7] p-0.5 rounded-full shrink-0">
             {FORMAT_FILTERS.map((fmt) => (
               <button
                 key={fmt}
                 type="button"
                 onClick={() => onFormatChange(fmt)}
-                className={`px-2.5 py-1 rounded-full text-xs font-mono uppercase transition-all shrink-0 cursor-pointer ${
+                className={`px-2 py-1 rounded-full text-[11px] sm:text-xs font-mono uppercase transition-all shrink-0 cursor-pointer ${
                   formatFilter === fmt
                     ? 'bg-white text-[#1b88ee] font-semibold shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
@@ -185,16 +189,17 @@ export const BookSearchHeader: React.FC<BookSearchHeaderProps> = ({
       </div>
 
       {!searching && resultsCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-slate-500 pt-1 border-t border-slate-100 min-w-0">
-          <span className="truncate max-w-full">
-            共实时检索到 <strong className="text-[#1b88ee] font-semibold">{resultsCount}</strong> 本匹配图书
-            {query.trim() ? `（关键词：${query.trim()}）` : ''}
+        <div className="flex items-center justify-between gap-2 text-xs text-slate-500 pt-1 border-t border-slate-100 min-w-0">
+          <span className="truncate">
+            检索到 <strong className="text-[#1b88ee] font-semibold">{resultsCount}</strong> 本图书
+            {query.trim() ? `（${query.trim()}）` : ''}
           </span>
-          <span className="text-[11px] text-slate-400 shrink-0">
-            按书名相关度与可读性排序
+          <span className="text-[11px] text-slate-400 shrink-0 hidden xs:inline">
+            按相关度与可读性排序
           </span>
         </div>
       )}
     </div>
   )
 }
+

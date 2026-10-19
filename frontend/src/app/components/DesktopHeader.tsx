@@ -75,23 +75,29 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
       <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between gap-3 lg:gap-5">
         <DesktopBrandAndNav activePage={activePage} onSelectPage={onSelectPage} />
 
-        <div className="flex items-center justify-center min-w-0 shrink">
-          <HeaderTtsIsland onOpenTheater={() => onSelectPage('tts')} />
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex-1 max-w-sm lg:max-w-md xl:max-w-lg mx-3 sm:mx-6 flex items-center justify-center min-w-0">
           <button
             type="button"
             onClick={onOpenSearch}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100/90 hover:bg-slate-200/80 rounded-xl text-xs text-slate-500 cursor-pointer border-[0.5px] border-slate-200/80 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] shrink-0 whitespace-nowrap"
-            title="快捷全文检索 (⌘K)"
+            className="w-full h-10 px-3.5 rounded-2xl bg-slate-100/80 hover:bg-white hover:border-[#1b88ee]/50 hover:shadow-xs border border-slate-200/90 flex items-center justify-between text-xs transition-all duration-200 group cursor-pointer shadow-2xs"
+            title="全网书目与全书全文秒搜 (⌘K / Ctrl+K)"
           >
-            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="hidden xl:inline">全文秒搜...</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-white text-[10px] text-slate-400 font-mono shadow-2xs shrink-0">
-              ⌘K
-            </kbd>
+            <div className="flex items-center gap-2.5 min-w-0 truncate">
+              <Search className="w-4 h-4 text-slate-400 group-hover:text-[#1b88ee] transition-colors shrink-0" />
+              <span className="text-slate-400 group-hover:text-slate-600 truncate font-normal">
+                全文秒搜全馆图书、作者、笔记...
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 pl-2">
+              <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-lg bg-white border border-slate-200/80 text-[11px] font-mono text-slate-400 group-hover:text-slate-700 shadow-2xs font-semibold">
+                ⌘K
+              </kbd>
+            </div>
           </button>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <HeaderTtsIsland onOpenTheater={() => onSelectPage('tts')} />
 
           <button
             type="button"

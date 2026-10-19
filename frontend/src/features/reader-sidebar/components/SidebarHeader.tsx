@@ -92,38 +92,40 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center bg-current/5 rounded-full p-0.5 text-xs">
-            <button
-              type="button"
-              onClick={() => (onToggleDockSide ? onToggleDockSide('left') : onTogglePin?.())}
-              title={effectiveDock === 'left' ? '取消左侧订住，转为浮动' : '将目录固定在左侧常驻'}
-              className={`px-2 py-1 rounded-full flex items-center gap-1 transition-all ${
-                effectiveDock === 'left'
-                  ? 'bg-[#1b88ee] text-white font-semibold shadow-2xs'
-                  : isDark
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Pin className="w-3 h-3" />
-              <span className="text-[11px]">订左侧</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => (onToggleDockSide ? onToggleDockSide('right') : onTogglePin?.())}
-              title={effectiveDock === 'right' ? '取消右侧订住，转为浮动' : '将目录固定在右侧常驻'}
-              className={`px-2 py-1 rounded-full flex items-center gap-1 transition-all ${
-                effectiveDock === 'right'
-                  ? 'bg-[#1b88ee] text-white font-semibold shadow-2xs'
-                  : isDark
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Pin className="w-3 h-3" />
-              <span className="text-[11px]">订右侧</span>
-            </button>
-          </div>
+          {canPin && (
+            <div className="hidden lg:flex items-center bg-current/5 rounded-full p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => (onToggleDockSide ? onToggleDockSide('left') : onTogglePin?.())}
+                title={effectiveDock === 'left' ? '取消左侧订住，转为浮动' : '将目录固定在左侧常驻'}
+                className={`px-2 py-1 rounded-full flex items-center gap-1 transition-all ${
+                  effectiveDock === 'left'
+                    ? 'bg-[#1b88ee] text-white font-semibold shadow-2xs'
+                    : isDark
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Pin className="w-3 h-3" />
+                <span className="text-[11px]">订左侧</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => (onToggleDockSide ? onToggleDockSide('right') : onTogglePin?.())}
+                title={effectiveDock === 'right' ? '取消右侧订住，转为浮动' : '将目录固定在右侧常驻'}
+                className={`px-2 py-1 rounded-full flex items-center gap-1 transition-all ${
+                  effectiveDock === 'right'
+                    ? 'bg-[#1b88ee] text-white font-semibold shadow-2xs'
+                    : isDark
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Pin className="w-3 h-3" />
+                <span className="text-[11px]">订右侧</span>
+              </button>
+            </div>
+          )}
           <button
             onClick={onClose}
             title="关闭菜单"

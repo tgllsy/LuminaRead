@@ -22,6 +22,7 @@ interface TtsToggleOptions {
     voice: string,
     rate: number
   ) => void
+  syncServerProgress?: (idx: number, totalParas: number) => void
 }
 
 export function useTtsToggle(opts: TtsToggleOptions) {
@@ -36,23 +37,22 @@ export function useTtsToggle(opts: TtsToggleOptions) {
       cur.abortInflightRequests?.()
       if (audioElRef.current) {
         audioElRef.current.pause()
-        if (activeParagraphIndex !== null) {
-          cur.persistListeningCheckpoint(
-            activeParagraphIndex,
-            state.activeSentenceSnippet,
-            audioElRef.current.currentTime || state.currentTimeSec,
-            paragraphsRef.current.length,
-            selectedVoiceRef.current,
-            ttsRateRef.current
-          )
-        }
-        state.setTtsPaused(true)
-        state.setTtsPlaying(false)
-        state.setTtsLoading(false)
-        return
       }
-      cur.stopTTS()
-      cur.onActiveParagraphChange(null)
+      if (activeParagraphIndex !== null) {
+        cur.persistListeningCheckpoint(
+          activeParagraphIndex,
+          state.activeSentenceSnippet,
+          audioElRef.current?.currentTime || state.currentTimeSec,
+          paragraphsRef.current.length,
+          selectedVoiceRef.current,
+          ttsRateRef.current
+        )
+        cur.syncServerProgress?.(activeParagraphIndex, paragraphsRef.current.length)
+      }
+      state.setTtsPaused(true)
+      state.setTtsPlaying(false)
+      state.setTtsLoading(false)
+      return
     } else if (state.ttsPaused) {
       if (audioElRef.current && audioElRef.current.src) {
         audioElRef.current.playbackRate = ttsRateRef.current

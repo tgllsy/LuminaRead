@@ -49,7 +49,8 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     anchorRect,
     selectedText,
     openNoteEditorInitially,
-    showNoteInput
+    showNoteInput,
+    paragraphIndex
   )
 
   if (!selectedText) return null
@@ -94,7 +95,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   }
 
   // Mobile Viewport (< 768px): Render compact mobile selection bar directly under the paragraph
-  if (isMobile || !desktopFloatingStyle) {
+  if (isMobile) {
     return (
       <MobileSelectionBar
         selectedText={selectedText}

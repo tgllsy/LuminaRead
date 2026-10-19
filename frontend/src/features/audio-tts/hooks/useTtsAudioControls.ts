@@ -79,6 +79,7 @@ export function useTtsAudioControls(opts: UseTtsAudioControlsOptions) {
     getOrCreateAudioElement: opts.getOrCreateAudioElement, stopTTS, speakParagraphAtIndex,
     onActiveParagraphChange: opts.onActiveParagraphChange, abortInflightRequests: opts.abortInflightRequests,
     persistListeningCheckpoint: opts.persistListeningCheckpoint,
+    syncServerProgress: opts.syncServerProgress,
   })
 
   const nav = useTtsNavigation({
