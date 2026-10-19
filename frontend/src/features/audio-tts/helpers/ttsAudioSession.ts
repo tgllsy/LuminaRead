@@ -87,14 +87,47 @@ export function bindAudioEventListeners(
     }
   }
 
+  const flushCheckpointNow = () => {
+    if (sessionId !== getSessionId()) return
+    const cur = audio.currentTime || 0
+    const dur = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : estDur
+    const ratio = Math.min(1, Math.max(0, cur / Math.max(0.1, dur)))
+    const curSnip = computeActiveSentence(text, ratio)
+    lastCheckpointWriteRef.current = Date.now()
+    persistCheckpoint(idx, curSnip, cur, totalParas, voiceToUse, ttsRate)
+  }
+
+  const syncMediaSession = (playing: boolean) => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    try {
+      const st = useTtsStore.getState()
+      const bookTitle = st.audioStatus.bookTitle || st.checkpoint?.bookTitle || '阅境伴读'
+      const chapterTitle = st.audioStatus.chapterTitle || `第 ${idx + 1} 段`
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: chapterTitle,
+        artist: bookTitle,
+        album: 'LuminaRead · 阅境神经语音',
+      })
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+      navigator.mediaSession.setActionHandler('play', () => { audio.play().catch(() => {}) })
+      navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); flushCheckpointNow() })
+      navigator.mediaSession.setActionHandler('nexttrack', () => { if (sessionId === getSessionId()) onEnded() })
+    } catch {
+      // ignore unsupported MediaSession environments
+    }
+  }
+
   audio.onplay = () => {
     if (sessionId !== getSessionId()) return
+    syncMediaSession(true)
     stopRaf()
     rafId = requestAnimationFrame(tickHighFreq)
   }
 
   audio.onpause = () => {
     stopRaf()
+    syncMediaSession(false)
+    flushCheckpointNow()
   }
 
   audio.onloadedmetadata = () => {
@@ -134,6 +167,7 @@ export function bindAudioEventListeners(
 
   audio.onerror = () => {
     stopRaf()
+    flushCheckpointNow()
     if (sessionId === getSessionId()) onError()
   }
 }
@@ -218,11 +252,7 @@ export async function dispatchAudioPlayback(p: PlaybackDispatchParams): Promise<
     })
 
     if (p.sessionId !== p.getSessionId()) {
-      try {
-        audio.pause()
-        audio.removeAttribute('src')
-        audio.load()
-      } catch {}
+      try { audio.pause(); audio.removeAttribute('src'); audio.load() } catch {}
       return
     }
 
@@ -239,19 +269,13 @@ export async function dispatchAudioPlayback(p: PlaybackDispatchParams): Promise<
     }
 
     if (p.sessionId !== p.getSessionId()) {
-      try {
-        audio.pause()
-        audio.removeAttribute('src')
-        audio.load()
-      } catch {}
+      try { audio.pause(); audio.removeAttribute('src'); audio.load() } catch {}
       return
     }
   } catch (err: unknown) {
     if (p.sessionId !== p.getSessionId()) return
     const errorObj = err as { name?: string; message?: string } | null
-    if (errorObj?.name === 'AbortError' || errorObj?.message?.includes?.('interrupted')) {
-      return
-    }
+    if (errorObj?.name === 'AbortError' || errorObj?.message?.includes?.('interrupted')) return
     if (errorObj?.name === 'NotAllowedError') {
       p.setTtsLoading(false)
       p.onPlaybackError?.()
@@ -259,10 +283,7 @@ export async function dispatchAudioPlayback(p: PlaybackDispatchParams): Promise<
     }
     p.setTtsLoading(false)
     p.setLastCacheStatus('LOCAL')
-    if (p.speakFallback) {
-      p.speakFallback(p.text, p.sessionId)
-    } else {
-      p.onPlaybackError?.()
-    }
+    if (p.speakFallback) p.speakFallback(p.text, p.sessionId)
+    else p.onPlaybackError?.()
   }
 }

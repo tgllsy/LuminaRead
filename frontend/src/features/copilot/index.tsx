@@ -99,14 +99,14 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
         data-no-hud-toggle="true"
         onClick={(e) => e.stopPropagation()}
         aria-hidden={!isOpen}
-        className={`fixed top-0 bottom-0 right-0 z-50 h-screen w-full sm:w-[420px] md:w-[450px] lg:w-[480px] xl:w-[500px] flex flex-col overflow-hidden border-l transition-all duration-300 cubic-bezier(0.16, 1, 0.3, 1) select-text ${
+        className={`fixed top-0 bottom-0 right-0 z-50 h-dvh pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] w-full sm:w-[420px] md:w-[450px] lg:w-[480px] xl:w-[500px] flex flex-col overflow-hidden border-l transition-all duration-300 cubic-bezier(0.16, 1, 0.3, 1) select-text ${
           isOpen
             ? 'translate-x-0 opacity-100 pointer-events-auto'
             : 'translate-x-full opacity-0 pointer-events-none'
         } ${
           isDark
-            ? 'bg-[#18181b] text-slate-100 border-white/10 shadow-[-12px_0_36px_rgba(0,0,0,0.55)]'
-            : 'bg-[#fafafa] text-slate-900 border-slate-200/90 shadow-[-12px_0_36px_rgba(15,23,42,0.12)]'
+            ? 'liquid-glass-dark bg-[#18181b]/95 text-slate-100 border-white/10 shadow-[-12px_0_36px_rgba(0,0,0,0.55)]'
+            : 'liquid-glass bg-[#fafafa]/95 text-slate-900 border-slate-200/90 shadow-[-12px_0_36px_rgba(15,23,42,0.12)]'
         }`}
       >
       {/* 侧边栏紧凑顶栏 */}

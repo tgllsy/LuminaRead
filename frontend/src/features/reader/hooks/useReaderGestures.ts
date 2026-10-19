@@ -65,7 +65,14 @@ export function useReaderGestures({
 
   const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
     if (e.touches.length === 1) {
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() }
+      const clientX = e.touches[0].clientX
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 0
+      // 避让移动端左右边缘 24px 系统级返回/前进手势热区，防止翻页与浏览器历史导航冲突
+      if (vw > 0 && (clientX < 24 || clientX > vw - 24)) {
+        touchStartRef.current = null
+        return
+      }
+      touchStartRef.current = { x: clientX, y: e.touches[0].clientY, time: Date.now() }
     }
   }
 

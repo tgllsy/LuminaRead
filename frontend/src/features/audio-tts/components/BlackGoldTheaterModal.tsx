@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Headphones, X } from 'lucide-react'
+import { BottomSheet } from '../../../shared/ui/BottomSheet'
 import { useTtsStore } from '../../../stores/ttsStore'
 import { KaraokeTranscriptStream } from './KaraokeTranscriptStream'
 import { TheaterHeader } from './TheaterHeader'
@@ -157,7 +157,7 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0c0d14] text-white flex flex-col select-none overflow-hidden animate-in fade-in-0 duration-200">
+    <div className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] z-50 bg-[#0c0d14] text-white flex flex-col select-none overflow-hidden animate-in fade-in-0 duration-200">
       <TheaterHeader
         title={title}
         chapterTitle={chapterTitle}
@@ -229,37 +229,28 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
         onToggleAmbient={() => setShowAmbientModal((v) => !v)}
       />
 
-      {showAmbientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-[#181a28] border border-white/15 rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl relative text-white space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2 font-bold text-sm">
-                <Headphones className="w-4 h-4 text-emerald-400" />
-                <span>白噪音伴读调音台</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAmbientModal(false)}
-                className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <AmbientMixerModal
-              ambientEnabled={effectiveAmbientEnabled}
-              onToggleEnabled={handleToggleAmbientEnabled}
-              ambientPreset={effectiveAmbientPreset}
-              ambientVolume={effectiveAmbientVolume}
-              onSelectPreset={handleSelectAmbientPreset}
-              onVolumeChange={handleChangeAmbientVolume}
-              pillIdleCls="bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
-              accentActivePillCls="bg-emerald-600 text-white font-bold border border-emerald-500 shadow-md shadow-emerald-500/20"
-              mutedTextCls="text-slate-400"
-            />
-          </div>
+      <BottomSheet
+        isOpen={showAmbientModal}
+        onClose={() => setShowAmbientModal(false)}
+        title="白噪音伴读调音台"
+        subtitle="自由混音环境声效，沉浸专注阅读"
+        isDark={true}
+        maxWidthClass="md:max-w-lg"
+      >
+        <div className="p-5 sm:p-6">
+          <AmbientMixerModal
+            ambientEnabled={effectiveAmbientEnabled}
+            onToggleEnabled={handleToggleAmbientEnabled}
+            ambientPreset={effectiveAmbientPreset}
+            ambientVolume={effectiveAmbientVolume}
+            onSelectPreset={handleSelectAmbientPreset}
+            onVolumeChange={handleChangeAmbientVolume}
+            pillIdleCls="bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10"
+            accentActivePillCls="bg-emerald-600 text-white font-bold border border-emerald-500 shadow-md shadow-emerald-500/20"
+            mutedTextCls="text-slate-400"
+          />
         </div>
-      )}
+      </BottomSheet>
 
       <QuoteCelebrationModal
         quote={celebrationQuote}

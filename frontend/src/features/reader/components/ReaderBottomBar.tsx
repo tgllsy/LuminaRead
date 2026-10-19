@@ -25,40 +25,68 @@ interface ReaderBottomBarProps {
   isPageCanvas?: boolean
 }
 
+const MobileFloatingThumbOrbs: React.FC<{
+  isDark: boolean
+  isScrolling: boolean
+  isTtsActive: boolean
+  isTtsPlaying: boolean
+  isTtsAmbientActive: boolean
+  onOpenCopilot: () => void
+  onOpenTTS: () => void
+}> = ({ isDark, isScrolling, isTtsActive, isTtsPlaying, isTtsAmbientActive, onOpenCopilot, onOpenTTS }) => (
+  <div
+    data-no-hud-toggle="true"
+    className={`lg:hidden fixed right-4 bottom-[max(1.5rem,env(safe-area-inset-bottom,0px)+0.75rem)] z-40 flex items-center gap-2.5 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      isScrolling ? 'opacity-0 translate-y-3 scale-90 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
+    }`}
+  >
+    <button
+      type="button" onClick={onOpenCopilot} title="AI 伴读与章节导读"
+      className={`w-11 h-11 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.08)] flex items-center justify-center font-bold text-[13px] tracking-tight transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-[0.97] ${
+        isDark ? 'liquid-glass-dark text-[#f2f2f7] hover:bg-[#3a3a3c]' : 'liquid-glass text-[#1e1f22] hover:bg-white'
+      }`}
+    >
+      <span>AI<sup className="text-[9px] font-extrabold ml-0.5">+</sup></span>
+    </button>
+
+    <button
+      type="button" onClick={onOpenTTS}
+      title={isTtsActive ? '伴读已折叠至悬浮球 · 点击展开' : '打开阅境伴读听书'}
+      className={`relative w-11 h-11 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.12)] flex items-center justify-center font-bold text-[14px] transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-[0.97] ${
+        isTtsActive
+          ? isDark
+            ? 'bg-amber-500 border border-amber-400 text-slate-950 ring-4 ring-amber-400/25'
+            : 'bg-emerald-700 border border-emerald-700 text-white ring-4 ring-emerald-600/25'
+          : isDark
+          ? 'liquid-glass-dark text-[#f2f2f7] hover:bg-[#3a3a3c]'
+          : 'liquid-glass text-[#1e1f22] hover:bg-white'
+      }`}
+    >
+      <span>听</span>
+      {isTtsActive && (
+        <span
+          className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 ${
+            isTtsPlaying || isTtsAmbientActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+          }`}
+        />
+      )}
+    </button>
+  </div>
+)
+
 export const ReaderBottomBar: React.FC<ReaderBottomBarProps> = ({
-  typography,
-  isScrolling,
-  immersiveHudVisible,
-  showTypography,
-  showAmbientTTS,
-  drawerOpen,
-  isCopilotOpen,
-  hasSelection,
-  hasFootnoteModal,
-  isTtsActive,
-  isTtsPlaying,
-  isTtsAmbientActive,
-  onOpenCopilot,
-  onOpenTTS,
-  bookmarkToast,
-  returnAnchor,
-  onReturnToAnchor,
-  onClearReturnAnchor,
-  readingEstimateText,
-  isPageCanvas,
+  typography, isScrolling, immersiveHudVisible, showTypography, showAmbientTTS,
+  drawerOpen, isCopilotOpen, hasSelection, hasFootnoteModal,
+  isTtsActive, isTtsPlaying, isTtsAmbientActive, onOpenCopilot, onOpenTTS,
+  bookmarkToast, returnAnchor, onReturnToAnchor, onClearReturnAnchor,
+  readingEstimateText, isPageCanvas,
 }) => {
   const showMobileFloatingButtons =
-    !immersiveHudVisible &&
-    !showTypography &&
-    !showAmbientTTS &&
-    !drawerOpen &&
-    !isCopilotOpen &&
-    !hasSelection &&
-    !hasFootnoteModal
+    !immersiveHudVisible && !showTypography && !showAmbientTTS &&
+    !drawerOpen && !isCopilotOpen && !hasSelection && !hasFootnoteModal
 
   return (
     <>
-      {/* Reading Estimate Subtle Footer Pill */}
       {readingEstimateText && !hasSelection && !hasFootnoteModal && !isPageCanvas && (
         <div
           data-no-hud-toggle="true"
@@ -73,89 +101,35 @@ export const ReaderBottomBar: React.FC<ReaderBottomBarProps> = ({
         </div>
       )}
 
-      {/* Toast Notification */}
       {bookmarkToast && (
-        <div className="fixed top-16 right-4 z-50 px-4 py-2 rounded-full bg-[#1b88ee] text-white text-xs font-medium shadow-lg animate-in fade-in duration-150">
+        <div className="fixed top-[calc(4rem+env(safe-area-inset-top,0px))] right-4 z-50 px-4 py-2 rounded-full bg-[#1b88ee] text-white text-xs font-medium shadow-lg animate-in fade-in duration-150">
           {bookmarkToast}
         </div>
       )}
 
-      {/* Floating Return to Anchor Button */}
       {returnAnchor && (
         <div
           data-no-hud-toggle="true"
-          className="fixed bottom-20 left-4 z-50 animate-in fade-in slide-in-from-bottom-3"
+          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-4 z-50 animate-in fade-in slide-in-from-bottom-3"
         >
           <div className="flex items-center gap-1.5 pl-3.5 pr-2 py-2 rounded-full bg-[#1b88ee] hover:bg-[#1677d2] text-white shadow-xl text-xs font-semibold">
-            <button
-              type="button"
-              onClick={onReturnToAnchor}
-              className="flex items-center gap-1.5 text-left"
-            >
+            <button type="button" onClick={onReturnToAnchor} className="flex items-center gap-1.5 text-left cursor-pointer active:scale-[0.97]">
               <span>↩ 返回原位置</span>
-              <span className="px-2 py-0.5 rounded-full bg-white/20 text-[11px] font-normal max-w-[160px] truncate">
-                {returnAnchor.label}
-              </span>
+              <span className="px-2 py-0.5 rounded-full bg-white/20 text-[11px] font-normal max-w-[160px] truncate">{returnAnchor.label}</span>
             </button>
-            <button
-              type="button"
-              onClick={onClearReturnAnchor}
-              title="清除返回锚点"
-              className="p-1 rounded-full hover:bg-white/20 text-white/80 hover:text-white"
-            >
+            <button type="button" onClick={onClearReturnAnchor} title="清除返回锚点" className="p-1 rounded-full hover:bg-white/20 text-white/80 hover:text-white cursor-pointer">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Mobile Floating Circular Buttons (< 1024px) */}
       {showMobileFloatingButtons && (
-        <div
-          data-no-hud-toggle="true"
-          className={`lg:hidden fixed right-4 bottom-[max(1.5rem,env(safe-area-inset-bottom,0px)+0.75rem)] z-30 flex items-center gap-2.5 transition-all duration-200 ${
-            isScrolling
-              ? 'opacity-0 translate-y-3 scale-90 pointer-events-none'
-              : 'opacity-100 translate-y-0 scale-100'
-          }`}
-        >
-          <button
-            onClick={onOpenCopilot}
-            className={`w-11 h-11 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.08)] border backdrop-blur-md flex items-center justify-center font-bold text-[13px] tracking-tight transition-transform active:scale-95 ${
-              typography.theme === 'dark'
-                ? 'bg-[#2c2c2e]/95 border-white/10 text-[#f2f2f7] hover:bg-[#3a3a3c]'
-                : 'bg-white/95 border-black/[0.08] text-[#1e1f22] hover:bg-white'
-            }`}
-            title="AI 伴读与章节导读"
-          >
-            <span>
-              AI<sup className="text-[9px] font-extrabold ml-0.5">+</sup>
-            </span>
-          </button>
-
-          <button
-            onClick={onOpenTTS}
-            className={`relative w-11 h-11 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.12)] border backdrop-blur-md flex items-center justify-center font-bold text-[14px] transition-all active:scale-95 ${
-              isTtsActive
-                ? typography.theme === 'dark'
-                  ? 'bg-amber-500 border-amber-400 text-slate-950 ring-4 ring-amber-400/25'
-                  : 'bg-emerald-700 border-emerald-700 text-white ring-4 ring-emerald-600/25'
-                : typography.theme === 'dark'
-                ? 'bg-[#2c2c2e]/95 border-white/10 text-[#f2f2f7] hover:bg-[#3a3a3c]'
-                : 'bg-white/95 border-black/[0.08] text-[#1e1f22] hover:bg-white'
-            }`}
-            title={isTtsActive ? '伴读已折叠至悬浮球 · 点击展开' : '打开阅境伴读听书'}
-          >
-            <span>听</span>
-            {isTtsActive && (
-              <span
-                className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 ${
-                  isTtsPlaying || isTtsAmbientActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                }`}
-              />
-            )}
-          </button>
-        </div>
+        <MobileFloatingThumbOrbs
+          isDark={typography.theme === 'dark'} isScrolling={isScrolling}
+          isTtsActive={isTtsActive} isTtsPlaying={isTtsPlaying} isTtsAmbientActive={isTtsAmbientActive}
+          onOpenCopilot={onOpenCopilot} onOpenTTS={onOpenTTS}
+        />
       )}
     </>
   )

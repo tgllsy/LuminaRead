@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Bookmark, Check, Copy, X } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
+import { BottomSheet } from '../../../shared/ui/BottomSheet'
 import { copyTextToClipboard, SavedTtsQuote } from '../helpers/quoteStorage'
 
 interface QuoteCelebrationModalProps {
@@ -24,22 +25,15 @@ export const QuoteCelebrationModal: React.FC<QuoteCelebrationModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in-0 duration-200">
-      <div className="relative w-full max-w-lg bg-[#141622] border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-amber-500/10 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-amber-400 text-xs font-mono tracking-wider uppercase">
-            <Bookmark className="w-4 h-4 fill-amber-400" />
-            <span>金句已沉淀至灵感库</span>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <BottomSheet
+      isOpen={Boolean(quote)}
+      onClose={onClose}
+      title="金句已沉淀至灵感库"
+      subtitle={`《${quote.bookTitle}》${quote.chapterTitle ? ` · ${quote.chapterTitle}` : ''}`}
+      isDark={true}
+      maxWidthClass="md:max-w-lg"
+    >
+      <div className="p-5 sm:p-6 space-y-5">
         <div className="relative p-6 rounded-2xl bg-gradient-to-b from-white/5 to-transparent border border-white/10 font-serif space-y-4">
           <div className="text-4xl text-amber-400/40 font-serif leading-none select-none">“</div>
           <p className="text-white text-base sm:text-lg leading-relaxed text-justify tracking-wide -mt-4">
@@ -51,11 +45,11 @@ export const QuoteCelebrationModal: React.FC<QuoteCelebrationModalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={handleCopy}
-            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium flex items-center gap-1.5 transition-all active:scale-[0.97] cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-amber-300" />}
             <span>{copied ? '已复制' : '复制文案'}</span>
@@ -63,12 +57,12 @@ export const QuoteCelebrationModal: React.FC<QuoteCelebrationModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all active:scale-[0.97] cursor-pointer"
           >
             完成
           </button>
         </div>
       </div>
-    </div>
+    </BottomSheet>
   )
 }

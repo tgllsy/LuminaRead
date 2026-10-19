@@ -1,5 +1,6 @@
 import React from 'react'
-import { useGlobalSearch, useEscapeKey } from '../hooks'
+import { BottomSheet } from '../../../shared/ui/BottomSheet'
+import { useGlobalSearch } from '../hooks'
 import { SearchHeader } from './SearchHeader'
 import { HighlightHitsList } from './HighlightHitsList'
 import { ChapterHitsList } from './ChapterHitsList'
@@ -18,22 +19,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     initialQuery,
   })
 
-  useEscapeKey(isOpen && !asPage, onClose)
-
   if (!isOpen && !asPage) return null
 
   const isNoResults =
-    result &&
-    result.chapter_hits.length === 0 &&
-    result.highlight_hits.length === 0
+    result && result.chapter_hits.length === 0 && result.highlight_hits.length === 0
 
   const innerContent = (
     <div
-      onClick={(e) => e.stopPropagation()}
       className={
         asPage
-          ? 'max-w-6xl w-full mx-auto px-4 sm:px-8 py-5 sm:py-8 pb-24 sm:pb-12 space-y-5'
-          : 'bg-white sm:rounded-3xl sm:shadow-2xl sm:border border-slate-200/80 w-full max-w-3xl h-dvh sm:h-auto sm:max-h-[86dvh] flex flex-col overflow-hidden'
+          ? 'max-w-6xl w-full mx-auto px-4 sm:px-8 py-5 sm:py-8 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-12 space-y-5'
+          : 'w-full flex-1 min-h-0 flex flex-col overflow-hidden'
       }
     >
       <SearchHeader
@@ -46,18 +42,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         result={result}
       />
 
-      {/* Search Results Body */}
       <div
         className={
           asPage
             ? 'space-y-4'
-            : 'flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/60'
+            : 'flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/60'
         }
       >
         {loading && !result && (
-          <div className="py-12 text-center text-sm text-slate-500">
-            正在检索索引...
-          </div>
+          <div className="py-12 text-center text-sm text-slate-500">正在检索索引...</div>
         )}
 
         {isNoResults && (
@@ -88,16 +81,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     </div>
   )
 
-  if (asPage) {
-    return innerContent
-  }
+  if (asPage) return innerContent
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-white sm:bg-slate-950/65 sm:backdrop-blur-sm p-0 sm:pt-12 sm:p-4"
-    >
+    <BottomSheet isOpen={isOpen} onClose={onClose} maxWidthClass="md:max-w-3xl">
       {innerContent}
-    </div>
+    </BottomSheet>
   )
 }

@@ -1,5 +1,11 @@
 import type { BookFullContent } from '../types'
 import { apiClient } from '../shared/api'
+import {
+  isValidBookContent,
+  loadOfflineFromIdb,
+  saveOfflineToIdb,
+  deleteOfflineFromIdb,
+} from './bookIdbStore'
 
 /**
  * High-speed Multi-Book LRU Memory Cache + IndexedDB Offline Store
@@ -8,54 +14,6 @@ import { apiClient } from '../shared/api'
 const MAX_MEMORY_BOOKS = 12
 const memoryLruMap = new Map<string, BookFullContent>()
 const hydratingBookIds = new Set<string>()
-
-const IDB_NAME = 'luminaread_offline_cache'
-const IDB_STORE = 'books_content'
-
-function openIdb(): Promise<IDBDatabase | null> {
-  if (typeof window === 'undefined' || !('indexedDB' in window)) {
-    return Promise.resolve(null)
-  }
-  return new Promise((resolve) => {
-    let settled = false
-    const timer = window.setTimeout(() => {
-      if (!settled) {
-        settled = true
-        resolve(null)
-      }
-    }, 350)
-    const finish = (db: IDBDatabase | null) => {
-      if (!settled) {
-        settled = true
-        window.clearTimeout(timer)
-        resolve(db)
-      }
-    }
-    try {
-      const req = window.indexedDB.open(IDB_NAME, 1)
-      req.onupgradeneeded = () => {
-        const db = req.result
-        if (!db.objectStoreNames.contains(IDB_STORE)) {
-          db.createObjectStore(IDB_STORE, { keyPath: 'bookId' })
-        }
-      }
-      req.onsuccess = () => finish(req.result)
-      req.onerror = () => finish(null)
-      req.onblocked = () => finish(null)
-    } catch {
-      finish(null)
-    }
-  })
-}
-
-let idbPromise: Promise<IDBDatabase | null> | null = null
-
-function getIdb(): Promise<IDBDatabase | null> {
-  if (!idbPromise) {
-    idbPromise = openIdb()
-  }
-  return idbPromise
-}
 
 export function getBookFromMemoryCache(bookId: string): BookFullContent | null {
   const hit = memoryLruMap.get(bookId)
@@ -82,19 +40,7 @@ export function setBookInMemoryCache(
   if (!persistOffline || content.is_lite) return
 
   // Asynchronously persist full content to IndexedDB for PWA offline reading
-  getIdb().then((db) => {
-    if (!db) return
-    try {
-      const tx = db.transaction(IDB_STORE, 'readwrite')
-      tx.objectStore(IDB_STORE).put({
-        bookId,
-        content,
-        cachedAt: Date.now(),
-      })
-    } catch {
-      // ignore quota errors
-    }
-  })
+  saveOfflineToIdb(bookId, content)
 }
 
 async function fetchLiteContent(bookId: string, targetChapterIndex?: number): Promise<BookFullContent> {
@@ -150,21 +96,6 @@ function scheduleIdlePrefetch(
   })
 }
 
-async function loadOfflineFromIdb(bookId: string): Promise<BookFullContent | null> {
-  const db = await getIdb()
-  if (!db) return null
-  return new Promise<BookFullContent | null>((resolve) => {
-    try {
-      const tx = db.transaction(IDB_STORE, 'readonly')
-      const req = tx.objectStore(IDB_STORE).get(bookId)
-      req.onsuccess = () => resolve(req.result?.content || null)
-      req.onerror = () => resolve(null)
-    } catch {
-      resolve(null)
-    }
-  })
-}
-
 const inFlightPrefetch = new Map<string, Promise<void>>()
 
 export function prefetchChapter(bookId: string, chapterIndex: number): void {
@@ -205,7 +136,7 @@ export function prefetchUpcomingChapters(bookId: string, startChapterIndex: numb
 
 export function prefetchBook(bookId: string, targetChapterIndex?: number): Promise<void> {
   const mem = memoryLruMap.get(bookId)
-  if (mem) {
+  if (mem && isValidBookContent(mem, bookId)) {
     const chIdx = targetChapterIndex ?? mem.progress?.chapter_index ?? 0
     const targetCh = mem.chapters?.[chIdx]
     if (targetCh && !targetCh._partial && targetCh.content) {
@@ -242,7 +173,7 @@ export async function getBookWithCache(
 ): Promise<{ data: BookFullContent; fromCache: boolean }> {
   if (!forceRefresh) {
     const memHit = getBookFromMemoryCache(bookId)
-    if (memHit) {
+    if (memHit && isValidBookContent(memHit, bookId)) {
       const checkIdx = targetChapterIndex ?? memHit.progress?.chapter_index ?? 0
       const targetCh = memHit.chapters[checkIdx]
       if (!targetCh || !targetCh._partial) {
@@ -250,13 +181,14 @@ export async function getBookWithCache(
       }
     }
 
-    // Fast-path: Check IndexedDB offline cache (Stale-While-Revalidate)
+    // Fast-path: Check IndexedDB offline cache with strict timeout
     const offlineHit = await loadOfflineFromIdb(bookId)
-    if (offlineHit) {
+    if (offlineHit && isValidBookContent(offlineHit, bookId)) {
       memoryLruMap.set(bookId, offlineHit)
       // Background revalidate without clobbering existing complete chapters
       fetchLiteContent(bookId, targetChapterIndex)
         .then((fresh) => {
+          if (!isValidBookContent(fresh, bookId)) return
           const mergedChapters = offlineHit.chapters.map((ch, idx) => {
             const freshCh = fresh.chapters?.[idx]
             if (!freshCh) return ch
@@ -279,6 +211,9 @@ export async function getBookWithCache(
 
   try {
     const data = await fetchLiteContent(bookId, targetChapterIndex)
+    if (!isValidBookContent(data, bookId)) {
+      throw new Error('书籍内容数据格式不正确')
+    }
     setBookInMemoryCache(bookId, data, !data.is_lite)
 
     if (data.is_lite) {
@@ -288,7 +223,7 @@ export async function getBookWithCache(
     return { data, fromCache: false }
   } catch (err) {
     const offlineHit = await loadOfflineFromIdb(bookId)
-    if (offlineHit) {
+    if (offlineHit && isValidBookContent(offlineHit, bookId)) {
       memoryLruMap.set(bookId, offlineHit)
       return { data: offlineHit, fromCache: true }
     }
@@ -298,14 +233,5 @@ export async function getBookWithCache(
 
 export function invalidateBookCache(bookId: string): void {
   memoryLruMap.delete(bookId)
-  getIdb().then((db) => {
-    if (!db) return
-    try {
-      const tx = db.transaction(IDB_STORE, 'readwrite')
-      tx.objectStore(IDB_STORE).delete(bookId)
-    } catch {
-      // ignore errors
-    }
-  })
+  deleteOfflineFromIdb(bookId)
 }
-

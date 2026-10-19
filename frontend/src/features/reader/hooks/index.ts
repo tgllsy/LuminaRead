@@ -1,4 +1,5 @@
 export * from './useBookContent'
+export * from './useBookDataLoader'
 export * from './usePaginationLayout'
 export * from './useReadingProgressSync'
 export * from './useReaderHotkeys'

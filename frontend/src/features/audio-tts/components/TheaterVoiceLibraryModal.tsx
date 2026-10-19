@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
-import { X, Search, Check, Sparkles, Volume2, Users } from 'lucide-react'
+import { Search, Check, Volume2, Users } from 'lucide-react'
+import { BottomSheet } from '../../../shared/ui/BottomSheet'
 import type { NeuralVoiceOption, VoiceCategory } from '../types'
 import { VOICE_CATEGORY_TABS } from '../constants'
 
@@ -39,36 +40,16 @@ export const TheaterVoiceLibraryModal: React.FC<TheaterVoiceLibraryModalProps> =
     })
   }, [voices, activeCategory, keyword])
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in-0 duration-200">
-      <div className="relative w-full max-w-3xl bg-[#11131f] border border-white/15 rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1b88ee] to-amber-400 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <span>微软 Edge 神经拟真声源库</span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-normal">
-                  共 {voices.length} 款
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">超拟真神经网络语调，自然呼吸停顿与情绪起伏</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`微软 Edge 神经拟真声源库（共 ${voices.length} 款）`}
+      subtitle="超拟真神经网络语调，自然呼吸停顿与情绪起伏"
+      isDark={true}
+      maxWidthClass="md:max-w-3xl"
+    >
+      <div className="p-4 sm:p-6 flex flex-col max-h-[72dvh] overflow-hidden space-y-4">
         {/* Filter bar */}
         <div className="flex flex-col sm:flex-row gap-3 shrink-0">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1 scrollbar-none">
@@ -153,6 +134,6 @@ export const TheaterVoiceLibraryModal: React.FC<TheaterVoiceLibraryModalProps> =
           })}
         </div>
       </div>
-    </div>
+    </BottomSheet>
   )
 }

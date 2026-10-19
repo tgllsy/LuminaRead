@@ -25,7 +25,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     <div
       data-no-hud-toggle="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-950/88 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 animate-in fade-in duration-150"
+      className="fixed inset-0 h-dvh pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] z-50 bg-slate-950/88 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 animate-in fade-in duration-150"
     >
       <div
         onClick={(e) => e.stopPropagation()}

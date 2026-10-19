@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
-import type { BookshelfViewProps, BookSummary, ReadingLibrary } from './types'
+import type { BookshelfViewProps, BookSummary, ReadingLibrary, UploadAlertItem } from './types'
 import { filterAndSearchBooks, extractUniqueCategories } from './helpers'
 import { useBookshelfFilter, useLibraries, useBookOperations } from './hooks'
 import {
   BookshelfHeader,
   BookshelfHeroCard,
-  LibraryTabBar,
   BookGrid,
   OrganizeBookModal,
   CreateLibraryModal,
@@ -14,6 +13,8 @@ import { DailyReviewCard } from './components/DailyReviewCard'
 import { prewarmBooks } from '../../utils/bookCache'
 import { useTypographyStore } from '../../stores/typographyStore'
 import { convertBooksList } from '../../utils/chineseConversion'
+
+const SUPPORTED_BOOK_EXTS = ['.epub', '.pdf', '.txt', '.md', '.markdown', '.mobi', '.azw', '.azw3', '.prc']
 
 function useMergedBooksAndPolling(
   books: BookSummary[],
@@ -68,9 +69,43 @@ function useMergedBooksAndPolling(
   return mergedBooks
 }
 
+function dispatchValidatedUpload(
+  files: File[],
+  categoryFilter: string,
+  libraryFilter: string,
+  uploadFiles: (files: File[], category: string, libraryId: string) => void,
+  setUploadAlerts: React.Dispatch<React.SetStateAction<UploadAlertItem[]>>
+) {
+  const validFiles: File[] = []
+  const invalidFiles: string[] = []
+  for (const file of files) {
+    const lower = file.name.toLowerCase()
+    if (SUPPORTED_BOOK_EXTS.some((ext) => lower.endsWith(ext))) {
+      validFiles.push(file)
+    } else {
+      invalidFiles.push(file.name)
+    }
+  }
+  if (invalidFiles.length > 0) {
+    setUploadAlerts((prev) => [
+      ...prev,
+      {
+        id: `unsupported-${Date.now()}`,
+        filename: invalidFiles.join(', '),
+        message: '不支持的文件格式，仅支持 epub、pdf、txt、mobi、azw3、md 等',
+      },
+    ])
+  }
+  if (validFiles.length > 0) {
+    const defaultCategory = categoryFilter !== 'all' ? categoryFilter : '本地导入'
+    const defaultLib = libraryFilter !== 'all' ? libraryFilter : 'lib-default'
+    uploadFiles(validFiles, defaultCategory, defaultLib)
+  }
+}
+
 export const BookshelfView: React.FC<BookshelfViewProps> = ({
   books, openTabBookIds, onOpenBook, onOpenDiscovery,
-  onOpenSourceSettings, onOpenStats, onOpenGlobalSearch, onOpenNotesHub, onBooksChanged, onCloseBookTab,
+  onOpenGlobalSearch, onOpenNotesHub, onBooksChanged, onCloseBookTab,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -86,49 +121,16 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
   const mergedBooks = useMemo(() => convertBooksList(rawMergedBooks, chineseVariant), [rawMergedBooks, chineseVariant])
   const filteredBooks = useMemo(() => filterAndSearchBooks(mergedBooks, filter.filterState), [mergedBooks, filter.filterState])
   const categories = useMemo(() => {
-    const scopeBooks = filter.libraryFilter === 'all'
-      ? mergedBooks
-      : mergedBooks.filter((b) => (b.library_id || 'lib-default') === filter.libraryFilter)
-    return extractUniqueCategories(scopeBooks)
+    const scope = filter.libraryFilter === 'all' ? mergedBooks : mergedBooks.filter((b) => (b.library_id || 'lib-default') === filter.libraryFilter)
+    return extractUniqueCategories(scope)
   }, [mergedBooks, filter.libraryFilter])
 
   useEffect(() => {
-    if (filter.categoryFilter !== 'all' && !categories.includes(filter.categoryFilter)) {
-      filter.setCategoryFilter('all')
-    }
+    if (filter.categoryFilter !== 'all' && !categories.includes(filter.categoryFilter)) filter.setCategoryFilter('all')
   }, [categories, filter.categoryFilter, filter.setCategoryFilter])
 
-  const triggerUploadWithFiles = (files: File[]) => {
-    const supportedExts = ['.epub', '.pdf', '.txt', '.md', '.markdown', '.mobi', '.azw', '.azw3', '.prc']
-    const validFiles: File[] = []
-    const invalidFiles: string[] = []
-
-    for (const file of files) {
-      const lower = file.name.toLowerCase()
-      if (supportedExts.some((ext) => lower.endsWith(ext))) {
-        validFiles.push(file)
-      } else {
-        invalidFiles.push(file.name)
-      }
-    }
-
-    if (invalidFiles.length > 0) {
-      ops.setUploadAlerts((prev) => [
-        ...prev,
-        {
-          id: `unsupported-${Date.now()}`,
-          filename: invalidFiles.join(', '),
-          message: '不支持的文件格式，仅支持 epub、pdf、txt、mobi、azw3、md 等',
-        },
-      ])
-    }
-
-    if (validFiles.length > 0) {
-      const defaultCategory = filter.categoryFilter !== 'all' ? filter.categoryFilter : '本地导入'
-      const defaultLib = filter.libraryFilter !== 'all' ? filter.libraryFilter : 'lib-default'
-      ops.uploadFiles(validFiles, defaultCategory, defaultLib)
-    }
-  }
+  const triggerUploadWithFiles = (files: File[]) =>
+    dispatchValidatedUpload(files, filter.categoryFilter, filter.libraryFilter, ops.uploadFiles, ops.setUploadAlerts)
 
   const handleDeleteLibrary = async (lib: ReadingLibrary) => {
     await removeLibrary(lib)
@@ -138,58 +140,29 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
 
   return (
     <div
-      onDragEnter={(e) => {
-        e.preventDefault()
-        dragCounterRef.current += 1
-        if (dragCounterRef.current === 1) setDragOver(true)
-      }}
+      onDragEnter={(e) => { e.preventDefault(); dragCounterRef.current += 1; if (dragCounterRef.current === 1) setDragOver(true) }}
       onDragOver={(e) => { e.preventDefault() }}
-      onDragLeave={(e) => {
-        e.preventDefault()
-        dragCounterRef.current -= 1
-        if (dragCounterRef.current <= 0) {
-          dragCounterRef.current = 0
-          setDragOver(false)
-        }
-      }}
-      onDrop={(e) => {
-        e.preventDefault()
-        dragCounterRef.current = 0
-        setDragOver(false)
-        if (e.dataTransfer.files?.length) triggerUploadWithFiles(Array.from(e.dataTransfer.files))
-      }}
+      onDragLeave={(e) => { e.preventDefault(); dragCounterRef.current -= 1; if (dragCounterRef.current <= 0) { dragCounterRef.current = 0; setDragOver(false) } }}
+      onDrop={(e) => { e.preventDefault(); dragCounterRef.current = 0; setDragOver(false); if (e.dataTransfer.files?.length) triggerUploadWithFiles(Array.from(e.dataTransfer.files)) }}
       className={`flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-24 md:pb-8 select-none transition-colors ${dragOver ? 'bg-blue-50/40 ring-2 ring-dashed ring-[#1b88ee] rounded-2xl' : ''}`}
     >
       <input
-        ref={fileInputRef} type="file" multiple accept=".epub,.pdf,.txt,.md,.markdown,.mobi,.azw,.azw3,.prc"
+        ref={fileInputRef} type="file" multiple data-lumina-book-upload="true" accept=".epub,.pdf,.txt,.md,.markdown,.mobi,.azw,.azw3,.prc"
         onChange={(e) => { if (e.target.files?.length) { const files = Array.from(e.target.files); e.target.value = ''; triggerUploadWithFiles(files) } }}
         className="hidden"
       />
-      <BookshelfHeroCard
-        books={mergedBooks}
-        onOpenBook={onOpenBook}
-        onOpenNotesHub={onOpenNotesHub}
-      />
+      <BookshelfHeroCard books={mergedBooks} onOpenBook={onOpenBook} onOpenNotesHub={onOpenNotesHub} />
       <div className="mb-4"><DailyReviewCard onJumpToHighlight={onOpenBook} onOpenNotesHub={onOpenNotesHub} /></div>
-      <div className="sticky top-16 z-20 bg-[#f7f8fa]/95 backdrop-blur-md pt-2 pb-2.5 mb-5 border-b border-slate-200/60 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 transition-all">
+      <div className="sticky top-[calc(3.25rem+env(safe-area-inset-top,0px))] md:top-16 z-20 liquid-glass pt-2 pb-2.5 mb-5 border-b border-slate-200/60 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 transition-all">
         <BookshelfHeader
-          libraries={libraries}
-          activeLibraryId={filter.libraryFilter}
-          totalBooksCount={mergedBooks.length}
-          onSelectLibrary={filter.setLibraryFilter}
-          onOpenCreateModal={() => setLibraryModalState({ isOpen: true, targetLib: null })}
-          onOpenEditModal={(_e, lib) => setLibraryModalState({ isOpen: true, targetLib: lib })}
-          onDeleteLibrary={(_e, lib) => handleDeleteLibrary(lib)}
-          statusFilter={filter.statusFilter}
-          onStatusFilterChange={filter.setStatusFilter}
-          categories={categories}
-          activeCategory={filter.categoryFilter}
-          onSelectCategory={filter.setCategoryFilter}
-          viewMode={filter.viewMode}
-          localFilterText={filter.localFilterText}
-          onViewModeChange={filter.setViewMode}
-          onFilterTextChange={filter.setLocalFilterText}
-          onOpenGlobalSearch={onOpenGlobalSearch}
+          libraries={libraries} activeLibraryId={filter.libraryFilter} totalBooksCount={mergedBooks.length}
+          onSelectLibrary={filter.setLibraryFilter} onOpenCreateModal={() => setLibraryModalState({ isOpen: true, targetLib: null })}
+          onOpenEditModal={(_e, lib) => setLibraryModalState({ isOpen: true, targetLib: lib })} onDeleteLibrary={(_e, lib) => handleDeleteLibrary(lib)}
+          statusFilter={filter.statusFilter} onStatusFilterChange={filter.setStatusFilter}
+          categories={categories} activeCategory={filter.categoryFilter} onSelectCategory={filter.setCategoryFilter}
+          viewMode={filter.viewMode} localFilterText={filter.localFilterText} onViewModeChange={filter.setViewMode}
+          onFilterTextChange={filter.setLocalFilterText} onOpenGlobalSearch={onOpenGlobalSearch}
+          onTriggerUpload={() => fileInputRef.current?.click()} onOpenDiscovery={onOpenDiscovery}
         />
       </div>
       <BookGrid
@@ -199,9 +172,7 @@ export const BookshelfView: React.FC<BookshelfViewProps> = ({
         onClearAllFailed={() => ops.clearFailedBooks(mergedBooks.filter((b) => b.status === 'error' || (b.status as string) === 'failed'))}
         onTriggerUpload={() => fileInputRef.current?.click()} onOpenDiscovery={onOpenDiscovery}
       />
-      {organizingBook && (
-        <OrganizeBookModal book={organizingBook} libraries={libraries} onClose={() => setOrganizingBook(null)} onSave={ops.saveBookOrganization} onDelete={(_e, id, title) => ops.deleteBook(id, title)} />
-      )}
+      {organizingBook && <OrganizeBookModal book={organizingBook} libraries={libraries} onClose={() => setOrganizingBook(null)} onSave={ops.saveBookOrganization} onDelete={(_e, id, title) => ops.deleteBook(id, title)} />}
       {libraryModalState.isOpen && (
         <CreateLibraryModal
           library={libraryModalState.targetLib} onClose={() => setLibraryModalState({ isOpen: false, targetLib: null })}

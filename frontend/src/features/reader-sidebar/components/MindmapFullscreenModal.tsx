@@ -56,7 +56,7 @@ export const MindmapFullscreenModal: React.FC<MindmapFullscreenModalProps> = ({
   return (
     <div
       data-no-hud-toggle="true"
-      className="fixed inset-0 z-50 flex flex-col bg-slate-900/40 backdrop-blur-md select-none overflow-hidden"
+      className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] z-50 flex flex-col bg-slate-900/40 backdrop-blur-md select-none overflow-hidden"
     >
       {/* Top Header Controls Bar */}
       <div

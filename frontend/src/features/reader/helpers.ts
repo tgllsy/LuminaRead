@@ -169,4 +169,5 @@ export * from './helpers/paragraphStyleHelpers'
 export * from './helpers/richTextHelpers'
 export * from './helpers/publicationMarkerHelpers'
 export * from './helpers/highlightRangeHelpers'
+export * from './helpers/bookContentHelpers'
 

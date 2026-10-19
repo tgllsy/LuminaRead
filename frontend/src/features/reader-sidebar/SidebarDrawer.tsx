@@ -78,10 +78,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
       onClick={(e) => e.stopPropagation()}
       className={`fixed top-0 bottom-0 ${
         isLeftDock ? 'left-0 border-r' : 'right-0 border-l'
-      } w-full sm:w-[340px] lg:w-[360px] xl:w-[380px] h-screen z-50 flex flex-col overflow-hidden shadow-2xl transition-transform duration-200 select-text ${
+      } w-full sm:w-[340px] lg:w-[360px] xl:w-[380px] h-dvh pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] z-50 flex flex-col overflow-hidden shadow-2xl transition-transform duration-200 select-text ${
         isDark
-          ? 'bg-[#1c1c1e] text-slate-100 border-white/10 shadow-[0_0_32px_rgba(0,0,0,0.5)]'
-          : 'bg-white text-slate-900 border-slate-200/90 shadow-[0_0_32px_rgba(15,23,42,0.12)]'
+          ? 'liquid-glass-dark bg-[#1c1c1e]/95 text-slate-100 border-white/10 shadow-[0_0_32px_rgba(0,0,0,0.5)]'
+          : 'liquid-glass bg-white/95 text-slate-900 border-slate-200/90 shadow-[0_0_32px_rgba(15,23,42,0.12)]'
       }`}
     >
       <SidebarHeader

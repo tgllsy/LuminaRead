@@ -269,8 +269,8 @@ export const useReaderNavStore = create<ReaderNavState>((set, get) => {
       if (typeof window === 'undefined') return
       const params = new URLSearchParams(window.location.search)
       const tabParam = params.get('tab')
-      const validPages: Array<'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes'> = [
-        'shelf', 'discovery', 'search', 'stats', 'sources', 'notes',
+      const validPages: Array<'shelf' | 'discovery' | 'search' | 'stats' | 'sources' | 'notes' | 'tts'> = [
+        'shelf', 'discovery', 'search', 'stats', 'sources', 'notes', 'tts',
       ]
       const activePage = tabParam && validPages.includes(tabParam as any) ? (tabParam as any) : 'shelf'
 

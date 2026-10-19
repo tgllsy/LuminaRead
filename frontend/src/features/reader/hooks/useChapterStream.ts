@@ -94,7 +94,8 @@ function useContinuousScrollEffect(
       setConnectedChapterIndices((old) => {
         const tail = old[old.length - 1] ?? cur.chapterIndex
         if (tail >= totalChCount - 1 || old.includes(tail + 1)) return old
-        return [...old, tail + 1]
+        const next = [...old, tail + 1]
+        return next.length > 6 ? next.slice(next.length - 6) : next
       })
     }
 

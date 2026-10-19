@@ -1,14 +1,12 @@
 import React, { useRef, useMemo, useCallback, useEffect } from 'react'
 import type { ReaderWorkspaceProps } from './types'
-import { getEffectiveThemeStyle, FONT_CLASS_MAP } from './constants'
-import { getPdfFilterStyle, extractCleanSelectedText, getSelectionDetails } from './helpers'
+import { getEffectiveThemeStyle } from './constants'
 import {
   useBookContent, useReaderViewport, useBookTabs, useReadingProgressSync,
   useChapterStream, usePaginationLayout, useReaderHotkeys, useReaderGestures,
   useReaderHighlights, useReaderBookmarks, useReaderCitations, useReaderTypographyState,
   useReaderPdfState, useReaderOverlaysState, useReaderChapterSelect, useReaderScreenTurn,
-  useReaderBilingual, useReaderTtsState, getVisibleParagraphIndex, useReaderSelectionCapture,
-  useReadingEstimate,
+  useReaderBilingual, useReaderTtsState, getVisibleParagraphIndex, useReadingEstimate,
 } from './hooks'
 import {
   ReaderTopNavbar, ReaderBottomBar, DesktopFloatingToolbar,
@@ -46,41 +44,22 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
 
   const isContinuousSingleScroll = typo.effectiveLayoutMode === 'single' && typo.typography.continuousScroll !== false && !(isPdf && pdf.pdfMode === 'page_canvas')
   const dockedSidebarWidth = (vp.isSidebarPinned && overlays.drawerOpen && vp.sidebarDockSide !== 'none') ? (vp.windowWidth >= 1280 ? 380 : vp.windowWidth >= 1024 ? 350 : 320) : 0
-  const isTabletOrDesktop = vp.windowWidth >= 768
-  const dockedCopilotWidth = (overlays.copilotModal.isOpen && isTabletOrDesktop)
-    ? (vp.windowWidth >= 1536 ? 500 : vp.windowWidth >= 1280 ? 480 : vp.windowWidth >= 1024 ? 450 : 420)
-    : 0
-  const totalDockedWidth = dockedSidebarWidth + dockedCopilotWidth
+  const dockedCopilotWidth = (overlays.copilotModal.isOpen && vp.windowWidth >= 768) ? (vp.windowWidth >= 1536 ? 500 : vp.windowWidth >= 1280 ? 480 : vp.windowWidth >= 1024 ? 450 : 420) : 0
   const pag = usePaginationLayout({
-    paragraphs,
-    typography: typo.typography,
-    windowWidth: Math.max(480, vp.windowWidth - totalDockedWidth),
-    windowHeight: vp.windowHeight,
-    focusParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex,
-    pdfMode: pdf.pdfMode,
-    enabled: !isContinuousSingleScroll,
+    paragraphs, typography: typo.typography, windowWidth: Math.max(480, vp.windowWidth - dockedSidebarWidth - dockedCopilotWidth),
+    windowHeight: vp.windowHeight, focusParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex, pdfMode: pdf.pdfMode, enabled: !isContinuousSingleScroll,
   })
 
   const { reportProgress, syncCurrentProgress } = useReadingProgressSync({
-    activeBookId,
-    chapterIndex: bc.chapterIndex,
-    clampedSpreadIndex: pag.clampedSpreadIndex,
-    totalSpreads: pag.paginatedSpreads.length,
-    getCurrentVisibleParagraphIndex: getCurrentParaIndex,
-    totalChapters: bc.contentData?.chapters.length || 1,
-    totalParagraphs: paragraphs.length,
-    onBookStateUpdated,
-    isHidden,
+    activeBookId, chapterIndex: bc.chapterIndex, clampedSpreadIndex: pag.clampedSpreadIndex, totalSpreads: pag.paginatedSpreads.length,
+    getCurrentVisibleParagraphIndex: getCurrentParaIndex, totalChapters: bc.contentData?.chapters.length || 1,
+    totalParagraphs: paragraphs.length, onBookStateUpdated, isHidden,
   })
 
   const scrollSyncFnRef = useRef<(nextChIdx: number) => void>(() => {})
   const onScrollSyncChapter = useCallback((nextChIdx: number) => scrollSyncFnRef.current(nextChIdx), [])
   const stream = useChapterStream({ activeBookId, chapterIndex: bc.chapterIndex, isContinuousSingleScroll, contentData: bc.contentData, setContentData: bc.setContentData, bottomSentinelRef, chapterStreamRefs, onScrollSyncChapter, isHidden })
-
-  const syncHighlightKw = useCallback((kw: string) => {
-    overlays.setHighlightKeyword(kw)
-    if (kw) overlays.setDrawerSearchInit(kw)
-  }, [overlays.setHighlightKeyword, overlays.setDrawerSearchInit])
+  const syncHighlightKw = useCallback((kw: string) => { overlays.setHighlightKeyword(kw); if (kw) overlays.setDrawerSearchInit(kw) }, [overlays.setHighlightKeyword, overlays.setDrawerSearchInit])
 
   const { handleSelectChapter, pendingScrollTargetRef } = useReaderChapterSelect({
     contentData: bc.contentData, setContentData: bc.setContentData, chapterIndex: bc.chapterIndex, setChapterIndex: bc.setChapterIndex,
@@ -89,9 +68,7 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
     setFlashedParaIndex: overlays.setFlashedParaIndex, setHighlightKeyword: syncHighlightKw, reportProgress, paragraphRefs, isHidden, jumpTarget,
   })
   scrollSyncFnRef.current = (nextChIdx: number) => {
-    pendingScrollTargetRef.current = { type: 'none' }
-    overlays.setFlashedParaIndex(null)
-    bc.setChapterIndex(nextChIdx)
+    pendingScrollTargetRef.current = { type: 'none' }; overlays.setFlashedParaIndex(null); bc.setChapterIndex(nextChIdx)
     const total = Math.max(1, bc.contentData?.chapters.length || 1)
     reportProgress(nextChIdx, 0, Math.round(((nextChIdx + 1) / total) * 100), 15).catch(() => {})
   }
@@ -109,24 +86,16 @@ function useReaderWorkspaceController(props: ReaderWorkspaceProps) {
     contentData: bc.contentData, chapterIndex: bc.chapterIndex, typography: typo.typography, effectiveLayoutMode: typo.effectiveLayoutMode,
     pdfMode: pdf.pdfMode, clampedSpreadIndex: pag.clampedSpreadIndex, paginatedSpreadsLength: pag.paginatedSpreads.length,
     setSpreadIndex: pag.setSpreadIndex, turnToLastSpreadRef: pag.turnToLastSpreadRef, onSelectChapter: handleSelectChapter,
-    pdfCanvasPage: pdf.pdfCanvasPage,
-    totalPdfPages,
-    pdfSpreadMode: pdf.pdfSpreadMode,
-    onJumpToPdfPage: pdf.setPdfCanvasPage,
+    pdfCanvasPage: pdf.pdfCanvasPage, totalPdfPages, pdfSpreadMode: pdf.pdfSpreadMode, onJumpToPdfPage: pdf.setPdfCanvasPage,
   })
   const isDualSpread = typo.effectiveLayoutMode === 'dual' && !(bc.contentData?.book.format === 'pdf' && pdf.pdfMode === 'page_canvas')
   const gest = useReaderGestures({
-    onPageTurnScreen: handlePageTurnScreen,
-    setShowTypography: overlays.setShowTypography,
-    eInkMode: typo.typography.eInkMode,
-    isHidden,
-    isDualSpread,
+    onPageTurnScreen: handlePageTurnScreen, setShowTypography: overlays.setShowTypography,
+    eInkMode: typo.typography.eInkMode, isHidden, isDualSpread,
   })
   const readingEst = useReadingEstimate({
-    currentChapter: activeChapterObj, paragraphs,
-    currentParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex ?? 0,
-    wpmReadingSpeed: typo.typography.wpmReadingSpeed,
-    isDualSpread, clampedSpreadIndex: pag.clampedSpreadIndex, totalSpreads: pag.paginatedSpreads.length,
+    currentChapter: activeChapterObj, paragraphs, currentParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex ?? 0,
+    wpmReadingSpeed: typo.typography.wpmReadingSpeed, isDualSpread, clampedSpreadIndex: pag.clampedSpreadIndex, totalSpreads: pag.paginatedSpreads.length,
   })
   const hasModalOpen = Boolean(
     overlays.drawerOpen || overlays.showTypography || overlays.showAmbientTTS ||
@@ -154,9 +123,7 @@ function useReaderWorkspaceController(props: ReaderWorkspaceProps) {
     setFootnoteModal: overlays.setFootnoteModal, onSelectChapter: (c, p) => handleSelectChapter(c, p),
   })
   const handleReturnToAnchor = () => {
-    if (overlays.returnAnchor) {
-      const target = overlays.returnAnchor; overlays.setReturnAnchor(null); handleSelectChapter(target.chapterIndex, target.paragraphIndex)
-    }
+    if (overlays.returnAnchor) { const target = overlays.returnAnchor; overlays.setReturnAnchor(null); handleSelectChapter(target.chapterIndex, target.paragraphIndex) }
   }
   const openDrawerTab = (tab: 'toc' | 'search' | 'notes' | 'bookmarks', searchKw?: string) => {
     if (searchKw === undefined && overlays.drawerOpen && overlays.drawerTab === tab) { overlays.setDrawerOpen(false); return }
@@ -184,15 +151,12 @@ const ReaderWorkspaceFloatingBars: React.FC<{
           if (c.overlays.showTypography && c.overlays.activeBottomTab === tab) { c.overlays.setShowTypography(false); return }
           c.overlays.setActiveBottomTab(tab); c.overlays.setShowTypography(true); c.overlays.setShowAmbientTTS(false); if (!c.vp.isSidebarPinned) c.overlays.setDrawerOpen(false)
         }}
-        drawerOpen={c.overlays.drawerOpen} drawerTab={c.overlays.drawerTab} onOpenDrawerTab={c.openDrawerTab}
-        dockSide={c.vp.sidebarDockSide}
+        drawerOpen={c.overlays.drawerOpen} drawerTab={c.overlays.drawerTab} onOpenDrawerTab={c.openDrawerTab} dockSide={c.vp.sidebarDockSide}
         onOpenCopilot={() => { c.overlays.setShowTypography(false); c.overlays.setCopilotModal((p) => ({ isOpen: !p.isOpen, mode: 'spoiler_free_recap', text: '' })) }}
         isCopilotOpen={c.overlays.copilotModal.isOpen}
         onOpenTTS={() => { c.overlays.setShowTypography(false); c.overlays.setShowAmbientTTS((v) => !v) }} highlightsCount={highlightsCount}
         isTtsActive={c.tts.ttsAudioStatus.active || c.tts.ttsActivePara !== null} isTtsPlaying={c.tts.ttsAudioStatus.playing} isTtsAmbientActive={c.tts.ttsAudioStatus.ambientActive}
-        onToggleChinese={handleToggleChinese}
-        onToggleBilingual={() => c.typo.setTypography((p) => ({ ...p, bilingualMode: !p.bilingualMode }))}
-        bilingualLoading={c.bil.bilingualLoading}
+        onToggleChinese={handleToggleChinese} onToggleBilingual={() => c.typo.setTypography((p) => ({ ...p, bilingualMode: !p.bilingualMode }))} bilingualLoading={c.bil.bilingualLoading}
       />
       <ReaderBottomBar
         typography={c.typo.typography} isScrolling={c.gest.isScrolling} immersiveHudVisible={c.gest.immersiveHudVisible}
@@ -201,8 +165,7 @@ const ReaderWorkspaceFloatingBars: React.FC<{
         isTtsActive={c.tts.ttsAudioStatus.active || c.tts.ttsActivePara !== null} isTtsPlaying={c.tts.ttsAudioStatus.playing} isTtsAmbientActive={c.tts.ttsAudioStatus.ambientActive}
         onOpenCopilot={() => c.overlays.setCopilotModal({ isOpen: true, mode: 'spoiler_free_recap', text: '' })} onOpenTTS={() => c.overlays.setShowAmbientTTS(true)}
         bookmarkToast={c.overlays.bookmarkToast} returnAnchor={c.overlays.returnAnchor} onReturnToAnchor={c.handleReturnToAnchor} onClearReturnAnchor={() => c.overlays.setReturnAnchor(null)}
-        readingEstimateText={c.readingEst.formattedText}
-        isPageCanvas={c.bc.contentData?.book.format === 'pdf' && c.pdf.pdfMode === 'page_canvas'}
+        readingEstimateText={c.readingEst.formattedText} isPageCanvas={c.bc.contentData?.book.format === 'pdf' && c.pdf.pdfMode === 'page_canvas'}
       />
     </>
   )
@@ -213,20 +176,13 @@ export const ReaderWorkspace: React.FC<ReaderWorkspaceProps> = (props) => {
   const c = useReaderWorkspaceController(props)
 
   useEffect(() => {
-    if (isHidden) {
-      document.documentElement.classList.remove('eink-mode')
-      return
-    }
+    if (isHidden) { document.documentElement.classList.remove('eink-mode'); return }
     const isEink = Boolean(c.typo.typography.eInkMode || c.typo.typography.theme === 'eink')
     document.documentElement.classList.toggle('eink-mode', isEink)
     return () => { document.documentElement.classList.remove('eink-mode') }
   }, [isHidden, c.typo.typography.eInkMode, c.typo.typography.theme])
 
-  useEffect(() => {
-    return () => {
-      stopLocalTts(`ReaderWorkspace unmounted for book ${activeBookId}`)
-    }
-  }, [activeBookId])
+  useEffect(() => () => { stopLocalTts(`ReaderWorkspace unmounted for book ${activeBookId}`) }, [activeBookId])
 
   if (!c.bc.contentData || c.bc.contentData.book.id !== activeBookId) {
     return <ReaderLoadingFallback isHidden={isHidden} fallbackBook={allBooks.find((b) => b.id === activeBookId)} loadError={c.bc.loadError} onRetry={c.bc.retry} onBackToShelf={onBackToShelf} />
@@ -240,30 +196,20 @@ export const ReaderWorkspace: React.FC<ReaderWorkspaceProps> = (props) => {
   const themeStyle = getEffectiveThemeStyle(c.typo.typography)
 
   return (
-    <div className={`${isHidden ? 'hidden' : isDualSpread ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen flex flex-col'} ${themeStyle.outer}`}>
+    <div className={`${isHidden ? 'hidden' : isDualSpread ? 'h-dvh overflow-hidden flex flex-col' : 'min-h-dvh flex flex-col'} ${themeStyle.outer}`}>
       {!isHidden && (c.typo.typography.brightness ?? 100) < 100 && (
         <div style={{ opacity: Math.min(0.65, ((100 - (c.typo.typography.brightness ?? 100)) / 100) * 0.75) }} className="fixed inset-0 bg-black pointer-events-none z-[45] transition-opacity" />
       )}
-      {!isHidden && (
-        <HeaderTtsIsland
-          floating={true}
-          onOpenTheater={() => c.overlays.setShowAmbientTTS(true)}
-        />
-      )}
+      {!isHidden && <HeaderTtsIsland floating={true} onOpenTheater={() => c.overlays.setShowAmbientTTS(true)} />}
       <ReaderTopNavbar
         book={book} chapterTitle={c.activeChapterObj.title} chapterIndex={c.bc.chapterIndex} totalChapters={chapters.length} progressPercent={progressPercent} typography={c.typo.typography}
         openTabBooks={c.openTabBooks} onSwitchBookTab={onSwitchBookTab} onCloseBookTab={onCloseBookTab}
-        onBackToShelf={() => {
-          c.syncCurrentProgress(true)
-          onBackToShelf?.()
-        }}
+        onBackToShelf={() => { c.syncCurrentProgress(true); onBackToShelf?.() }}
         onToggleBilingual={() => c.typo.setTypography((p) => ({ ...p, bilingualMode: !p.bilingualMode }))} bilingualLoading={c.bil.bilingualLoading} onAddBookmark={c.bm.handleAddBookmark}
-        pdfMode={c.pdf.pdfMode}
-        onTogglePdfMode={() => c.pdf.setPdfMode((p) => (p === 'hybrid' ? 'page_canvas' : p === 'page_canvas' ? 'text_only' : 'hybrid'))}
+        pdfMode={c.pdf.pdfMode} onTogglePdfMode={() => c.pdf.setPdfMode((p) => (p === 'hybrid' ? 'page_canvas' : p === 'page_canvas' ? 'text_only' : 'hybrid'))}
         immersiveHudVisible={c.gest.immersiveHudVisible} showTypography={c.overlays.showTypography} onOpenImmersiveHud={() => c.gest.setImmersiveHudVisible(true)}
         onOpenSearch={() => c.openDrawerTab('search')} onOpenNotes={() => c.openDrawerTab('notes')} hasHighlights={highlights.length > 0}
-        readingEstimateText={c.readingEst.formattedText}
-        onOpenTTS={() => c.overlays.setShowAmbientTTS(true)}
+        readingEstimateText={c.readingEst.formattedText} onOpenTTS={() => c.overlays.setShowAmbientTTS(true)}
       />
       <ReaderMainStage c={c} book={book} chapters={chapters} highlights={highlights} bookmarks={bookmarks} toc={toc} totalPdfPages={totalPdfPages} isDualSpread={isDualSpread} progressPercent={progressPercent} themeStyle={themeStyle} readingEstimateText={c.readingEst.formattedText} isHidden={isHidden} />
       <ReaderWorkspaceFloatingBars c={c} highlightsCount={highlights.length} />
@@ -276,18 +222,11 @@ export const ReaderWorkspace: React.FC<ReaderWorkspaceProps> = (props) => {
         onGlobalTtsStatusChange={onGlobalTtsStatusChange} onGlobalCheckpointSaved={onGlobalCheckpointSaved} getCurrentVisibleParagraphIndex={c.getCurrentParaIndex}
         selectionState={c.overlays.selectionState} setSelectionState={c.overlays.setSelectionState} copilotModal={c.overlays.copilotModal} setCopilotModal={c.overlays.setCopilotModal}
         posterModal={c.overlays.posterModal} setPosterModal={c.overlays.setPosterModal} footnoteModal={c.overlays.footnoteModal} setFootnoteModal={c.overlays.setFootnoteModal}
-        entityWikiModal={c.overlays.entityWikiModal} setEntityWikiModal={c.overlays.setEntityWikiModal}
-        lightboxImage={c.overlays.lightboxImage} setLightboxImage={c.overlays.setLightboxImage} totalPdfPages={totalPdfPages}
+        entityWikiModal={c.overlays.entityWikiModal} setEntityWikiModal={c.overlays.setEntityWikiModal} lightboxImage={c.overlays.lightboxImage} setLightboxImage={c.overlays.setLightboxImage} totalPdfPages={totalPdfPages}
         onSelectChapter={c.handleSelectChapter} onOpenDrawerTab={c.openDrawerTab} onOpenSearchDrawer={(kw) => c.openDrawerTab('search', kw)}
         onCreateOrUpdateHighlight={c.hl.handleCreateOrUpdateHighlight} onDeleteHighlight={c.hl.handleDeleteHighlight} onSaveInsightAsNote={c.hl.handleSaveInsightAsNote}
-        onJumpToFootnoteTarget={(ch, p) => {
-          const srcPara = c.overlays.footnoteModal?.sourceParagraphIndex ?? c.getCurrentParaIndex()
-          c.handleSelectChapter(ch, p, undefined, { chapterIndex: c.bc.chapterIndex, paragraphIndex: srcPara, scrollY: window.scrollY, label: `${c.activeChapterObj.title} · 段落 #${srcPara + 1}` })
-        }}
-        onJumpToBibliography={(bib) => {
-          const srcPara = c.overlays.footnoteModal?.sourceParagraphIndex ?? c.getCurrentParaIndex()
-          c.handleSelectChapter(bib, 0, undefined, { chapterIndex: c.bc.chapterIndex, paragraphIndex: srcPara, scrollY: window.scrollY, label: `${c.activeChapterObj.title} · 段落 #${srcPara + 1}` })
-        }}
+        onJumpToFootnoteTarget={(ch, p) => { const s = c.overlays.footnoteModal?.sourceParagraphIndex ?? c.getCurrentParaIndex(); c.handleSelectChapter(ch, p, undefined, { chapterIndex: c.bc.chapterIndex, paragraphIndex: s, scrollY: window.scrollY, label: `${c.activeChapterObj.title} · 段落 #${s + 1}` }) }}
+        onJumpToBibliography={(bib) => { const s = c.overlays.footnoteModal?.sourceParagraphIndex ?? c.getCurrentParaIndex(); c.handleSelectChapter(bib, 0, undefined, { chapterIndex: c.bc.chapterIndex, paragraphIndex: s, scrollY: window.scrollY, label: `${c.activeChapterObj.title} · 段落 #${s + 1}` }) }}
         onShowToast={c.overlays.setBookmarkToast} onStartTtsAtParagraph={c.tts.handleStartTtsAtParagraph}
       />
     </div>
