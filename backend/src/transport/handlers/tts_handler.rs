@@ -33,18 +33,15 @@ pub async fn list_tts_voices(
 ) -> Json<Value> {
     let voices = state.tts_service.list_voices();
     let cfg = crate::config::current_config();
-    let mut cached_clips: u64 = 0;
-    let mut total_size_bytes: u64 = 0;
-    if let Ok(entries) = std::fs::read_dir(&cfg.tts_cache_dir) {
-        for entry in entries.flatten() {
-            if let Ok(meta) = entry.metadata() {
-                if meta.is_file() {
-                    cached_clips += 1;
-                    total_size_bytes += meta.len();
-                }
-            }
-        }
-    }
+    let (cached_clips, total_size_bytes) = state
+        .db
+        .interact(|conn| {
+            let mut stmt = conn.prepare("SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM tts_audio_cache")?;
+            let (count, size): (i64, i64) = stmt.query_row([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            Ok((count.max(0) as u64, size.max(0) as u64))
+        })
+        .await
+        .unwrap_or((0, 0));
     Json(serde_json::json!({
         "ok": true,
         "default_voice": cfg.endpoints.default_tts_voice,

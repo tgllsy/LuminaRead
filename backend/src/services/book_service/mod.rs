@@ -22,6 +22,7 @@ pub struct BookServiceImpl {
     upload_service: UploadService,
     config: AppConfig,
     chapters_cache: Arc<Mutex<HashMap<String, Arc<Vec<Value>>>>>,
+    pdf_in_flight: Arc<tokio::sync::Mutex<HashMap<String, Arc<tokio::sync::Notify>>>>,
 }
 
 impl BookServiceImpl {
@@ -33,6 +34,7 @@ impl BookServiceImpl {
     ) -> Self {
         let upload_service = UploadService::new(Arc::clone(&repo), config.clone());
         let chapters_cache = Arc::new(Mutex::new(HashMap::new()));
+        let pdf_in_flight = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
 
         let cache_clone = Arc::clone(&chapters_cache);
         let repo_clone = Arc::clone(&repo);
@@ -59,6 +61,7 @@ impl BookServiceImpl {
             upload_service,
             config,
             chapters_cache,
+            pdf_in_flight,
         }
     }
 
@@ -126,6 +129,22 @@ impl BookService for BookServiceImpl {
 
     async fn delete_book(&self, id: &str) -> AppResult<()> {
         self.invalidate_cache(id);
+        if let Ok(Some(book)) = self.repo.find_by_id(id).await {
+            if !book.file_path.is_empty() {
+                let _ = tokio::fs::remove_file(&book.file_path).await;
+            }
+            let pdf_cache = self.config.pdf_cache_dir.join(id);
+            if pdf_cache.exists() {
+                let _ = tokio::fs::remove_dir_all(&pdf_cache).await;
+            }
+            if book.cover_url.starts_with("/data/covers/") {
+                let cover_rel = book.cover_url.trim_start_matches("/data/covers/");
+                if !cover_rel.is_empty() && (cover_rel.starts_with("cover_pdf_") || cover_rel.contains(id)) {
+                    let cover_path = self.config.covers_dir.join(cover_rel);
+                    let _ = tokio::fs::remove_file(&cover_path).await;
+                }
+            }
+        }
         self.repo.delete(id).await
     }
 
@@ -219,6 +238,30 @@ impl BookService for BookServiceImpl {
         if id.contains('/') || id.contains('\\') || id.contains("..") {
             return Err(DomainError::ValidationError("非法的书籍 ID".into()).into());
         }
+        let expected_path = self.config.pdf_cache_dir.join(id).join(format!("page_{}.jpg", page));
+        if expected_path.exists() {
+            return Ok(Some(expected_path));
+        }
+
+        let cache_key = format!("{}:{}", id, page);
+        let (is_primary, notify) = {
+            let mut guard = self.pdf_in_flight.lock().await;
+            if let Some(existing) = guard.get(&cache_key) {
+                (false, existing.clone())
+            } else {
+                let n = Arc::new(tokio::sync::Notify::new());
+                guard.insert(cache_key.clone(), n.clone());
+                (true, n)
+            }
+        };
+
+        if !is_primary {
+            notify.notified().await;
+            if expected_path.exists() {
+                return Ok(Some(expected_path));
+            }
+        }
+
         let book = self.get_book_details(id).await?;
         let pdf_cache = self.config.pdf_cache_dir.clone();
         let book_id = id.to_string();
@@ -227,6 +270,12 @@ impl BookService for BookServiceImpl {
         })
         .await
         .map_err(InfraError::JoinError)?;
+
+        if is_primary {
+            let mut guard = self.pdf_in_flight.lock().await;
+            guard.remove(&cache_key);
+            notify.notify_waiters();
+        }
 
         Ok(rendered)
     }

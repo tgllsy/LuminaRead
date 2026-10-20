@@ -1,6 +1,6 @@
 [package]
 name = "luminaread"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "LuminaRead (阅境) - 单文件部署的本地多端 Web 读书系统"

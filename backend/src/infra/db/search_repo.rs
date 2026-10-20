@@ -251,9 +251,9 @@ impl SearchRepository for SqliteSearchRepository {
 
         self.db.interact(move |conn| {
             let start = Instant::now();
-            if query_str.is_empty() {
+            if query_str.is_empty() || (target_book.is_none() && query_str.chars().count() < 2) {
                 return Ok(serde_json::json!({
-                    "query": "",
+                    "query": query_str,
                     "elapsed_ms": 0.0,
                     "engine": "SQLite FTS5 Trigram Inverted Index",
                     "total_matches": 0,
@@ -380,7 +380,7 @@ impl SearchRepository for SqliteSearchRepository {
                 let candidate_limit = if target_book.is_some() {
                     effective_limit
                 } else {
-                    (effective_limit * 3).max(120)
+                    (effective_limit * 2).clamp(20, 60)
                 };
                 params_vec.push((candidate_limit as i64).into());
 

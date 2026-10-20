@@ -6,12 +6,21 @@ export interface ParsedHeadingInfo {
   headingText: string
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 /**
  * 预处理翻译文本中的出版物与 Markdown 特殊标记（如 ^(3)^ 上标脚注）
  */
 export function preprocessBilingualText(rawText: string): string {
   if (!rawText) return ''
-  return rawText
+  const safeText = escapeHtml(rawText)
+  return safeText
     // 匹配 ^(3)^ 或 ^(abc)^ 形式的上标
     .replace(/\^\(([^\)]+)\)\^/g, '<sup class="bilingual-sup">($1)</sup>')
     // 匹配 ^3^ 形式的纯数字上标
@@ -51,9 +60,10 @@ export function renderBilingualToHtml(rawText: string): string {
       gfm: true,
       breaks: true,
     })
-    return typeof parsed === 'string' ? parsed : ''
+    const htmlStr = typeof parsed === 'string' ? parsed : ''
+    return htmlStr.replace(/\b(href|src)\s*=\s*["']\s*(javascript|data|vbscript):[^"']*["']/gi, '$1="#"')
   } catch {
-    // 降级保底：若 marked 解析异常则返回基础文本
-    return preprocessed
+    // 降级保底：若 marked 解析异常则返回安全转义文本
+    return escapeHtml(rawText)
   }
 }

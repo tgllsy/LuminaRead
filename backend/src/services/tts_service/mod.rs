@@ -136,17 +136,20 @@ impl TtsService for TtsServiceImpl {
                 let tasks: Vec<(&str, &str)> = chunks.iter().map(|c| (c.as_str(), voice_name)).collect();
 
                 let synth_res = synthesize_tasks(&self.http_client, &tasks).await;
+                let save_res: AppResult<()> = if let Some((combined, eng)) = synth_res {
+                    tokio::fs::write(&mp3_path, &combined).await.map_err(InfraError::Io)?;
+                    is_cached = true;
+                    engine_used = eng;
+                    Ok(())
+                } else {
+                    Err(DomainError::ValidationError("TTS 在线语音合成失败，请稍后重试".into()).into())
+                };
+
                 let mut guard = self.in_flight.lock().await;
                 guard.remove(&cache_key);
                 notify.notify_waiters();
 
-                if let Some((combined, eng)) = synth_res {
-                    tokio::fs::write(&mp3_path, &combined).await.map_err(InfraError::Io)?;
-                    is_cached = true;
-                    engine_used = eng;
-                } else {
-                    return Err(DomainError::ValidationError("TTS 在线语音合成失败，请稍后重试".into()).into());
-                }
+                save_res?;
             }
         }
 
@@ -207,27 +210,51 @@ impl TtsService for TtsServiceImpl {
         let mut engine_used = "edge-neural".to_string();
 
         if !is_cached {
-            let mut tasks: Vec<(&str, &str)> = Vec::new();
-            let mut chunk_holder: Vec<Vec<String>> = Vec::new();
-
-            for seg in &segments {
-                let _ = if seg.is_dialogue { d_voice } else { n_voice };
-                let chunks = split_text_into_tts_chunks(&seg.text, 180);
-                chunk_holder.push(chunks);
-            }
-            for (idx, seg) in segments.iter().enumerate() {
-                let v = if seg.is_dialogue { d_voice } else { n_voice };
-                for c in &chunk_holder[idx] {
-                    tasks.push((c.as_str(), v));
+            let (is_primary, notify) = {
+                let mut guard = self.in_flight.lock().await;
+                if let Some(existing) = guard.get(&cache_key) {
+                    (false, existing.clone())
+                } else {
+                    let n = Arc::new(Notify::new());
+                    guard.insert(cache_key.clone(), n.clone());
+                    (true, n)
                 }
-            }
+            };
 
-            if let Some((combined, eng)) = synthesize_tasks(&self.http_client, &tasks).await {
-                tokio::fs::write(&mp3_path, &combined).await.map_err(InfraError::Io)?;
-                is_cached = true;
-                engine_used = eng;
+            if !is_primary {
+                notify.notified().await;
+                is_cached = mp3_path.exists();
             } else {
-                return Err(DomainError::ValidationError("双角色剧场模式合成失败".into()).into());
+                let mut tasks: Vec<(&str, &str)> = Vec::new();
+                let mut chunk_holder: Vec<Vec<String>> = Vec::new();
+
+                for seg in &segments {
+                    let _ = if seg.is_dialogue { d_voice } else { n_voice };
+                    let chunks = split_text_into_tts_chunks(&seg.text, 180);
+                    chunk_holder.push(chunks);
+                }
+                for (idx, seg) in segments.iter().enumerate() {
+                    let v = if seg.is_dialogue { d_voice } else { n_voice };
+                    for c in &chunk_holder[idx] {
+                        tasks.push((c.as_str(), v));
+                    }
+                }
+
+                let synth_res = synthesize_tasks(&self.http_client, &tasks).await;
+                let save_res: AppResult<()> = if let Some((combined, eng)) = synth_res {
+                    tokio::fs::write(&mp3_path, &combined).await.map_err(InfraError::Io)?;
+                    is_cached = true;
+                    engine_used = eng;
+                    Ok(())
+                } else {
+                    Err(DomainError::ValidationError("双角色剧场模式合成失败".into()).into())
+                };
+
+                let mut guard = self.in_flight.lock().await;
+                guard.remove(&cache_key);
+                notify.notify_waiters();
+
+                save_res?;
             }
         }
 

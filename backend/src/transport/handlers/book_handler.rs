@@ -17,6 +17,7 @@ use crate::transport::state::AppState;
 #[derive(serde::Deserialize)]
 pub struct ListBooksQuery {
     pub library_id: Option<String>,
+    pub status: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -34,7 +35,7 @@ pub async fn list_books(
     Query(q): Query<ListBooksQuery>,
     State(state): State<AppState>,
 ) -> AppResult<Json<Value>> {
-    let filter = BookFilter { library_id: q.library_id };
+    let filter = BookFilter { library_id: q.library_id, status: q.status };
     let books = state.book_service.list_books(filter).await?;
     Ok(Json(serde_json::json!({ "books": books })))
 }

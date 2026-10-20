@@ -6,6 +6,7 @@ use crate::error::AppResult;
 #[derive(Default, Debug, Clone)]
 pub struct BookFilter {
     pub library_id: Option<String>,
+    pub status: Option<String>,
 }
 
 #[async_trait]

@@ -1,6 +1,27 @@
+use std::sync::OnceLock;
 use serde_json::Value;
 
 use crate::services::traits::ChatHistoryItemDto;
+
+static SHARED_AI_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn get_ai_client(proxy: &str) -> Option<reqwest::Client> {
+    if proxy.is_empty() {
+        return Some(SHARED_AI_CLIENT.get_or_init(|| {
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(60))
+                .pool_idle_timeout(std::time::Duration::from_secs(90))
+                .tcp_nodelay(true)
+                .build()
+                .unwrap_or_default()
+        }).clone());
+    }
+    let mut builder = reqwest::Client::builder().timeout(std::time::Duration::from_secs(60));
+    if let Ok(p) = reqwest::Proxy::all(proxy) {
+        builder = builder.proxy(p);
+    }
+    builder.build().ok()
+}
 
 pub async fn call_real_llm_copilot(
     book_title: &str,
@@ -46,14 +67,7 @@ pub async fn call_real_llm_copilot(
         question.trim().to_string()
     };
 
-    let mut builder = reqwest::Client::builder().timeout(std::time::Duration::from_secs(60));
-    let env_proxy = cfg.proxy_url.trim();
-    if !env_proxy.is_empty() {
-        if let Ok(p) = reqwest::Proxy::all(env_proxy) {
-            builder = builder.proxy(p);
-        }
-    }
-    let client = builder.build().ok()?;
+    let client = get_ai_client(cfg.proxy_url.trim())?;
 
     let base_url = if cfg.ai.api_base_url.trim().is_empty() {
         "https://api.deepseek.com/v1"

@@ -1,6 +1,6 @@
 {
   "name": "luminaread-frontend",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "LuminaRead 前端界面工程 (React 19 + Vite + TailwindCSS)",
   "license": "MIT OR Apache-2.0",
   "private": true,

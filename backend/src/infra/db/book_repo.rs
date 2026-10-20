@@ -92,53 +92,52 @@ impl BookRepository for SqliteBookRepository {
 
     async fn list(&self, filter: &BookFilter) -> AppResult<Vec<Book>> {
         let lib_id = filter.library_id.clone();
+        let status = filter.status.clone();
         self.db.interact(move |conn| {
-            let (sql, is_filtered) = match &lib_id {
-                Some(id) if id != "all" && !id.is_empty() => (
-                    "SELECT b.id, b.title, b.author, b.cover_url, b.cover_color, b.isbn, b.publisher, b.publish_year,
-                            b.source_type, b.format, b.file_path, b.file_size, b.word_count, b.category, b.library_id,
-                            b.tags, b.status, b.import_progress, b.import_step, b.import_error, b.total_reading_seconds,
-                            b.last_read_at, b.description, b.created_at, COALESCE(b.chapters_count, 0),
-                            rp.chapter_index, rp.scroll_offset, rp.cfi, rp.percentage, rp.device_name, rp.updated_at
-                     FROM books b
-                     LEFT JOIN reading_progress rp ON rp.book_id = b.id
-                     WHERE b.library_id = ?
-                     ORDER BY 
-                        CASE 
-                            WHEN (b.last_read_at IS NOT NULL AND b.last_read_at != '') OR rp.updated_at IS NOT NULL THEN 0 
-                            ELSE 1 
-                        END ASC,
-                        COALESCE(NULLIF(b.last_read_at, ''), rp.updated_at, '') DESC,
-                        b.created_at DESC",
-                    true,
-                ),
-                _ => (
-                    "SELECT b.id, b.title, b.author, b.cover_url, b.cover_color, b.isbn, b.publisher, b.publish_year,
-                            b.source_type, b.format, b.file_path, b.file_size, b.word_count, b.category, b.library_id,
-                            b.tags, b.status, b.import_progress, b.import_step, b.import_error, b.total_reading_seconds,
-                            b.last_read_at, b.description, b.created_at, COALESCE(b.chapters_count, 0),
-                            rp.chapter_index, rp.scroll_offset, rp.cfi, rp.percentage, rp.device_name, rp.updated_at
-                     FROM books b
-                     LEFT JOIN reading_progress rp ON rp.book_id = b.id
-                     ORDER BY 
-                        CASE 
-                            WHEN (b.last_read_at IS NOT NULL AND b.last_read_at != '') OR rp.updated_at IS NOT NULL THEN 0 
-                            ELSE 1 
-                        END ASC,
-                        COALESCE(NULLIF(b.last_read_at, ''), rp.updated_at, '') DESC,
-                        b.created_at DESC",
-                    false,
-                ),
-            };
+            let mut conditions = Vec::new();
+            let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
 
-            let mut stmt = conn.prepare(sql)?;
-            let books = if is_filtered {
-                let target = lib_id.unwrap_or_default();
-                stmt.query_map(params![target], map_book_row)?.filter_map(|r| r.ok()).collect()
+            if let Some(id) = &lib_id {
+                if id != "all" && !id.is_empty() {
+                    conditions.push("b.library_id = ?");
+                    params_vec.push(id.clone().into());
+                }
+            }
+            if let Some(st) = &status {
+                if !st.is_empty() {
+                    conditions.push("b.status = ?");
+                    params_vec.push(st.clone().into());
+                }
+            }
+
+            let where_clause = if conditions.is_empty() {
+                String::new()
             } else {
-                stmt.query_map([], map_book_row)?.filter_map(|r| r.ok()).collect()
+                format!("WHERE {}", conditions.join(" AND "))
             };
 
+            let sql = format!(
+                "SELECT b.id, b.title, b.author, b.cover_url, b.cover_color, b.isbn, b.publisher, b.publish_year,
+                        b.source_type, b.format, b.file_path, b.file_size, b.word_count, b.category, b.library_id,
+                        b.tags, b.status, b.import_progress, b.import_step, b.import_error, b.total_reading_seconds,
+                        b.last_read_at, b.description, b.created_at, COALESCE(b.chapters_count, 0),
+                        rp.chapter_index, rp.scroll_offset, rp.cfi, rp.percentage, rp.device_name, rp.updated_at
+                 FROM books b
+                 LEFT JOIN reading_progress rp ON rp.book_id = b.id
+                 {}
+                 ORDER BY 
+                    CASE 
+                        WHEN (b.last_read_at IS NOT NULL AND b.last_read_at != '') OR rp.updated_at IS NOT NULL THEN 0 
+                        ELSE 1 
+                    END ASC,
+                    COALESCE(NULLIF(b.last_read_at, ''), rp.updated_at, '') DESC,
+                    b.created_at DESC",
+                where_clause
+            );
+
+            let mut stmt = conn.prepare(&sql)?;
+            let params_slice: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+            let books = stmt.query_map(params_slice.as_slice(), map_book_row)?.filter_map(|r| r.ok()).collect();
             Ok(books)
         }).await
     }

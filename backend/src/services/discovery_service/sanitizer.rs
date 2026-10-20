@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -278,17 +279,78 @@ pub fn is_safe_external_url(raw_url: &str) -> bool {
         return false;
     }
     let after_scheme = u.split("://").nth(1).unwrap_or("");
-    let host_port = after_scheme.split('/').next().unwrap_or("");
-    let host = host_port.split(':').next().unwrap_or("");
+    let authority = after_scheme.split('/').next().unwrap_or("");
+    // Handle userinfo: user:pass@host:port -> extract real host after last '@'
+    let host_port = authority.rsplit('@').next().unwrap_or(authority);
+    let host = if host_port.starts_with('[') {
+        if let Some(end_bracket) = host_port.find(']') {
+            &host_port[1..end_bracket]
+        } else {
+            return false;
+        }
+    } else {
+        host_port.split(':').next().unwrap_or("")
+    };
+
     if host.is_empty()
         || host == "localhost"
-        || host == "0.0.0.0"
-        || host == "[::1]"
-        || host.starts_with("127.")
-        || host.starts_with("169.254.")
+        || host.ends_with(".localhost")
+        || host.ends_with(".local")
         || host.ends_with(".internal")
+        || host.ends_with(".lan")
     {
         return false;
     }
+
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        match ip {
+            IpAddr::V4(ipv4) => {
+                if ipv4.is_loopback()
+                    || ipv4.is_private()
+                    || ipv4.is_link_local()
+                    || ipv4.is_broadcast()
+                    || ipv4.is_unspecified()
+                    || ipv4.octets()[0] == 0
+                {
+                    return false;
+                }
+            }
+            IpAddr::V6(ipv6) => {
+                if ipv6.is_loopback()
+                    || ipv6.is_unspecified()
+                    || (ipv6.segments()[0] & 0xfe00) == 0xfc00
+                    || (ipv6.segments()[0] & 0xffc0) == 0xfe80
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_safe_external_url() {
+        assert!(is_safe_external_url("https://www.gutenberg.org/ebooks/123.epub"));
+        assert!(is_safe_external_url("http://example.com/book.epub"));
+
+        // Loopback & local
+        assert!(!is_safe_external_url("http://127.0.0.1/admin"));
+        assert!(!is_safe_external_url("http://localhost:8080"));
+        assert!(!is_safe_external_url("http://user:pass@127.0.0.1:8080/secret"));
+        assert!(!is_safe_external_url("http://[::1]:8080"));
+
+        // Private LAN
+        assert!(!is_safe_external_url("http://192.168.1.1/"));
+        assert!(!is_safe_external_url("http://10.0.0.1:3000/"));
+        assert!(!is_safe_external_url("http://172.16.0.1/"));
+        assert!(!is_safe_external_url("http://169.254.169.254/latest/meta-data/"));
+        assert!(!is_safe_external_url("http://server.local/"));
+        assert!(!is_safe_external_url("http://nas.internal/"));
+    }
 }

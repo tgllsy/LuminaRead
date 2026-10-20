@@ -146,17 +146,19 @@ impl UploadService {
         let safe_book_id = make_safe_book_id(&title);
 
         // 清理超期未完成（如超过30分钟）的僵尸导入记录与残留文件
-        if let Ok(old_books) = self.repo.list(&crate::domain::traits::BookFilter::default()).await {
+        let importing_filter = crate::domain::traits::BookFilter {
+            library_id: None,
+            status: Some("importing".to_string()),
+        };
+        if let Ok(importing_books) = self.repo.list(&importing_filter).await {
             let now_ts = Local::now().timestamp_millis();
-            for b in old_books {
-                if b.status == BookStatus::Importing {
-                    if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&b.created_at) {
-                        if now_ts - created.timestamp_millis() > 30 * 60 * 1000 {
-                            if !b.file_path.is_empty() {
-                                let _ = tokio::fs::remove_file(&b.file_path).await;
-                            }
-                            let _ = self.repo.delete(&b.id).await;
+            for b in importing_books {
+                if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&b.created_at) {
+                    if now_ts - created.timestamp_millis() > 30 * 60 * 1000 {
+                        if !b.file_path.is_empty() {
+                            let _ = tokio::fs::remove_file(&b.file_path).await;
                         }
+                        let _ = self.repo.delete(&b.id).await;
                     }
                 }
             }

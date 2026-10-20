@@ -16,13 +16,11 @@ pub fn build_router(state: AppState) -> Router {
     let api_routes = Router::new()
         // Health & Stats
         .route("/health", get(get_health))
-        .route("/stats", get(get_health))
         .route("/stats/overview", get(get_stats_overview))
         .route("/stats/session", post(record_session))
         .route("/admin/reload", post(admin_reload))
         .route("/admin/reparse-all", post(admin_reparse_all))
         .route("/config", get(get_system_config).put(update_system_config).post(update_system_config))
-        .route("/admin/config", get(get_system_config).put(update_system_config).post(update_system_config))
         .route("/admin/clear-cache", post(clear_system_cache))
         // Books
         .route("/books", get(list_books))
