@@ -243,7 +243,9 @@ fn extract_chapters_from_text(text: &str, is_markdown: bool) -> Vec<serde_json::
 pub fn parse_txt(file_path: &Path, title: &str, author: &str, format: &str) -> Result<ParsedBook, String> {
     let mut raw_bytes = Vec::new();
     let mut f = File::open(file_path).map_err(|e| format!("Failed to read text: {}", e))?;
-    f.read_to_end(&mut raw_bytes).map_err(|e| format!("Failed to read bytes: {}", e))?;
+    std::io::Read::take(&mut f, 120 * 1024 * 1024)
+        .read_to_end(&mut raw_bytes)
+        .map_err(|e| format!("Failed to read bytes: {}", e))?;
 
     let text = crate::infra::parser::security::decode_text_bytes(&raw_bytes);
     let is_markdown = matches!(format.to_lowercase().as_str(), "md" | "markdown")

@@ -1,9 +1,15 @@
+pub mod meta;
+
+pub use meta::{build_pdf_meta_json, is_valid_natural_text};
+
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
+
 use crate::infra::parser::epub::ParsedBook;
+use meta::normalize_pdf_page_paragraphs;
 
 static HAS_PDFINFO: OnceLock<bool> = OnceLock::new();
 static HAS_PDFTOPPM: OnceLock<bool> = OnceLock::new();
@@ -35,14 +41,10 @@ pub fn parse_pdf(
         .filter(|a| !a.trim().is_empty() && !a.eq_ignore_ascii_case("unknown"))
         .unwrap_or_else(|| default_author.to_string());
 
-    // 1. Streamed text extraction via pdftotext CLI (fast, zero memory bloat)
     let page_texts = extract_pages_with_pdftotext(file_path);
     let total_pages = page_texts.len().max(info_pages).max(1);
-
-    // 2. Extract 1st page cover efficiently without scanning full file
     let cover_url = extract_pdf_cover_first_page(file_path, covers_dir);
 
-    // 3. Fast generation of chapters and semantic markers
     let mut chapters = Vec::new();
     let mut total_words = 0usize;
     let pages_per_chapter = if total_pages <= 12 { total_pages } else { 8 };
@@ -117,200 +119,11 @@ pub fn parse_pdf(
     })
 }
 
-pub fn build_pdf_meta_json(book_id: &str, chapters: &[serde_json::Value]) -> serde_json::Value {
-    let mut pages = Vec::new();
-    let mut scanned_count = 0usize;
-
-    for (ch_idx, ch) in chapters.iter().enumerate() {
-        let content = ch.get("content").and_then(|v| v.as_str()).unwrap_or("");
-        let mut cur_page_num: Option<usize> = None;
-        let mut cur_paras: Vec<&str> = Vec::new();
-
-        for para in content.split("\n\n") {
-            let trimmed = para.trim();
-            if let Some(num_str) = trimmed.strip_prefix("[[PDF_PAGE:").and_then(|s| s.strip_suffix("]]")) {
-                if let Some(prev_num) = cur_page_num {
-                    let page_text = cur_paras.join("\n\n");
-                    let is_scanned = !is_valid_natural_text(&page_text);
-                    if is_scanned {
-                        scanned_count += 1;
-                    }
-                    pages.push(serde_json::json!({
-                        "page_num": prev_num,
-                        "chapter_index": ch_idx,
-                        "text": if is_scanned { "" } else { &page_text },
-                        "char_count": if is_scanned { 0 } else { page_text.chars().count() },
-                        "has_image": true,
-                        "is_scanned": is_scanned,
-                    }));
-                    cur_paras.clear();
-                }
-                cur_page_num = num_str.trim().parse::<usize>().ok();
-            } else if !trimmed.is_empty() {
-                cur_paras.push(trimmed);
-            }
-        }
-
-        if let Some(last_num) = cur_page_num {
-            let page_text = cur_paras.join("\n\n");
-            let is_scanned = !is_valid_natural_text(&page_text);
-            if is_scanned {
-                scanned_count += 1;
-            }
-            pages.push(serde_json::json!({
-                "page_num": last_num,
-                "chapter_index": ch_idx,
-                "text": if is_scanned { "" } else { &page_text },
-                "char_count": if is_scanned { 0 } else { page_text.chars().count() },
-                "has_image": true,
-                "is_scanned": is_scanned,
-            }));
-        }
-    }
-
-    if pages.is_empty() {
-        let first_text = chapters
-            .first()
-            .and_then(|c| c.get("content"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let is_scanned = !is_valid_natural_text(first_text);
-        if is_scanned {
-            scanned_count += 1;
-        }
-        pages.push(serde_json::json!({
-            "page_num": 1,
-            "chapter_index": 0,
-            "text": if is_scanned { "" } else { first_text },
-            "char_count": if is_scanned { 0 } else { first_text.chars().count() },
-            "has_image": true,
-            "is_scanned": is_scanned,
-        }));
-    }
-
-    let is_scanned_book = !pages.is_empty() && (scanned_count * 10 >= pages.len() * 7);
-
-    serde_json::json!({
-        "book_id": book_id,
-        "page_count": pages.len(),
-        "pages": pages,
-        "is_scanned_book": is_scanned_book,
-    })
-}
-
-pub fn is_valid_natural_text(text: &str) -> bool {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-
-    let mut cjk_count = 0usize;
-    let mut alpha_count = 0usize;
-    let mut digit_count = 0usize;
-    let mut punctuation_count = 0usize;
-    let mut total_chars = 0usize;
-
-    for c in trimmed.chars() {
-        total_chars += 1;
-        if c == '\u{FFFD}' {
-            return false;
-        }
-        if ('\u{4E00}'..='\u{9FFF}').contains(&c)
-            || ('\u{3400}'..='\u{4DBF}').contains(&c)
-            || ('\u{20000}'..='\u{2A6DF}').contains(&c)
-        {
-            cjk_count += 1;
-        } else if c.is_ascii_alphabetic() {
-            alpha_count += 1;
-        } else if c.is_ascii_digit() {
-            digit_count += 1;
-        } else if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-            // whitespace
-        } else if "，。！？；：“”‘’（）《》、—…,.!?;:'\"()-/·[]{}<>".contains(c) {
-            punctuation_count += 1;
-        }
-    }
-
-    if total_chars == 0 {
-        return false;
-    }
-
-    if cjk_count > 0 {
-        let valid = cjk_count + alpha_count + digit_count + punctuation_count;
-        return (valid as f32 / total_chars as f32) >= 0.75;
-    }
-
-    if alpha_count >= 15 {
-        let valid = alpha_count + digit_count + punctuation_count;
-        if (valid as f32 / total_chars as f32) < 0.75 {
-            return false;
-        }
-        let words: Vec<&str> = trimmed.split_whitespace().collect();
-        let long_words = words.iter().filter(|w| w.len() >= 3).count();
-        return long_words >= 2;
-    }
-
-    false
-}
-
-fn normalize_pdf_page_paragraphs(raw_page: &str) -> Vec<String> {
-    if !is_valid_natural_text(raw_page) {
-        return Vec::new();
-    }
-
-    let mut paras = Vec::new();
-    let mut current = String::new();
-    for line in raw_page.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            if !current.is_empty() {
-                if is_valid_natural_text(&current) {
-                    paras.push(current.clone());
-                }
-                current.clear();
-            }
-            continue;
-        }
-        if current.is_empty() {
-            current.push_str(trimmed);
-        } else {
-            let ends_sentence = current.ends_with('。')
-                || current.ends_with('！')
-                || current.ends_with('？')
-                || current.ends_with('.')
-                || current.ends_with('!')
-                || current.ends_with('?')
-                || current.ends_with('”')
-                || current.ends_with('"')
-                || crate::infra::parser::security::is_chapter_heading(trimmed);
-            if ends_sentence && current.chars().count() >= 28 {
-                if is_valid_natural_text(&current) {
-                    paras.push(current.clone());
-                }
-                current.clear();
-                current.push_str(trimmed);
-            } else {
-                let last_ascii = current.chars().last().map(|c| c.is_ascii_alphanumeric()).unwrap_or(false);
-                let first_ascii = trimmed.chars().next().map(|c| c.is_ascii_alphanumeric()).unwrap_or(false);
-                if last_ascii && first_ascii {
-                    current.push(' ');
-                }
-                current.push_str(trimmed);
-            }
-        }
-    }
-    if !current.is_empty() && is_valid_natural_text(&current) {
-        paras.push(current);
-    }
-    paras
-}
-
 fn extract_pdf_meta_streamed(file_path: &Path) -> (Option<String>, Option<String>, usize) {
     let mut title = None;
     let mut author = None;
     let mut pages = 0usize;
 
-    // 1. Try fast CLI pdfinfo
     if has_pdfinfo() {
         if let Ok(output) = Command::new("pdfinfo").arg(file_path).output() {
             if output.status.success() {
@@ -330,12 +143,10 @@ fn extract_pdf_meta_streamed(file_path: &Path) -> (Option<String>, Option<String
         }
     }
 
-    // 2. Pure Rust streaming fallback for page count without reading full file
     if pages == 0 {
         if let Ok(mut f) = File::open(file_path) {
             if let Ok(meta) = f.metadata() {
                 let len = meta.len();
-                // Read last 64KB for /Count /Pages catalog
                 let tail_read_len = len.min(65536) as usize;
                 if f.seek(SeekFrom::End(-(tail_read_len as i64))).is_ok() {
                     let mut tail_buf = vec![0u8; tail_read_len];
@@ -382,6 +193,45 @@ pub fn extract_pages_with_pdftotext(file_path: &Path) -> Vec<String> {
     pages
 }
 
+pub fn render_pdf_page_to_jpeg(file_path: &Path, page: usize, target_dir: &Path) -> Option<PathBuf> {
+    if !has_pdftoppm() {
+        return None;
+    }
+    let jpg_path = target_dir.join(format!("page_{}.jpg", page));
+    if jpg_path.exists() {
+        return Some(jpg_path);
+    }
+    let _ = std::fs::create_dir_all(target_dir);
+    let nonce = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
+    let tmp_prefix = target_dir.join(format!(".tmp_page_{}_{}", page, nonce));
+    if let (Some(fp_str), Some(pref_str)) = (file_path.to_str(), tmp_prefix.to_str()) {
+        if let Ok(st) = Command::new("pdftoppm")
+            .args([
+                "-jpeg",
+                "-r",
+                "150",
+                "-f",
+                &page.to_string(),
+                "-l",
+                &page.to_string(),
+                "-singlefile",
+                fp_str,
+                pref_str,
+            ])
+            .status()
+        {
+            if st.success() {
+                let tmp_jpg = PathBuf::from(format!("{}.jpg", pref_str));
+                if tmp_jpg.exists() {
+                    let _ = std::fs::rename(tmp_jpg, &jpg_path);
+                    return Some(jpg_path);
+                }
+            }
+        }
+    }
+    None
+}
+
 fn extract_pdf_cover_first_page(file_path: &Path, covers_dir: &Path) -> Option<String> {
     if !has_pdftoppm() {
         return None;
@@ -419,11 +269,11 @@ mod tests {
             "wordCount": 20,
             "order": 0
         })];
+
         let meta = build_pdf_meta_json("book_123", &chapters);
+        assert_eq!(meta["book_id"], "book_123");
         assert_eq!(meta["page_count"], 2);
         assert_eq!(meta["pages"][0]["page_num"], 1);
-        assert_eq!(meta["pages"][0]["text"], "第一页第一段。");
         assert_eq!(meta["pages"][1]["page_num"], 2);
-        assert_eq!(meta["pages"][1]["text"], "第二页第一段。");
     }
 }

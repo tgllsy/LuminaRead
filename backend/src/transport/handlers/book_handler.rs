@@ -96,62 +96,28 @@ pub async fn get_pdf_page(
     Path((id, page)): Path<(String, usize)>,
     State(state): State<AppState>,
 ) -> Response {
-    // Sanitize book ID to prevent URL-encoded path traversal (%2e%2e%2f)
-    if id.contains('/') || id.contains('\\') || id.contains("..") || sanitize_path(&state.config.pdf_cache_dir, &id).is_none() {
+    if id.contains('/') || id.contains('\\') || id.contains("..") {
         return StatusCode::BAD_REQUEST.into_response();
     }
 
-    let book_dir = state.config.pdf_cache_dir.join(&id);
-    let _ = tokio::fs::create_dir_all(&book_dir).await;
-    let jpg_path = book_dir.join(format!("page_{}.jpg", page));
-
-    if !jpg_path.exists() && crate::infra::parser::pdf::has_pdftoppm() {
-        if let Ok(book) = state.book_service.get_book_details(&id).await {
-            if !book.file_path.is_empty() && std::path::Path::new(&book.file_path).exists() {
-                let nonce = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
-                let tmp_prefix = book_dir.join(format!(".tmp_page_{}_{}", page, nonce));
-                if let Some(prefix_str) = tmp_prefix.to_str() {
-                    let status = tokio::process::Command::new("pdftoppm")
-                        .args([
-                            "-jpeg",
-                            "-r",
-                            "150",
-                            "-f",
-                            &page.to_string(),
-                            "-l",
-                            &page.to_string(),
-                            "-singlefile",
-                            &book.file_path,
-                            prefix_str,
-                        ])
-                        .status()
-                        .await;
-                    if let Ok(st) = status {
-                        if st.success() {
-                            let tmp_jpg = PathBuf::from(format!("{}.jpg", prefix_str));
-                            let _ = tokio::fs::rename(tmp_jpg, &jpg_path).await;
-                        }
-                    }
-                }
+    match state.book_service.render_pdf_page_image(&id, page).await {
+        Ok(Some(jpg_path)) => {
+            if let Ok(img_bytes) = tokio::fs::read(&jpg_path).await {
+                return (
+                    StatusCode::OK,
+                    [
+                        (header::CONTENT_TYPE, "image/jpeg"),
+                        (header::CACHE_CONTROL, "public, max-age=86400"),
+                    ],
+                    img_bytes,
+                )
+                    .into_response();
             }
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
-
-    if jpg_path.exists() {
-        if let Ok(img_bytes) = tokio::fs::read(&jpg_path).await {
-            return (
-                StatusCode::OK,
-                [
-                    (header::CONTENT_TYPE, "image/jpeg"),
-                    (header::CACHE_CONTROL, "public, max-age=86400"),
-                ],
-                img_bytes,
-            )
-                .into_response();
-        }
-    }
-
-    StatusCode::NOT_FOUND.into_response()
 }
 
 pub async fn reparse_book(

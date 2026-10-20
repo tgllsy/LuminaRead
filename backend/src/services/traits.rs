@@ -72,6 +72,8 @@ pub trait BookService: Send + Sync {
     async fn record_session(&self, book_id: &str, duration: i64) -> AppResult<Value>;
     async fn reparse_book(&self, id: &str) -> AppResult<Book>;
     async fn reparse_all_books(&self) -> AppResult<Value>;
+    async fn render_pdf_page_image(&self, id: &str, page: usize) -> AppResult<Option<PathBuf>>;
+    async fn clear_system_cache(&self) -> AppResult<Value>;
 }
 
 #[async_trait]

@@ -318,33 +318,6 @@ pub async fn clear_system_cache(
     State(state): State<AppState>,
 ) -> AppResult<Json<Value>> {
     verify_admin_auth(&headers)?;
-    let cfg = crate::config::current_config();
-    let cfg_clone = cfg.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        let _ = std::fs::remove_dir_all(&cfg_clone.pdf_cache_dir);
-        let _ = std::fs::remove_dir_all(&cfg_clone.tts_cache_dir);
-        let _ = std::fs::remove_dir_all(cfg_clone.data_dir.join(".trash_pdf_cache"));
-        let _ = std::fs::create_dir_all(&cfg_clone.pdf_cache_dir);
-        let _ = std::fs::create_dir_all(&cfg_clone.tts_cache_dir);
-    })
-    .await;
-
-    let _ = state
-        .db
-        .interact(|conn| {
-            let _ = conn.execute("DELETE FROM tts_audio_cache", []);
-            Ok(())
-        })
-        .await;
-
-    let _ = state
-        .book_service
-        .list_books(crate::domain::traits::BookFilter::default())
-        .await;
-
-    Ok(Json(serde_json::json!({
-        "ok": true,
-        "cleared": ["pdf_cache", "tts_cache"],
-        "cleared_at": Local::now().to_rfc3339(),
-    })))
+    let res = state.book_service.clear_system_cache().await?;
+    Ok(Json(res))
 }

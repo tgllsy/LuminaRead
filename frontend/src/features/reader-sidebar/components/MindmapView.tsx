@@ -2,7 +2,10 @@ import React, { useState } from 'react'
 import { Maximize2, GitFork } from 'lucide-react'
 import type { MindmapLayout } from '../types'
 import { COLOR_HEX } from '../constants'
-import { MindmapFullscreenModal } from './MindmapFullscreenModal'
+
+const MindmapFullscreenModal = React.lazy(() =>
+  import('./MindmapFullscreenModal').then((m) => ({ default: m.MindmapFullscreenModal }))
+)
 
 interface MindmapViewProps {
   bookTitle: string
@@ -225,14 +228,16 @@ export const MindmapView: React.FC<MindmapViewProps> = ({
       )}
 
       {showFullscreen && (
-        <MindmapFullscreenModal
-          isOpen={showFullscreen}
-          bookTitle={bookTitle}
-          layout={layout}
-          onClose={() => setShowFullscreen(false)}
-          onSelectChapter={onSelectChapter}
-          isDark={isDark}
-        />
+        <React.Suspense fallback={null}>
+          <MindmapFullscreenModal
+            isOpen={showFullscreen}
+            bookTitle={bookTitle}
+            layout={layout}
+            onClose={() => setShowFullscreen(false)}
+            onSelectChapter={onSelectChapter}
+            isDark={isDark}
+          />
+        </React.Suspense>
       )}
     </div>
   )

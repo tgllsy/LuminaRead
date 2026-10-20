@@ -149,3 +149,13 @@ export const VOICE_CATEGORY_TABS: { id: VoiceCategory; label: string }[] = [
   { id: 'bilingual', label: '中英双语' },
   { id: 'all', label: '全部' },
 ]
+
+export const MOBILE_SPEED_OPTIONS = [0.8, 1.0, 1.25, 1.5, 1.75, 2.0]
+export const MOBILE_TIMER_OPTIONS = [
+  { mins: 0, label: '关闭定时' },
+  { mins: 15, label: '15 分钟' },
+  { mins: 30, label: '30 分钟' },
+  { mins: 45, label: '45 分钟' },
+  { mins: 60, label: '60 分钟' },
+]
+

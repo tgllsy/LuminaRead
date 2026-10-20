@@ -1,12 +1,23 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Radio, Gauge, Headphones, Timer, BookOpen } from 'lucide-react'
 import type { ActiveTtsDrawer, NeuralVoiceOption, AmbientPreset, SleepTimerMode, VoiceCategory } from '../types'
 import { TtsDrawerModal } from './TtsDrawerModal'
-import { AmbientMixerModal } from './AmbientMixerModal'
-import { VoicePickerModal } from './VoicePickerModal'
-import { SpeedPickerModal } from './SpeedPickerModal'
-import { TimerPickerModal } from './TimerPickerModal'
-import { ParagraphPickerModal } from './ParagraphPickerModal'
+
+const AmbientMixerModal = React.lazy(() =>
+  import('./AmbientMixerModal').then((m) => ({ default: m.AmbientMixerModal }))
+)
+const VoicePickerModal = React.lazy(() =>
+  import('./VoicePickerModal').then((m) => ({ default: m.VoicePickerModal }))
+)
+const SpeedPickerModal = React.lazy(() =>
+  import('./SpeedPickerModal').then((m) => ({ default: m.SpeedPickerModal }))
+)
+const TimerPickerModal = React.lazy(() =>
+  import('./TimerPickerModal').then((m) => ({ default: m.TimerPickerModal }))
+)
+const ParagraphPickerModal = React.lazy(() =>
+  import('./ParagraphPickerModal').then((m) => ({ default: m.ParagraphPickerModal }))
+)
 
 interface TtsDrawersLayerProps {
   activeDrawer: ActiveTtsDrawer
@@ -40,6 +51,12 @@ interface TtsDrawersLayerProps {
   onVolumeChange: (vol: number) => void
   onSelectSleepMode: (m: SleepTimerMode) => void
 }
+
+const DrawerFallback: React.FC = () => (
+  <div className="py-8 flex items-center justify-center text-xs text-slate-400">
+    加载面板中...
+  </div>
+)
 
 export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
   activeDrawer,
@@ -83,14 +100,18 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
         surfaceCls={themeCls.surfaceCls}
         pillIdleCls={themeCls.pillIdleCls}
       >
-        <ParagraphPickerModal
-          paragraphs={paragraphs}
-          currentParaIdx={currentParaIdx}
-          ttsPlaying={ttsPlaying}
-          onSelectParagraph={onSelectParagraph}
-          pillIdleCls={themeCls.pillIdleCls}
-          accentActivePillCls={themeCls.accentActivePillCls}
-        />
+        {activeDrawer === 'paragraphs' && (
+          <Suspense fallback={<DrawerFallback />}>
+            <ParagraphPickerModal
+              paragraphs={paragraphs}
+              currentParaIdx={currentParaIdx}
+              ttsPlaying={ttsPlaying}
+              onSelectParagraph={onSelectParagraph}
+              pillIdleCls={themeCls.pillIdleCls}
+              accentActivePillCls={themeCls.accentActivePillCls}
+            />
+          </Suspense>
+        )}
       </TtsDrawerModal>
 
       <TtsDrawerModal
@@ -108,16 +129,20 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
         surfaceCls={themeCls.surfaceCls}
         pillIdleCls={themeCls.pillIdleCls}
       >
-        <VoicePickerModal
-          voices={voices}
-          selectedVoice={selectedVoice}
-          voiceCategory={voiceCategory}
-          onSelectCategory={onSelectVoiceCategory}
-          onSelectVoice={onSelectVoice}
-          pillIdleCls={themeCls.pillIdleCls}
-          accentActivePillCls={themeCls.accentActivePillCls}
-          mutedTextCls={themeCls.mutedTextCls}
-        />
+        {activeDrawer === 'voices' && (
+          <Suspense fallback={<DrawerFallback />}>
+            <VoicePickerModal
+              voices={voices}
+              selectedVoice={selectedVoice}
+              voiceCategory={voiceCategory}
+              onSelectCategory={onSelectVoiceCategory}
+              onSelectVoice={onSelectVoice}
+              pillIdleCls={themeCls.pillIdleCls}
+              accentActivePillCls={themeCls.accentActivePillCls}
+              mutedTextCls={themeCls.mutedTextCls}
+            />
+          </Suspense>
+        )}
       </TtsDrawerModal>
 
       <TtsDrawerModal
@@ -132,12 +157,16 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
         surfaceCls={themeCls.surfaceCls}
         pillIdleCls={themeCls.pillIdleCls}
       >
-        <SpeedPickerModal
-          ttsRate={ttsRate}
-          onSelectRate={onSelectRate}
-          pillIdleCls={themeCls.pillIdleCls}
-          accentActivePillCls={themeCls.accentActivePillCls}
-        />
+        {activeDrawer === 'speed' && (
+          <Suspense fallback={<DrawerFallback />}>
+            <SpeedPickerModal
+              ttsRate={ttsRate}
+              onSelectRate={onSelectRate}
+              pillIdleCls={themeCls.pillIdleCls}
+              accentActivePillCls={themeCls.accentActivePillCls}
+            />
+          </Suspense>
+        )}
       </TtsDrawerModal>
 
       <TtsDrawerModal
@@ -152,17 +181,21 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
         surfaceCls={themeCls.surfaceCls}
         pillIdleCls={themeCls.pillIdleCls}
       >
-        <AmbientMixerModal
-          ambientEnabled={ambientEnabled}
-          onToggleEnabled={onToggleAmbientEnabled}
-          ambientPreset={ambientPreset}
-          ambientVolume={ambientVolume}
-          onSelectPreset={onSelectPreset}
-          onVolumeChange={onVolumeChange}
-          pillIdleCls={themeCls.pillIdleCls}
-          accentActivePillCls={themeCls.accentActivePillCls}
-          mutedTextCls={themeCls.mutedTextCls}
-        />
+        {activeDrawer === 'ambient' && (
+          <Suspense fallback={<DrawerFallback />}>
+            <AmbientMixerModal
+              ambientEnabled={ambientEnabled}
+              onToggleEnabled={onToggleAmbientEnabled}
+              ambientPreset={ambientPreset}
+              ambientVolume={ambientVolume}
+              onSelectPreset={onSelectPreset}
+              onVolumeChange={onVolumeChange}
+              pillIdleCls={themeCls.pillIdleCls}
+              accentActivePillCls={themeCls.accentActivePillCls}
+              mutedTextCls={themeCls.mutedTextCls}
+            />
+          </Suspense>
+        )}
       </TtsDrawerModal>
 
       <TtsDrawerModal
@@ -177,12 +210,16 @@ export const TtsDrawersLayer: React.FC<TtsDrawersLayerProps> = ({
         surfaceCls={themeCls.surfaceCls}
         pillIdleCls={themeCls.pillIdleCls}
       >
-        <TimerPickerModal
-          sleepMode={sleepMode}
-          onSelectSleepMode={onSelectSleepMode}
-          pillIdleCls={themeCls.pillIdleCls}
-          accentActivePillCls={themeCls.accentActivePillCls}
-        />
+        {activeDrawer === 'sleep' && (
+          <Suspense fallback={<DrawerFallback />}>
+            <TimerPickerModal
+              sleepMode={sleepMode}
+              onSelectSleepMode={onSelectSleepMode}
+              pillIdleCls={themeCls.pillIdleCls}
+              accentActivePillCls={themeCls.accentActivePillCls}
+            />
+          </Suspense>
+        )}
       </TtsDrawerModal>
     </>
   )
