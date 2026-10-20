@@ -8,6 +8,7 @@ import type {
   ReaderTypography,
 } from '../types'
 import { PdfPageCard } from './PdfPageCard'
+import { PdfMobileControls } from './PdfMobileControls'
 
 interface PdfViewportProps {
   book: BookSummary
@@ -62,14 +63,16 @@ export const PdfViewport: React.FC<PdfViewportProps> = (props) => {
   })
   const [fitMode, setFitMode] = useState<'page' | 'width'>(() => {
     try {
-      return (localStorage.getItem('luminaread_pdf_fit_mode') as 'page' | 'width') || 'page'
+      return (localStorage.getItem('luminaread_pdf_fit_mode') as 'page' | 'width') || 'width'
     } catch {
-      return 'page'
+      return 'width'
     }
   })
+  const [showMobileControls, setShowMobileControls] = useState(true)
 
   const effectiveTotalPages = Math.max(totalPdfPages, pdfMeta?.total_pages || 1, 1)
-  const isDouble = pdfSpreadMode === 'double' && pdfCanvasPage + 1 <= effectiveTotalPages
+  const isMobileScreen = typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  const isDouble = !isMobileScreen && pdfSpreadMode === 'double' && pdfCanvasPage + 1 <= effectiveTotalPages
   const activePages = [pdfCanvasPage, ...(isDouble ? [pdfCanvasPage + 1] : [])]
 
   const pageParagraphMap = useMemo(() => buildPageParagraphsMap(paragraphs), [paragraphs])
@@ -94,8 +97,36 @@ export const PdfViewport: React.FC<PdfViewportProps> = (props) => {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <div data-no-hud-toggle="true" onClick={(e) => e.stopPropagation()} className="p-3 sm:p-3.5 rounded-2xl border border-current/15 bg-current/[0.03] flex flex-wrap items-center justify-between gap-2.5">
+    <div className="space-y-0 sm:space-y-5 w-full relative pb-16 sm:pb-0">
+      {/* Mobile-Friendly Bottom Bar & Top Capsule */}
+      <PdfMobileControls
+        pdfCanvasPage={pdfCanvasPage}
+        effectiveTotalPages={effectiveTotalPages}
+        fitMode={fitMode}
+        pdfZoom={pdfZoom}
+        highPerformanceMode={highPerformanceMode}
+        showControls={showMobileControls}
+        onJumpToPdfPage={onJumpToPdfPage}
+        onToggleFitMode={handleToggleFitMode}
+        onSetPdfZoom={onSetPdfZoom}
+        onToggleHighPerformance={() => {
+          setHighPerformanceMode((p) => {
+            const next = !p
+            try {
+              localStorage.setItem('luminaread_pdf_high_perf', String(next))
+            } catch {}
+            return next
+          })
+        }}
+        onOpenLightbox={() => {
+          const activePageNum = activePages[0] || pdfCanvasPage
+          props.onOpenLightbox(`/api/books/${encodeURIComponent(book.id)}/file`, `《${book.title}》 · 第 ${activePageNum} 页`, activePageNum)
+        }}
+        onToggleControls={() => setShowMobileControls((v) => !v)}
+      />
+
+      {/* Desktop Top Control Bar: Hidden on mobile screens */}
+      <div data-no-hud-toggle="true" onClick={(e) => e.stopPropagation()} className="hidden md:flex p-3 sm:p-3.5 rounded-2xl border border-current/15 bg-current/[0.03] flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
           <button
             type="button" onClick={() => onJumpToPdfPage(pdfCanvasPage - (pdfSpreadMode === 'double' ? 2 : 1))} disabled={pdfCanvasPage <= 1}
@@ -204,6 +235,7 @@ export const PdfViewport: React.FC<PdfViewportProps> = (props) => {
               pageParas={pageParagraphMap.get(pNum) || []}
               highPerformanceMode={highPerformanceMode}
               fitMode={fitMode}
+              onToggleControls={() => setShowMobileControls((v) => !v)}
               {...props}
             />
           ))}

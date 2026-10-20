@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Loader2, AlertCircle } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { getPdfDocument } from '../helpers/pdfDocumentLoader'
 
 interface PdfCanvasPageProps {
@@ -24,14 +24,16 @@ export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [loading, setLoading] = useState(true)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [useFallbackImg, setUseFallbackImg] = useState(false)
+
+  const fallbackImgUrl = `/api/books/${encodeURIComponent(bookId)}/pdf-page/${pageNum}`
 
   useEffect(() => {
     let cancelled = false
     let currentRenderTask: any = null
 
     setLoading(true)
-    setErrorMsg(null)
+    setUseFallbackImg(false)
 
     async function renderPage() {
       try {
@@ -44,35 +46,33 @@ export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
         const unscaledViewport = page.getViewport({ scale: 1.0 })
         const containerWidth = containerRef.current?.parentElement?.clientWidth || window.innerWidth
 
-        // Calculate responsive scale based on fit mode and zoom
         let targetScale = 1.0
         if (fitMode === 'page') {
-          const availableHeight = Math.max(480, window.innerHeight - 220)
-          const availableWidth = isDouble ? (containerWidth / 2) - 32 : Math.min(containerWidth - 32, 900)
+          const availableHeight = Math.max(400, window.innerHeight - 160)
+          const availableWidth = isDouble ? (containerWidth / 2) - 16 : Math.min(containerWidth, 900)
           const scaleHeight = availableHeight / unscaledViewport.height
           const scaleWidth = availableWidth / unscaledViewport.width
           targetScale = Math.min(scaleHeight, scaleWidth) * (pdfZoom / 100)
         } else {
-          // fit width
-          const availableWidth = isDouble ? (containerWidth / 2) - 32 : containerWidth - 48
+          // fit width - fill container horizontally
+          const availableWidth = isDouble ? (containerWidth / 2) - 16 : containerWidth
           targetScale = (availableWidth / unscaledViewport.width) * (pdfZoom / 100)
         }
 
-        // Clamp scale to readable boundaries
-        targetScale = Math.max(0.4, Math.min(targetScale, 3.0))
+        targetScale = Math.max(0.35, Math.min(targetScale, 3.0))
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2)
-        const viewport = page.getViewport({ scale: targetScale })
+        const viewport = page.getViewport({ scale: targetScale * dpr })
         const canvas = canvasRef.current
         if (!canvas) return
 
         const ctx = canvas.getContext('2d', { alpha: false })
         if (!ctx) return
 
-        canvas.width = Math.floor(viewport.width * dpr)
-        canvas.height = Math.floor(viewport.height * dpr)
-        canvas.style.width = `${Math.floor(viewport.width)}px`
-        canvas.style.height = `${Math.floor(viewport.height)}px`
+        canvas.width = Math.floor(viewport.width)
+        canvas.height = Math.floor(viewport.height)
+        canvas.style.width = `${Math.floor(viewport.width / dpr)}px`
+        canvas.style.height = `${Math.floor(viewport.height / dpr)}px`
 
         ctx.imageSmoothingEnabled = true
         ctx.imageSmoothingQuality = 'high'
@@ -80,7 +80,6 @@ export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
         const renderContext = {
           canvasContext: ctx,
           viewport,
-          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
         }
 
         currentRenderTask = page.render(renderContext)
@@ -91,18 +90,17 @@ export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
           if (onRenderSuccess) {
             try {
               onRenderSuccess(canvas.toDataURL('image/jpeg', 0.85))
-            } catch {
-              // Ignore canvas export security errors if any
-            }
+            } catch {}
           }
         }
       } catch (err: any) {
         if (err?.name === 'RenderingCancelledException' || cancelled) {
           return
         }
-        console.error(`Failed to render PDF page ${pageNum}:`, err)
+        // Fallback seamlessly to backend rendered image without scaring the user
+        console.warn(`PDF.js page ${pageNum} fallback to backend image:`, err?.message || err)
         if (!cancelled) {
-          setErrorMsg(err?.message || '页面渲染失败')
+          setUseFallbackImg(true)
           setLoading(false)
         }
       }
@@ -123,29 +121,31 @@ export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-center select-none overflow-hidden rounded-xl transition-all"
+      className="relative flex items-center justify-center select-none overflow-hidden transition-all w-full"
       style={{
         ...pdfFilterStyle,
-        minHeight: '260px',
+        minHeight: '220px',
       }}
     >
       {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-current/[0.04] backdrop-blur-[1px] rounded-xl z-10 transition-opacity">
-          <Loader2 className="w-7 h-7 animate-spin text-blue-500 mb-2 opacity-80" />
-          <span className="text-xs font-mono opacity-60">高保真排版渲染中... P.{pageNum}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-current/[0.03] backdrop-blur-[1px] z-10 transition-opacity">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500 mb-2 opacity-80" />
+          <span className="text-[11px] font-mono opacity-60">高保真排版加载中... P.{pageNum}</span>
         </div>
       )}
 
-      {errorMsg ? (
-        <div className="p-8 text-center flex flex-col items-center justify-center space-y-2">
-          <AlertCircle className="w-8 h-8 text-amber-500 opacity-80" />
-          <p className="text-xs text-red-500 font-medium">第 {pageNum} 页排版解析失败</p>
-          <span className="text-[11px] opacity-60 font-mono">{errorMsg}</span>
-        </div>
+      {useFallbackImg ? (
+        <img
+          src={fallbackImgUrl}
+          alt={`第 ${pageNum} 页`}
+          loading="eager"
+          className="w-full h-auto object-contain select-none max-w-full"
+          onLoad={() => setLoading(false)}
+        />
       ) : (
         <canvas
           ref={canvasRef}
-          className={`shadow-md rounded-lg max-w-full transition-opacity duration-300 ${
+          className={`max-w-full transition-opacity duration-200 ${
             loading ? 'opacity-20' : 'opacity-100'
           }`}
         />

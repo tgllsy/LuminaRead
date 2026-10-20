@@ -1,9 +1,12 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-// Configure worker locally using Vite's URL resolution
 if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
+  } catch {
+    // If worker URL assignment fails, PDF.js falls back to main thread
+  }
 }
 
 const docCache = new Map<string, Promise<pdfjsLib.PDFDocumentProxy>>()
@@ -11,14 +14,30 @@ const docCache = new Map<string, Promise<pdfjsLib.PDFDocumentProxy>>()
 export function getPdfDocument(bookId: string): Promise<pdfjsLib.PDFDocumentProxy> {
   let cached = docCache.get(bookId)
   if (!cached) {
-    const url = `/api/books/${encodeURIComponent(bookId)}/file`
+    const fileUrl = typeof window !== 'undefined'
+      ? new URL(`/api/books/${encodeURIComponent(bookId)}/file`, window.location.origin).href
+      : `/api/books/${encodeURIComponent(bookId)}/file`
+
+    const cMapUrl = typeof window !== 'undefined'
+      ? new URL('/cmaps/', window.location.origin).href
+      : '/cmaps/'
+
     const loadingTask = pdfjsLib.getDocument({
-      url,
-      cMapUrl: '/cmaps/',
+      url: fileUrl,
+      cMapUrl,
       cMapPacked: true,
       enableXfa: false,
+      isEvalSupported: false,
+      disableAutoFetch: true,
+      disableStream: false,
+      disableRange: false,
     })
-    cached = loadingTask.promise
+
+    cached = loadingTask.promise.catch((err) => {
+      // Remove corrupt or failed promise from cache so future attempts can retry
+      docCache.delete(bookId)
+      throw err
+    })
     docCache.set(bookId, cached)
   }
   return cached

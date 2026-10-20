@@ -321,36 +321,29 @@ pub async fn get_book_file(
             let stream = tokio_util::io::ReaderStream::new(file.take(chunk_len));
             let body = axum::body::Body::from_stream(stream);
 
-            return (
-                StatusCode::PARTIAL_CONTENT,
-                [
-                    (header::CONTENT_TYPE, content_type),
-                    (header::ACCEPT_RANGES, "bytes"),
-                    (header::CONTENT_LENGTH, chunk_len.to_string().as_str()),
-                    (
-                        header::CONTENT_RANGE,
-                        format!("bytes {}-{}/{}", range_start, range_end, total_len).as_str(),
-                    ),
-                    (header::CACHE_CONTROL, "public, max-age=86400"),
-                ],
-                body,
-            )
-                .into_response();
+            let chunk_str = chunk_len.to_string();
+            let range_str = format!("bytes {}-{}/{}", range_start, range_end, total_len);
+
+            let mut response = (StatusCode::PARTIAL_CONTENT, body).into_response();
+            if let Ok(v) = content_type.parse() { response.headers_mut().insert(header::CONTENT_TYPE, v); }
+            if let Ok(v) = "bytes".parse() { response.headers_mut().insert(header::ACCEPT_RANGES, v); }
+            if let Ok(v) = chunk_str.parse() { response.headers_mut().insert(header::CONTENT_LENGTH, v); }
+            if let Ok(v) = range_str.parse() { response.headers_mut().insert(header::CONTENT_RANGE, v); }
+            if let Ok(v) = "public, max-age=86400".parse() { response.headers_mut().insert(header::CACHE_CONTROL, v); }
+
+            return response;
         }
     }
 
     let stream = tokio_util::io::ReaderStream::new(file);
     let body = axum::body::Body::from_stream(stream);
+    let total_str = total_len.to_string();
 
-    (
-        StatusCode::OK,
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::ACCEPT_RANGES, "bytes"),
-            (header::CONTENT_LENGTH, total_len.to_string().as_str()),
-            (header::CACHE_CONTROL, "public, max-age=86400"),
-        ],
-        body,
-    )
-        .into_response()
+    let mut response = (StatusCode::OK, body).into_response();
+    if let Ok(v) = content_type.parse() { response.headers_mut().insert(header::CONTENT_TYPE, v); }
+    if let Ok(v) = "bytes".parse() { response.headers_mut().insert(header::ACCEPT_RANGES, v); }
+    if let Ok(v) = total_str.parse() { response.headers_mut().insert(header::CONTENT_LENGTH, v); }
+    if let Ok(v) = "public, max-age=86400".parse() { response.headers_mut().insert(header::CACHE_CONTROL, v); }
+
+    response
 }

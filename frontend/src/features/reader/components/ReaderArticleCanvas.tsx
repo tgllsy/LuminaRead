@@ -143,7 +143,7 @@ export const ReaderArticleCanvas: React.FC<ReaderArticleCanvasProps> = ({
         isDualSpread
           ? 'h-full flex flex-col justify-between rounded-3xl border px-8 xl:px-12 py-4 sm:py-5 overflow-hidden'
           : isPageCanvas
-          ? 'min-h-[calc(100dvh-2.25rem)] sm:min-h-0 rounded-none sm:rounded-3xl border-0 sm:border px-2 sm:px-6 py-2 sm:py-4 pb-20 sm:pb-28'
+          ? 'min-h-[calc(100dvh-2.25rem)] sm:min-h-0 rounded-none sm:rounded-3xl border-0 sm:border px-0 sm:px-6 py-0 sm:py-4 pb-16 sm:pb-28'
           : !isContinuousSingleScroll
           ? 'h-[calc(100dvh-2.25rem)] sm:h-[calc(100vh-3.5rem)] flex flex-col justify-between rounded-none sm:rounded-3xl border-0 sm:border px-4 py-3 sm:px-8 sm:py-6 overflow-hidden'
           : 'min-h-[calc(100dvh-2.25rem)] sm:min-h-0 rounded-none sm:rounded-3xl border-0 sm:border px-5 py-5 sm:p-10 md:p-14'
@@ -154,7 +154,7 @@ export const ReaderArticleCanvas: React.FC<ReaderArticleCanvasProps> = ({
       )}
 
       {showTopCanvasHeader && (
-        <div className="mb-6 sm:mb-9 pb-3 border-b border-current/8 space-y-3">
+        <div className={`mb-6 sm:mb-9 pb-3 border-b border-current/8 space-y-3 ${isPageCanvas ? 'hidden sm:block' : ''}`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             {!hasInlineChapterHeading && (
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight">

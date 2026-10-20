@@ -1,5 +1,6 @@
 use axum::{
     extract::DefaultBodyLimit,
+    http::header,
     routing::{delete, get, post, put},
     Router,
 };
@@ -84,25 +85,20 @@ pub fn build_router(state: AppState) -> Router {
     }
 
     let cors = CorsLayer::new()
-        .allow_origin(tower_http::cors::AllowOrigin::predicate(|origin: &axum::http::HeaderValue, _| {
-            if let Ok(s) = origin.to_str() {
-                s.starts_with("http://localhost")
-                    || s.starts_with("http://127.0.0.1")
-                    || s.starts_with("http://[::1]")
-                    || s.starts_with("tauri://")
-                    || s.starts_with("http://192.168.")
-                    || s.starts_with("http://10.")
-                    || s.starts_with("http://172.")
-            } else {
-                false
-            }
-        }))
+        .allow_origin(tower_http::cors::Any)
         .allow_methods(tower_http::cors::Any)
-        .allow_headers(tower_http::cors::Any);
+        .allow_headers(tower_http::cors::Any)
+        .expose_headers([
+            header::ACCEPT_RANGES,
+            header::CONTENT_RANGE,
+            header::CONTENT_LENGTH,
+            header::CONTENT_TYPE,
+        ]);
 
     let compression_predicate = DefaultPredicate::new()
         .and(NotForContentType::const_new("audio/"))
-        .and(NotForContentType::const_new("video/"));
+        .and(NotForContentType::const_new("video/"))
+        .and(NotForContentType::const_new("application/pdf"));
 
     router
         .route("/sw.js", get(handle_service_worker))

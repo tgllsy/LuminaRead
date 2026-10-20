@@ -20,6 +20,7 @@ export interface PdfPageCardProps {
   onJumpToPdfPage: (page: number) => void
   onOpenLightbox: (url: string, title: string, pageNum: number) => void
   onTextMouseUp: (pIdx: number) => void
+  onToggleControls?: () => void
 }
 
 export const PdfPageCard: React.FC<PdfPageCardProps> = ({
@@ -39,6 +40,7 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
   onJumpToPdfPage,
   onOpenLightbox,
   onTextMouseUp,
+  onToggleControls,
 }) => {
   const [renderedDataUrl, setRenderedDataUrl] = useState<string | null>(null)
   const isDouble = pdfSpreadMode === 'double'
@@ -50,11 +52,12 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
 
   return (
     <div
-      className={`group rounded-2xl border border-current/15 bg-current/[0.025] shadow-lg overflow-hidden relative transition-all ${
+      className={`group rounded-none sm:rounded-2xl border-0 sm:border border-current/15 bg-transparent sm:bg-current/[0.025] shadow-none sm:shadow-lg overflow-hidden relative transition-all ${
         fitMode === 'page' ? 'w-fit max-w-full mx-auto' : 'w-full'
       }`}
     >
-      <div className="px-3.5 py-2 border-b border-current/10 flex items-center justify-between text-xs bg-current/[0.04] gap-2">
+      {/* Desktop Card Header: Hidden on mobile to maximize viewport area */}
+      <div className="hidden sm:flex px-3.5 py-2 border-b border-current/10 items-center justify-between text-xs bg-current/[0.04] gap-2">
         <span className="font-mono font-semibold shrink-0">
           📄 第 {pNum} / {effectiveTotalPages} 页
         </span>
@@ -79,7 +82,7 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
         </div>
       </div>
 
-      <div className="relative bg-current/[0.02] flex items-center justify-center min-h-[220px] p-1 sm:p-2">
+      <div className="relative bg-transparent sm:bg-current/[0.02] flex items-center justify-center min-h-[220px] p-0 sm:p-2">
         <PdfCanvasPage
           bookId={book.id}
           pageNum={pNum}
@@ -90,11 +93,21 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
           onRenderSuccess={(dataUrl) => setRenderedDataUrl(dataUrl)}
         />
 
+        {/* Left 25% click zone: previous page */}
         <div
           onClick={() => onJumpToPdfPage(pdfCanvasPage - (pdfSpreadMode === 'double' ? 2 : 1))}
           title="点击左侧翻上一页"
           className="absolute inset-y-0 left-0 w-1/4 cursor-w-resize z-20"
         />
+
+        {/* Center 50% click zone: toggle controls on mobile */}
+        <div
+          onClick={onToggleControls}
+          title="点击唤起/隐藏控制栏"
+          className="absolute inset-y-0 left-1/4 w-1/2 cursor-pointer z-20"
+        />
+
+        {/* Right 25% click zone: next page */}
         <div
           onClick={() => onJumpToPdfPage(pdfCanvasPage + (pdfSpreadMode === 'double' ? 2 : 1))}
           title="点击右侧翻下一页"
