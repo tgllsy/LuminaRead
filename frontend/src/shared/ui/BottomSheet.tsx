@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 export interface BottomSheetProps {
@@ -57,7 +58,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   children,
   maxWidthClass = 'md:max-w-md',
   isDark = false,
-  zIndexClass = 'z-[70]',
+  zIndexClass = 'z-[100]',
   contentClassName,
 }) => {
   const { dragOffsetY, handleTouchStart, handleTouchMove, handleTouchEnd } =
@@ -69,7 +70,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     ? 'bg-[#18181b] text-[#f2f2f7] border-white/[0.12] shadow-[0_-12px_44px_rgba(0,0,0,0.65)]'
     : 'bg-white text-slate-900 border-slate-200/90 shadow-[0_-12px_44px_rgba(15,23,42,0.22)]'
 
-  return (
+  const sheetContent = (
     <div
       data-no-hud-toggle="true"
       onClick={onClose}
@@ -123,4 +124,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       </div>
     </div>
   )
+
+  if (typeof document !== 'undefined') {
+    return createPortal(sheetContent, document.body)
+  }
+  return sheetContent
 }
