@@ -197,7 +197,7 @@ data/
 └── build.ps1               # Windows 构建脚本
 ```
 
-深入架构与模块速查见 [CODEBASE_MAP.md](CODEBASE_MAP.md)；组件拆分与代码规范见 [GEMINI.md](GEMINI.md)。
+深入架构与模块速查见 [CODEBASE_MAP.md](CODEBASE_MAP.md)；组件拆分与代码规范见 [GEMINI.md](GEMINI.md)；详细版本历史与修复记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 技术栈
 
