@@ -73,14 +73,20 @@ export const CreateLibraryModal: React.FC<CreateLibraryModalProps> = ({
   }
 
   return (
-    <BottomSheet isOpen={true} onClose={onClose} title={library ? '编辑阅读书库' : '新建阅读书库'} maxWidthClass="md:max-w-sm">
-      <form onSubmit={handleSubmit} className="space-y-4 pt-1 pb-2 select-none">
+    <BottomSheet
+      isOpen={true}
+      onClose={onClose}
+      title={library ? '编辑阅读书库' : '新建阅读书库'}
+      maxWidthClass="md:max-w-md"
+      contentClassName="px-5 py-4"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4 select-none">
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">书库名称</label>
           <input
             type="text" value={name} onChange={(e) => setName(e.target.value)}
             placeholder="例如: 技术架构、历史档案..." required
-            className="w-full px-3 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1b88ee]/20 focus:border-[#1b88ee]"
+            className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1b88ee]/20 focus:border-[#1b88ee] transition-all"
           />
         </div>
 

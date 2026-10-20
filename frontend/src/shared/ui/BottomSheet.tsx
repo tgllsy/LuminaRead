@@ -10,6 +10,7 @@ export interface BottomSheetProps {
   maxWidthClass?: string
   isDark?: boolean
   zIndexClass?: string
+  contentClassName?: string
 }
 
 function useBottomSheetGesture(isOpen: boolean, onClose: () => void) {
@@ -56,7 +57,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   children,
   maxWidthClass = 'md:max-w-md',
   isDark = false,
-  zIndexClass = 'z-[60]',
+  zIndexClass = 'z-[70]',
+  contentClassName,
 }) => {
   const { dragOffsetY, handleTouchStart, handleTouchMove, handleTouchEnd } =
     useBottomSheetGesture(isOpen, onClose)
@@ -64,19 +66,19 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   if (!isOpen) return null
 
   const surfaceCls = isDark
-    ? 'bg-[#1c1c1e]/95 text-[#f2f2f7] border-white/[0.12] shadow-[0_-12px_40px_rgba(0,0,0,0.55)]'
-    : 'bg-white/95 text-slate-900 border-slate-200/80 shadow-[0_-10px_36px_rgba(15,23,42,0.12)]'
+    ? 'bg-[#18181b] text-[#f2f2f7] border-white/[0.12] shadow-[0_-12px_44px_rgba(0,0,0,0.65)]'
+    : 'bg-white text-slate-900 border-slate-200/90 shadow-[0_-12px_44px_rgba(15,23,42,0.22)]'
 
   return (
     <div
       data-no-hud-toggle="true"
       onClick={onClose}
-      className={`fixed inset-0 ${zIndexClass} flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/45 backdrop-blur-xs select-none animate-in fade-in duration-150`}
+      className={`fixed inset-0 ${zIndexClass} flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/60 backdrop-blur-sm select-none animate-in fade-in duration-150`}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={dragOffsetY > 0 ? { transform: `translateY(${dragOffsetY}px)`, transition: 'none' } : undefined}
-        className={`w-full ${maxWidthClass} rounded-t-3xl md:rounded-3xl border-t-[0.5px] md:border-[0.5px] backdrop-blur-2xl overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] max-h-[90dvh] flex flex-col ${surfaceCls}`}
+        className={`w-full ${maxWidthClass} rounded-t-3xl md:rounded-3xl border-t md:border overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] max-h-[92dvh] flex flex-col ${surfaceCls}`}
       >
         <div
           onTouchStart={handleTouchStart}
@@ -115,7 +117,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           </div>
         )}
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] md:pb-0">
+        <div className={`flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom,0px))] md:pb-0 ${contentClassName || ''}`}>
           {children}
         </div>
       </div>

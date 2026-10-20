@@ -30,7 +30,7 @@ export const MobileAppBar: React.FC<MobileAppBarProps> = ({
   const isSecondary = SECONDARY_PAGES.has(activePage)
 
   return (
-    <header className="md:hidden sticky top-0 z-30 liquid-glass border-b border-slate-200/75 pt-[env(safe-area-inset-top,0px)] select-none">
+    <header className="md:hidden sticky top-0 z-40 liquid-glass border-b border-slate-200/75 pt-[env(safe-area-inset-top,0px)] select-none">
       <div className="h-12 px-3.5 flex items-center justify-between gap-2">
         {isSecondary ? (
           <button

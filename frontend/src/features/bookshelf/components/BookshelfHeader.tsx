@@ -46,6 +46,7 @@ export const BookshelfHeader: React.FC<BookshelfHeaderProps> = ({
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const chineseVariant = useTypographyStore((s) => s.typography.chineseVariant)
   const toggleChineseVariant = useTypographyStore((s) => s.toggleChineseVariant)
+  const setTypography = useTypographyStore((s) => s.setTypography)
   const isVariantActive = Boolean(chineseVariant && chineseVariant !== 'original')
   const hasActiveMobileFilter = statusFilter !== 'all' || activeCategory !== 'all' || isVariantActive
 
@@ -185,6 +186,7 @@ export const BookshelfHeader: React.FC<BookshelfHeaderProps> = ({
         onViewModeChange={onViewModeChange}
         chineseVariant={chineseVariant}
         onToggleVariant={toggleChineseVariant}
+        onSelectVariant={(variant) => setTypography({ chineseVariant: variant })}
         onTriggerUpload={onTriggerUpload}
         onOpenDiscovery={onOpenDiscovery}
       />

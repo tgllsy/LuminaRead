@@ -58,7 +58,7 @@ export const BookCard: React.FC<BookCardProps> = ({
       onClick={handleClick}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      className={`group flex flex-col active:scale-[0.98] transition-transform ${isImporting ? 'cursor-wait' : isError ? 'cursor-default' : 'cursor-pointer'}`}
+      className={`group flex flex-col active:scale-[0.98] transition-transform relative isolate ${isImporting ? 'cursor-wait' : isError ? 'cursor-default' : 'cursor-pointer'}`}
     >
       <div
         className={`aspect-[3/4.2] w-full rounded-2xl p-3 text-white flex flex-col justify-between shadow-[0_4px_16px_rgba(15,23,42,0.08)] transition-all duration-200 select-none relative overflow-hidden ${
@@ -76,10 +76,10 @@ export const BookCard: React.FC<BookCardProps> = ({
             alt={book.title}
             loading="lazy"
             onError={(e) => { e.currentTarget.style.display = 'none' }}
-            className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 group-hover:scale-[1.02]"
+            className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-300 group-hover:scale-[1.02]"
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col justify-between p-3.5 z-10 select-none">
+          <div className="absolute inset-0 flex flex-col justify-between p-3.5 z-0 select-none">
             {/* 书脊质感阴影线 */}
             <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gradient-to-r from-black/40 via-white/10 to-transparent pointer-events-none" />
             <div className="my-auto pl-1 pr-1">
@@ -101,14 +101,14 @@ export const BookCard: React.FC<BookCardProps> = ({
         />
 
         {/* 格式标签 */}
-        <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
+        <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
           <span className="px-1.5 py-0.5 rounded bg-black/40 backdrop-blur-md text-[9px] font-mono font-semibold uppercase text-white/90 shadow-2xs">
             {book.format}
           </span>
         </div>
 
         {!isImporting && !isError && (
-          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1 z-20 pointer-events-none shadow-2xs">
+          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-mono text-white flex items-center gap-1 z-10 pointer-events-none shadow-2xs">
             {book.status === 'finished' ? (
               <span className="text-emerald-400 font-bold">✓ 已读完</span>
             ) : pct > 0 ? (
@@ -158,7 +158,7 @@ const BookCardOverlays: React.FC<{
 }> = ({ book, isImporting, isError, importPct, onOpenOrganize, onDeleteBook }) => {
   if (isImporting) {
     return (
-      <div className="absolute inset-0 z-30 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-slate-950/20 flex flex-col justify-between p-2.5">
+      <div className="absolute inset-0 z-20 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-slate-950/20 flex flex-col justify-between p-2.5">
         <div className="flex items-center justify-between">
           <span className="px-2 py-0.5 rounded-full bg-[#1b88ee] text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
             <Loader2 className="w-2.5 h-2.5 animate-spin" /><span>导入中</span>
@@ -186,7 +186,7 @@ const BookCardOverlays: React.FC<{
 
   if (isError) {
     return (
-      <div className="absolute inset-0 z-30 bg-rose-950/88 backdrop-blur-[2px] flex flex-col justify-between p-3 text-white">
+      <div className="absolute inset-0 z-20 bg-rose-950/88 backdrop-blur-[2px] flex flex-col justify-between p-3 text-white">
         <div className="flex items-center justify-between">
           <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" /><span>导入失败</span>
@@ -215,7 +215,7 @@ const BookCardOverlays: React.FC<{
   return (
     <button
       type="button" onClick={(e) => { e.stopPropagation(); onOpenOrganize(e, book) }} title="分组与图书管理"
-      className="absolute top-2 right-2 z-30 w-7 h-7 rounded-full bg-black/40 hover:bg-black/65 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-black/40 hover:bg-black/65 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
     >
       <MoreHorizontal className="w-4 h-4" />
     </button>

@@ -62,13 +62,19 @@ export const OrganizeBookModal: React.FC<OrganizeBookModalProps> = ({
   }
 
   return (
-    <BottomSheet isOpen={true} onClose={onClose} title={`管理《${book.title}》`} maxWidthClass="md:max-w-md">
-      <form onSubmit={handleSubmit} className="space-y-4 pt-1 pb-2 select-none">
+    <BottomSheet
+      isOpen={true}
+      onClose={onClose}
+      title={`管理《${book.title}》`}
+      maxWidthClass="md:max-w-md"
+      contentClassName="px-5 py-4"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4 select-none">
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">所属阅读书库</label>
           <select
             value={libraryId} onChange={(e) => setLibraryId(e.target.value)}
-            className="w-full px-3 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1b88ee]/20 focus:border-[#1b88ee]"
+            className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1b88ee]/20 focus:border-[#1b88ee] transition-all"
           >
             {libraries.map((lib) => (
               <option key={lib.id} value={lib.id}>{lib.icon || '📚'} {lib.name}</option>

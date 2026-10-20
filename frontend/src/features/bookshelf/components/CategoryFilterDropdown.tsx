@@ -74,8 +74,8 @@ export const CategoryFilterDropdown: React.FC<CategoryFilterDropdownProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-48 sm:w-52 max-h-64 overflow-y-auto rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+        <div className="absolute left-0 mt-2 w-52 sm:w-56 max-h-72 overflow-y-auto rounded-2xl bg-white border border-slate-200 shadow-2xl ring-1 ring-black/5 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+          <div className="px-3.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
             书籍标签分类
           </div>
 
@@ -85,7 +85,7 @@ export const CategoryFilterDropdown: React.FC<CategoryFilterDropdownProps> = ({
               onSelectCategory('all')
               setIsOpen(false)
             }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left cursor-pointer transition-colors ${
+            className={`w-full flex items-center justify-between px-3.5 py-2 text-xs text-left cursor-pointer transition-colors ${
               activeCategory === 'all'
                 ? 'bg-[#1b88ee]/10 text-[#1b88ee] font-bold'
                 : 'text-slate-700 hover:bg-slate-50'
@@ -105,7 +105,7 @@ export const CategoryFilterDropdown: React.FC<CategoryFilterDropdownProps> = ({
                   onSelectCategory(cat)
                   setIsOpen(false)
                 }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left cursor-pointer transition-colors ${
+                className={`w-full flex items-center justify-between px-3.5 py-2 text-xs text-left cursor-pointer transition-colors ${
                   isSelected
                     ? 'bg-[#1b88ee]/10 text-[#1b88ee] font-bold'
                     : 'text-slate-700 hover:bg-slate-50'

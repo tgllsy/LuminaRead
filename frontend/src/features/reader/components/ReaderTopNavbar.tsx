@@ -160,8 +160,8 @@ const MobileMoreToolsSheet: React.FC<{
   const isVariantActive = Boolean(variant && variant !== 'original')
   const cardCls = isDark ? 'bg-[#2c2c2e]/90 border-white/10 text-[#f2f2f7]' : 'bg-slate-100/90 border-slate-200/80 text-slate-800'
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="阅读工具与视图选项" isDark={isDark}>
-      <div className="grid grid-cols-2 gap-2.5 pb-2">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="阅读工具与视图选项" isDark={isDark} contentClassName="p-4">
+      <div className="grid grid-cols-2 gap-2.5">
         <button type="button" onClick={() => { onClose(); onAddBookmark() }} className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all cursor-pointer active:scale-[0.97] ${cardCls}`}>
           <BookmarkPlus className="w-4 h-4 text-[#1b88ee] shrink-0" />
           <div className="min-w-0"><div className="text-xs font-bold truncate">添加书签</div><div className="text-[10px] opacity-60 truncate">标记当前阅读段落</div></div>

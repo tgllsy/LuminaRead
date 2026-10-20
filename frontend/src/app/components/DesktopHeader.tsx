@@ -71,7 +71,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   onTriggerUpload,
 }) => {
   return (
-    <header className="hidden md:flex sticky top-0 z-30 liquid-glass border-b-[0.5px] border-slate-200/80 px-6 xl:px-10 h-16 items-center justify-between select-none">
+    <header className="hidden md:flex sticky top-0 z-40 liquid-glass border-b-[0.5px] border-slate-200/80 px-6 xl:px-10 h-16 items-center justify-between select-none">
       <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between gap-3 lg:gap-5">
         <DesktopBrandAndNav activePage={activePage} onSelectPage={onSelectPage} />
 
