@@ -52,7 +52,7 @@ async function uploadSingleFile(
       const start = i * chunkSize
       const blob = file.slice(start, Math.min(file.size, start + chunkSize))
       const updated = await withRetry(() =>
-        bookshelfApi.uploadBookChunk(initialBook.id, i, totalChunks, blob)
+        bookshelfApi.uploadBookChunk(initialBook.id, i, totalChunks, blob, start)
       )
       const pct = Math.min(80, Math.round(((i + 1) / totalChunks) * 80))
       onChunkProgress(

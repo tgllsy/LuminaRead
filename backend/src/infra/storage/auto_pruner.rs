@@ -61,9 +61,9 @@ pub fn prune_directory(dir: &Path, max_bytes: u64, max_age: Duration) -> u64 {
             .map(|age| age > max_age)
             .unwrap_or(false);
 
+        let is_meta = entry.path.file_name().and_then(|n| n.to_str()) == Some("meta.json");
         let over_capacity = total_size > max_bytes && (total_size.saturating_sub(reclaimed)) > target_size;
-
-        if is_expired || over_capacity {
+        if !is_meta && (is_expired || over_capacity) {
             if fs::remove_file(&entry.path).is_ok() {
                 reclaimed += entry.size;
                 if let Some(parent) = entry.path.parent() {
@@ -83,18 +83,27 @@ async fn sync_pruned_tts_cache_records(config: &AppConfig) {
     if let Ok(db) = DbContext::new(&config.db_path) {
         let _ = db
             .interact(|conn| {
-                let mut stmt = conn.prepare("SELECT cache_key, file_path FROM tts_audio_cache")?;
-                let rows: Vec<(String, String)> = stmt
-                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-                    .filter_map(|r| r.ok())
-                    .collect();
-                for (cache_key, file_path) in rows {
-                    if !Path::new(&file_path).exists() {
-                        let _ = conn.execute(
+                let to_delete: Vec<String> = {
+                    let mut stmt = conn.prepare("SELECT cache_key, file_path FROM tts_audio_cache")?;
+                    let rows: Vec<(String, String)> = stmt
+                        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                        .filter_map(|r| r.ok())
+                        .collect();
+                    rows.into_iter()
+                        .filter(|(_, p)| !Path::new(p).exists())
+                        .map(|(k, _)| k)
+                        .collect()
+                };
+
+                if !to_delete.is_empty() {
+                    let tx = conn.transaction()?;
+                    for cache_key in to_delete {
+                        let _ = tx.execute(
                             "DELETE FROM tts_audio_cache WHERE cache_key = ?",
                             rusqlite::params![cache_key],
                         );
                     }
+                    tx.commit()?;
                 }
                 Ok(())
             })

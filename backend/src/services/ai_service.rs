@@ -433,14 +433,17 @@ pub async fn translate_chapter_paragraphs(db: &DbContext, paragraphs: &[String])
             let now_str = chrono::Utc::now().to_rfc3339();
             let _ = db
                 .interact(move |conn| {
-                    if let Ok(mut stmt) = conn.prepare(
-                        "INSERT OR REPLACE INTO translation_cache (source_hash, source_text, target_lang, translated_text, created_at)
-                         VALUES (?, ?, ?, ?, ?)",
-                    ) {
+                    let tx = conn.transaction()?;
+                    {
+                        let mut stmt = tx.prepare(
+                            "INSERT OR REPLACE INTO translation_cache (source_hash, source_text, target_lang, translated_text, created_at)
+                             VALUES (?, ?, ?, ?, ?)",
+                        )?;
                         for (h, s, tl, tr) in new_cache_rows {
                             let _ = stmt.execute(rusqlite::params![h, s, tl, tr, &now_str]);
                         }
                     }
+                    tx.commit()?;
                     Ok(())
                 })
                 .await;
@@ -490,14 +493,17 @@ pub async fn translate_chapter_paragraphs(db: &DbContext, paragraphs: &[String])
                                 .collect();
                             let _ = db_bg
                                 .interact(move |conn| {
-                                    if let Ok(mut stmt) = conn.prepare(
-                                        "INSERT OR REPLACE INTO translation_cache (source_hash, source_text, target_lang, translated_text, created_at)
-                                         VALUES (?, ?, ?, ?, ?)",
-                                    ) {
+                                    let tx = conn.transaction()?;
+                                    {
+                                        let mut stmt = tx.prepare(
+                                            "INSERT OR REPLACE INTO translation_cache (source_hash, source_text, target_lang, translated_text, created_at)
+                                             VALUES (?, ?, ?, ?, ?)",
+                                        )?;
                                         for (h, s, tl, tr) in rows {
                                             let _ = stmt.execute(rusqlite::params![h, s, tl, tr, &now_str]);
                                         }
                                     }
+                                    tx.commit()?;
                                     Ok(())
                                 })
                                 .await;

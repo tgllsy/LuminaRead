@@ -85,6 +85,7 @@ pub struct UploadChunkQuery {
     pub chunk_index: Option<i64>,
     #[serde(alias = "totalChunks")]
     pub total_chunks: Option<i64>,
+    pub offset: Option<u64>,
 }
 
 pub async fn upload_chunk(
@@ -105,7 +106,10 @@ pub async fn upload_chunk(
         .or_else(|| headers.get("x-total-chunks").and_then(|v| v.to_str().ok()).and_then(|s| s.parse().ok()))
         .unwrap_or(1);
 
-    let res = state.book_service.append_chunk(&book_id, chunk_index, total_chunks, body.to_vec()).await?;
+    let offset = query.offset
+        .or_else(|| headers.get("x-chunk-offset").and_then(|v| v.to_str().ok()).and_then(|s| s.parse().ok()));
+
+    let res = state.book_service.append_chunk(&book_id, chunk_index, total_chunks, body.to_vec(), offset).await?;
     Ok(Json(res))
 }
 

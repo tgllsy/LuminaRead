@@ -52,11 +52,16 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
   onHeightReport,
   itemRef,
 }) => {
-  const [renderedDataUrl, setRenderedDataUrl] = useState<string | null>(null)
   const isDouble = !isContinuous && pdfSpreadMode === 'double'
 
   const handleLightbox = () => {
-    const url = renderedDataUrl || `/api/books/${encodeURIComponent(book.id)}/file`
+    const canvas = document.querySelector<HTMLCanvasElement>(`#pdf-page-${pNum} canvas`)
+    let url = `/api/books/${encodeURIComponent(book.id)}/file`
+    if (canvas) {
+      try {
+        url = canvas.toDataURL('image/jpeg', 0.9)
+      } catch {}
+    }
     onOpenLightbox(url, `《${book.title}》 · 第 ${pNum} 页`, pNum)
   }
 
@@ -117,8 +122,7 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
           fitMode={fitMode}
           isDouble={isDouble}
           pdfFilterStyle={pdfFilterStyle}
-          onRenderSuccess={(dataUrl) => {
-            setRenderedDataUrl(dataUrl)
+          onRenderSuccess={() => {
             const el = document.getElementById(`pdf-page-${pNum}`)
             if (el && el.clientHeight > 50) {
               onHeightReport?.(pNum, el.clientHeight)

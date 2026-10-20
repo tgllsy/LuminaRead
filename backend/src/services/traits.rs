@@ -65,7 +65,7 @@ pub trait BookService: Send + Sync {
     async fn get_pdf_page(&self, id: &str, page: usize) -> AppResult<Value>;
     async fn upload_book_raw(&self, filename: String, raw_bytes: Vec<u8>, author: Option<String>, category: Option<String>, lib_id: Option<String>) -> AppResult<Value>;
     async fn init_chunk_upload(&self, filename: String, file_size: i64, author: Option<String>, category: Option<String>, lib_id: Option<String>) -> AppResult<Value>;
-    async fn append_chunk(&self, book_id: &str, chunk_index: i64, total_chunks: i64, chunk: Vec<u8>) -> AppResult<Value>;
+    async fn append_chunk(&self, book_id: &str, chunk_index: i64, total_chunks: i64, chunk: Vec<u8>, offset: Option<u64>) -> AppResult<Value>;
     async fn complete_upload(&self, book_id: &str) -> AppResult<Value>;
     async fn fail_upload(&self, book_id: &str, error: &str) -> AppResult<()>;
     async fn get_stats_overview(&self) -> AppResult<Value>;

@@ -12,6 +12,7 @@ pub struct AppState {
     pub ai_service: Arc<dyn AiService>,
     pub tts_service: Arc<dyn TtsService>,
     pub discovery_service: Arc<dyn DiscoveryService>,
+    pub db: DbContext,
     pub config: AppConfig,
 }
 
@@ -29,7 +30,7 @@ impl AppState {
         let library_service = Arc::new(LibraryServiceImpl::new(Arc::clone(&library_repo), config.clone()));
         let ai_service = Arc::new(AiServiceImpl::new(db.clone(), Arc::clone(&conv_repo), Arc::clone(&book_repo)));
         let tts_service = Arc::new(TtsServiceImpl::new(db.clone(), config.clone()));
-        let discovery_service = Arc::new(DiscoveryServiceImpl::new(db, Arc::clone(&search_repo), Arc::clone(&source_repo), Arc::clone(&book_repo), config.clone()));
+        let discovery_service = Arc::new(DiscoveryServiceImpl::new(db.clone(), Arc::clone(&search_repo), Arc::clone(&source_repo), Arc::clone(&book_repo), config.clone()));
 
         Self {
             book_service,
@@ -38,6 +39,7 @@ impl AppState {
             ai_service,
             tts_service,
             discovery_service,
+            db,
             config,
         }
     }

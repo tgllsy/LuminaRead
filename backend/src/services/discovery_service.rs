@@ -325,50 +325,86 @@ fn is_safe_external_url(raw_url: &str) -> bool {
     true
 }
 
+static SHARED_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn get_shared_http_client() -> &'static reqwest::Client {
+    SHARED_HTTP_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .connect_timeout(std::time::Duration::from_secs(6))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+            .build()
+            .unwrap_or_default()
+    })
+}
+
+async fn stream_response_capped(mut resp: reqwest::Response, max_bytes: usize) -> Option<Vec<u8>> {
+    let mut buf = Vec::new();
+    while let Ok(Some(chunk)) = resp.chunk().await {
+        if buf.len() + chunk.len() > max_bytes {
+            return None;
+        }
+        buf.extend_from_slice(&chunk);
+    }
+    if buf.is_empty() {
+        None
+    } else {
+        Some(buf)
+    }
+}
+
 async fn http_fetch_bytes(url: &str, proxy: &str, timeout_sec: u64) -> Option<Vec<u8>> {
     if !is_safe_external_url(url) {
         return None;
     }
     let clean_proxy = proxy.trim();
-    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+    let max_bytes = 250 * 1024 * 1024; // 250MB hard limit
 
-    let mut builder = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(timeout_sec))
-        .connect_timeout(std::time::Duration::from_secs(6))
-        .user_agent(user_agent);
-
-    if !clean_proxy.is_empty() {
-        if let Ok(p) = reqwest::Proxy::all(clean_proxy) {
-            builder = builder.proxy(p);
-        }
-    }
-
-    if let Ok(client) = builder.build() {
+    if clean_proxy.is_empty() && timeout_sec <= 60 {
+        let client = get_shared_http_client();
         if let Ok(resp) = client.get(url).send().await {
             if resp.status().is_success() {
-                if let Ok(bytes) = resp.bytes().await {
-                    if !bytes.is_empty() {
-                        return Some(bytes.to_vec());
+                if let Some(bytes) = stream_response_capped(resp, max_bytes).await {
+                    return Some(bytes);
+                }
+            }
+        }
+    } else {
+        let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+        let mut builder = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(timeout_sec))
+            .connect_timeout(std::time::Duration::from_secs(6))
+            .user_agent(user_agent);
+
+        if !clean_proxy.is_empty() {
+            if let Ok(p) = reqwest::Proxy::all(clean_proxy) {
+                builder = builder.proxy(p);
+            }
+        }
+
+        if let Ok(client) = builder.build() {
+            if let Ok(resp) = client.get(url).send().await {
+                if resp.status().is_success() {
+                    if let Some(bytes) = stream_response_capped(resp, max_bytes).await {
+                        return Some(bytes);
                     }
                 }
             }
         }
-    }
 
-    // Direct connection fallback if proxy was configured but failed
-    if !clean_proxy.is_empty() {
-        let direct_builder = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(timeout_sec.min(15)))
-            .connect_timeout(std::time::Duration::from_secs(5))
-            .user_agent(user_agent)
-            .no_proxy();
+        // Direct connection fallback if proxy was configured but failed
+        if !clean_proxy.is_empty() {
+            let direct_builder = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(timeout_sec.min(15)))
+                .connect_timeout(std::time::Duration::from_secs(5))
+                .user_agent(user_agent)
+                .no_proxy();
 
-        if let Ok(client) = direct_builder.build() {
-            if let Ok(resp) = client.get(url).send().await {
-                if resp.status().is_success() {
-                    if let Ok(bytes) = resp.bytes().await {
-                        if !bytes.is_empty() {
-                            return Some(bytes.to_vec());
+            if let Ok(client) = direct_builder.build() {
+                if let Ok(resp) = client.get(url).send().await {
+                    if resp.status().is_success() {
+                        if let Some(bytes) = stream_response_capped(resp, max_bytes).await {
+                            return Some(bytes);
                         }
                     }
                 }
@@ -1549,6 +1585,15 @@ impl DiscoveryService for DiscoveryServiceImpl {
 
             if !merged.is_empty() {
                 if let Ok(mut guard) = get_search_cache().lock() {
+                    if guard.len() >= 100 {
+                        let cutoff = Instant::now() - std::time::Duration::from_secs(600);
+                        guard.retain(|_, (ts, _)| *ts > cutoff);
+                        if guard.len() >= 100 {
+                            if let Some(oldest_k) = guard.iter().min_by_key(|(_, (ts, _))| *ts).map(|(k, _)| k.clone()) {
+                                guard.remove(&oldest_k);
+                            }
+                        }
+                    }
                     guard.insert(cache_key, (Instant::now(), merged.clone()));
                 }
             }
@@ -2054,10 +2099,10 @@ impl DiscoveryService for DiscoveryServiceImpl {
 
         if effective_format == "pdf" {
             let pdf_dir = self.config.pdf_cache_dir.join(&book_id);
-            if std::fs::create_dir_all(&pdf_dir).is_ok() {
+            if tokio::fs::create_dir_all(&pdf_dir).await.is_ok() {
                 let meta = crate::infra::parser::pdf::build_pdf_meta_json(&book_id, &final_chapters);
                 if let Ok(s) = serde_json::to_string_pretty(&meta) {
-                    let _ = std::fs::write(pdf_dir.join("meta.json"), s);
+                    let _ = tokio::fs::write(pdf_dir.join("meta.json"), s).await;
                 }
             }
         }
@@ -2097,29 +2142,35 @@ impl DiscoveryService for DiscoveryServiceImpl {
                 .unwrap_or(&clean_title),
         );
         if final_chapters.len() > 2 {
-            let _ = self
+            let norm_target = norm_new_title.clone();
+            let matching_ids: Vec<String> = self
                 .db
                 .interact(move |conn| {
-                    if let Ok(mut stmt) = conn.prepare(
-                        "SELECT id, title, word_count FROM books WHERE id LIKE 'book_dl_%' AND word_count < 500",
-                    ) {
-                        let rows: Vec<(String, String)> = stmt
-                            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-                            .ok()
-                            .map(|it| it.filter_map(Result::ok).collect())
-                            .unwrap_or_default();
-                        for (old_id, old_t) in rows {
+                    let mut stmt = conn.prepare(
+                        "SELECT id, title FROM books WHERE id LIKE 'book_dl_%' AND word_count < 500",
+                    )?;
+                    let rows: Vec<(String, String)> = stmt
+                        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+                        .filter_map(Result::ok)
+                        .collect();
+                    let ids = rows
+                        .into_iter()
+                        .filter(|(_, old_t)| {
                             let norm_old = normalize_for_match(
-                                old_t.replace(['《', '》'], "").split(['（', '(']).next().unwrap_or(&old_t),
+                                old_t.replace(['《', '》'], "").split(['（', '(']).next().unwrap_or(old_t),
                             );
-                            if norm_old == norm_new_title {
-                                let _ = conn.execute("DELETE FROM books WHERE id = ?", rusqlite::params![old_id]);
-                            }
-                        }
-                    }
-                    Ok(())
+                            norm_old == norm_target
+                        })
+                        .map(|(id, _)| id)
+                        .collect();
+                    Ok(ids)
                 })
-                .await;
+                .await
+                .unwrap_or_default();
+
+            for old_id in matching_ids {
+                let _ = self.book_repo.delete(&old_id).await;
+            }
         }
 
         let task = DownloadTask {

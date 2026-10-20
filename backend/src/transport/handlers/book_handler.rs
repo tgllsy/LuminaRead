@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use serde_json::Value;
 use crate::domain::entities::book::Book;
@@ -104,12 +105,13 @@ pub async fn get_pdf_page(
     let _ = tokio::fs::create_dir_all(&book_dir).await;
     let jpg_path = book_dir.join(format!("page_{}.jpg", page));
 
-    if !jpg_path.exists() {
+    if !jpg_path.exists() && crate::infra::parser::pdf::has_pdftoppm() {
         if let Ok(book) = state.book_service.get_book_details(&id).await {
             if !book.file_path.is_empty() && std::path::Path::new(&book.file_path).exists() {
-                let prefix = book_dir.join(format!("page_{}", page));
-                if let Some(prefix_str) = prefix.to_str() {
-                    let _ = tokio::process::Command::new("pdftoppm")
+                let nonce = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
+                let tmp_prefix = book_dir.join(format!(".tmp_page_{}_{}", page, nonce));
+                if let Some(prefix_str) = tmp_prefix.to_str() {
+                    let status = tokio::process::Command::new("pdftoppm")
                         .args([
                             "-jpeg",
                             "-r",
@@ -122,8 +124,14 @@ pub async fn get_pdf_page(
                             &book.file_path,
                             prefix_str,
                         ])
-                        .output()
+                        .status()
                         .await;
+                    if let Ok(st) = status {
+                        if st.success() {
+                            let tmp_jpg = PathBuf::from(format!("{}.jpg", prefix_str));
+                            let _ = tokio::fs::rename(tmp_jpg, &jpg_path).await;
+                        }
+                    }
                 }
             }
         }
@@ -143,99 +151,7 @@ pub async fn get_pdf_page(
         }
     }
 
-    let page_info = state.book_service.get_pdf_page(&id, page).await.unwrap_or_else(|_| {
-        serde_json::json!({
-            "title": "PDF 文档",
-            "page": page,
-            "total_pages": 1,
-            "text": ""
-        })
-    });
-    let title = page_info.get("title").and_then(|v| v.as_str()).unwrap_or("PDF 文档");
-    let total_pages = page_info.get("total_pages").and_then(|v| v.as_i64()).unwrap_or(1);
-    let text = page_info.get("text").and_then(|v| v.as_str()).unwrap_or("");
-    let svg_bytes = render_pdf_page_svg(title, page, total_pages as usize, text);
-
-    (
-        StatusCode::OK,
-        [
-            (header::CONTENT_TYPE, "image/svg+xml; charset=utf-8"),
-            (header::CACHE_CONTROL, "public, max-age=3600"),
-        ],
-        svg_bytes,
-    )
-        .into_response()
-}
-
-fn xml_escape(input: &str) -> String {
-    input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
-}
-
-fn render_pdf_page_svg(title: &str, page: usize, total_pages: usize, text: &str) -> Vec<u8> {
-    let mut wrapped_lines: Vec<String> = Vec::new();
-    for para in text.lines() {
-        let trimmed = para.trim();
-        if trimmed.is_empty() {
-            if !wrapped_lines.last().map(|s| s.is_empty()).unwrap_or(true) {
-                wrapped_lines.push(String::new());
-            }
-            continue;
-        }
-        let chars: Vec<char> = trimmed.chars().collect();
-        let mut idx = 0;
-        while idx < chars.len() {
-            let end = (idx + 34).min(chars.len());
-            let line_str: String = chars[idx..end].iter().collect();
-            wrapped_lines.push(line_str);
-            idx = end;
-            if wrapped_lines.len() >= 28 {
-                break;
-            }
-        }
-        if wrapped_lines.len() >= 28 {
-            break;
-        }
-    }
-
-    let mut text_nodes = String::new();
-    let mut y = 135;
-    for line in wrapped_lines {
-        if line.is_empty() {
-            y += 14;
-            continue;
-        }
-        text_nodes.push_str(&format!(
-            r##"<text x="64" y="{}" font-family="system-ui, -apple-system, 'Noto Serif SC', serif" font-size="18" fill="#1e293b">{}</text>"##,
-            y,
-            xml_escape(&line)
-        ));
-        y += 30;
-    }
-
-    if text_nodes.trim().is_empty() {
-        text_nodes = r##"<rect x="200" y="480" width="400" height="100" rx="16" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 4"/>
-  <text x="400" y="528" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#475569">原版影印扫描页面</text>
-  <text x="400" y="556" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#94a3b8">请在阅读器中开启【原版书页】高保真浏览</text>"##.to_string();
-    }
-
-    let safe_title = xml_escape(title);
-    let svg = format!(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1120" viewBox="0 0 800 1120">
-  <rect width="800" height="1120" fill="#ffffff"/>
-  <rect x="24" y="24" width="752" height="1072" rx="8" fill="#fcfaf5" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="64" y="68" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#64748b">{safe_title}</text>
-  <text x="736" y="68" text-anchor="end" font-family="monospace" font-size="13" fill="#94a3b8">Page {page} / {total_pages}</text>
-  <line x1="64" y1="84" x2="736" y2="84" stroke="#e2e8f0" stroke-width="1"/>
-  {text_nodes}
-  <text x="400" y="1064" text-anchor="middle" font-family="monospace" font-size="13" fill="#94a3b8">— {page} —</text>
-</svg>"##
-    );
-    svg.into_bytes()
+    StatusCode::NOT_FOUND.into_response()
 }
 
 pub async fn reparse_book(

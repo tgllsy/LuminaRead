@@ -2,7 +2,24 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process::Command;
+use std::sync::OnceLock;
 use crate::infra::parser::epub::ParsedBook;
+
+static HAS_PDFINFO: OnceLock<bool> = OnceLock::new();
+static HAS_PDFTOPPM: OnceLock<bool> = OnceLock::new();
+static HAS_PDFTOTEXT: OnceLock<bool> = OnceLock::new();
+
+pub fn has_pdfinfo() -> bool {
+    *HAS_PDFINFO.get_or_init(|| Command::new("pdfinfo").arg("-v").output().is_ok())
+}
+
+pub fn has_pdftoppm() -> bool {
+    *HAS_PDFTOPPM.get_or_init(|| Command::new("pdftoppm").arg("-v").output().is_ok())
+}
+
+pub fn has_pdftotext() -> bool {
+    *HAS_PDFTOTEXT.get_or_init(|| Command::new("pdftotext").arg("-v").output().is_ok())
+}
 
 pub fn parse_pdf(
     file_path: &Path,
@@ -294,18 +311,20 @@ fn extract_pdf_meta_streamed(file_path: &Path) -> (Option<String>, Option<String
     let mut pages = 0usize;
 
     // 1. Try fast CLI pdfinfo
-    if let Ok(output) = Command::new("pdfinfo").arg(file_path).output() {
-        if output.status.success() {
-            let info_str = String::from_utf8_lossy(&output.stdout);
-            for line in info_str.lines() {
-                if let Some(rest) = line.strip_prefix("Title:") {
-                    let t = rest.trim();
-                    if !t.is_empty() { title = Some(t.to_string()); }
-                } else if let Some(rest) = line.strip_prefix("Author:") {
-                    let a = rest.trim();
-                    if !a.is_empty() { author = Some(a.to_string()); }
-                } else if let Some(rest) = line.strip_prefix("Pages:") {
-                    if let Ok(n) = rest.trim().parse::<usize>() { pages = n; }
+    if has_pdfinfo() {
+        if let Ok(output) = Command::new("pdfinfo").arg(file_path).output() {
+            if output.status.success() {
+                let info_str = String::from_utf8_lossy(&output.stdout);
+                for line in info_str.lines() {
+                    if let Some(rest) = line.strip_prefix("Title:") {
+                        let t = rest.trim();
+                        if !t.is_empty() { title = Some(t.to_string()); }
+                    } else if let Some(rest) = line.strip_prefix("Author:") {
+                        let a = rest.trim();
+                        if !a.is_empty() { author = Some(a.to_string()); }
+                    } else if let Some(rest) = line.strip_prefix("Pages:") {
+                        if let Ok(n) = rest.trim().parse::<usize>() { pages = n; }
+                    }
                 }
             }
         }
@@ -341,6 +360,9 @@ fn extract_pdf_meta_streamed(file_path: &Path) -> (Option<String>, Option<String
 }
 
 pub fn extract_pages_with_pdftotext(file_path: &Path) -> Vec<String> {
+    if !has_pdftotext() {
+        return Vec::new();
+    }
     let output = match Command::new("pdftotext")
         .arg("-enc")
         .arg("UTF-8")
@@ -361,6 +383,9 @@ pub fn extract_pages_with_pdftotext(file_path: &Path) -> Vec<String> {
 }
 
 fn extract_pdf_cover_first_page(file_path: &Path, covers_dir: &Path) -> Option<String> {
+    if !has_pdftoppm() {
+        return None;
+    }
     let _ = std::fs::create_dir_all(covers_dir);
     let cover_prefix_name = format!("cover_pdf_{}", chrono::Utc::now().timestamp_millis());
     let prefix = covers_dir.join(&cover_prefix_name);

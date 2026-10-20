@@ -101,7 +101,7 @@ impl UploadService {
 
         self.repo.save(&book, &chapters_json).await?;
         if book.format.as_str() == "pdf" {
-            self.write_pdf_meta_cache(&book_id, &book.title, &parsed.chapters);
+            self.write_pdf_meta_cache(&book_id, &book.title, &parsed.chapters).await;
         }
 
         let repo_bg = Arc::clone(&self.repo);
@@ -144,6 +144,23 @@ impl UploadService {
         let final_author = author.filter(|a| !a.trim().is_empty()).unwrap_or(inferred_author);
 
         let safe_book_id = make_safe_book_id(&title);
+
+        // 清理超期未完成（如超过30分钟）的僵尸导入记录与残留文件
+        if let Ok(old_books) = self.repo.list(&crate::domain::traits::BookFilter::default()).await {
+            let now_ts = Local::now().timestamp_millis();
+            for b in old_books {
+                if b.status == BookStatus::Importing {
+                    if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&b.created_at) {
+                        if now_ts - created.timestamp_millis() > 30 * 60 * 1000 {
+                            if !b.file_path.is_empty() {
+                                let _ = tokio::fs::remove_file(&b.file_path).await;
+                            }
+                            let _ = self.repo.delete(&b.id).await;
+                        }
+                    }
+                }
+            }
+        }
 
         let saved_path = self.config.books_dir.join(format!("{}.{}", safe_book_id, ext));
         tokio::fs::write(&saved_path, b"").await.map_err(InfraError::Io)?;
@@ -188,6 +205,7 @@ impl UploadService {
         chunk_index: i64,
         total_chunks: i64,
         chunk: Vec<u8>,
+        explicit_offset: Option<u64>,
     ) -> AppResult<Value> {
         let book = self.repo.find_by_id(book_id).await?.ok_or_else(|| DomainError::BookNotFound(book_id.to_string()))?;
         let path = PathBuf::from(&book.file_path);
@@ -201,7 +219,15 @@ impl UploadService {
 
         let current_len = file.metadata().await.map(|m| m.len()).unwrap_or(0);
         let chunk_len = chunk.len() as u64;
-        let offset = if chunk_index <= 0 {
+        let offset = if let Some(off) = explicit_offset {
+            if off > current_len {
+                return Err(DomainError::ValidationError(format!(
+                    "分片乱序到达：期望偏移量 <= {}，实际为 {}",
+                    current_len, off
+                )).into());
+            }
+            off
+        } else if chunk_index <= 0 {
             if current_len > 0 {
                 let _ = file.set_len(0).await;
             }
@@ -321,7 +347,7 @@ impl UploadService {
 
             if updated.format.as_str() == "pdf" {
                 let dir = config_clone.pdf_cache_dir.join(&bid_owned);
-                if std::fs::create_dir_all(&dir).is_ok() {
+                if tokio::fs::create_dir_all(&dir).await.is_ok() {
                     let mut meta = crate::infra::parser::pdf::build_pdf_meta_json(&bid_owned, &parsed.chapters);
                     if let Some(obj) = meta.as_object_mut() {
                         obj.insert("title".to_string(), Value::String(updated.title.clone()));
@@ -331,7 +357,7 @@ impl UploadService {
                         }
                     }
                     if let Ok(json_str) = serde_json::to_string_pretty(&meta) {
-                        let _ = std::fs::write(dir.join("meta.json"), json_str);
+                        let _ = tokio::fs::write(dir.join("meta.json"), json_str).await;
                     }
                 }
             }
@@ -375,9 +401,9 @@ impl UploadService {
         self.repo.update_import_status(book_id, 0, "导入失败", "failed", error).await
     }
 
-    fn write_pdf_meta_cache(&self, book_id: &str, title: &str, chapters: &[Value]) {
+    async fn write_pdf_meta_cache(&self, book_id: &str, title: &str, chapters: &[Value]) {
         let dir = self.config.pdf_cache_dir.join(book_id);
-        if std::fs::create_dir_all(&dir).is_ok() {
+        if tokio::fs::create_dir_all(&dir).await.is_ok() {
             let mut meta = crate::infra::parser::pdf::build_pdf_meta_json(book_id, chapters);
             if let Some(obj) = meta.as_object_mut() {
                 obj.insert("title".to_string(), Value::String(title.to_string()));
@@ -387,7 +413,7 @@ impl UploadService {
                 }
             }
             if let Ok(json_str) = serde_json::to_string_pretty(&meta) {
-                let _ = std::fs::write(dir.join("meta.json"), json_str);
+                let _ = tokio::fs::write(dir.join("meta.json"), json_str).await;
             }
         }
     }

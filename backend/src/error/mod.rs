@@ -24,6 +24,8 @@ pub enum DomainError {
     ValidationError(String),
     #[error("实体冲突已存在: {0}")]
     Conflict(String),
+    #[error("未授权访问: {0}")]
+    Unauthorized(String),
 }
 
 #[derive(Debug, Error)]
@@ -82,6 +84,9 @@ impl IntoResponse for AppError {
             }
             AppError::Domain(DomainError::Conflict(msg)) => {
                 (StatusCode::CONFLICT, "ENTITY_CONFLICT", msg.clone())
+            }
+            AppError::Domain(DomainError::Unauthorized(msg)) => {
+                (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg.clone())
             }
             AppError::Infra(err) => {
                 tracing::error!(target: "infra_error", error = ?err, "基础设施层故障");

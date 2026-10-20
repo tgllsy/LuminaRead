@@ -511,8 +511,8 @@ impl BookService for BookServiceImpl {
         self.upload_service.init_chunk_upload(filename, file_size, author, category, lib_id).await
     }
 
-    async fn append_chunk(&self, book_id: &str, chunk_index: i64, total_chunks: i64, chunk: Vec<u8>) -> AppResult<Value> {
-        self.upload_service.append_chunk(book_id, chunk_index, total_chunks, chunk).await
+    async fn append_chunk(&self, book_id: &str, chunk_index: i64, total_chunks: i64, chunk: Vec<u8>, offset: Option<u64>) -> AppResult<Value> {
+        self.upload_service.append_chunk(book_id, chunk_index, total_chunks, chunk, offset).await
     }
 
     async fn complete_upload(&self, book_id: &str) -> AppResult<Value> {

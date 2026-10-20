@@ -64,6 +64,17 @@ pub fn parse_epub(file_path: &Path, default_title: &str, default_author: &str, c
     let f = File::open(file_path).map_err(|e| format!("Failed to open EPUB: {}", e))?;
     let mut zip = zip::ZipArchive::new(f).map_err(|e| format!("Invalid EPUB zip: {}", e))?;
 
+    let book_stem = file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("book");
+    let clean_stem: String = book_stem
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .take(16)
+        .collect();
+    let prefix_stem = if clean_stem.is_empty() { "bk" } else { &clean_stem };
+
     let mut title = default_title.to_string();
     let mut author = default_author.to_string();
     let mut description = String::new();
@@ -94,7 +105,13 @@ pub fn parse_epub(file_path: &Path, default_title: &str, default_author: &str, c
                         .chars()
                         .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
                         .collect();
-                    let file_name = format!("epub_img_{}_{}.{}", &hash_hex[..12], if clean_leaf.is_empty() { "fig" } else { &clean_leaf }, ext);
+                    let file_name = format!(
+                        "epub_img_{}_{}_{}.{}",
+                        prefix_stem,
+                        &hash_hex[..12],
+                        if clean_leaf.is_empty() { "fig" } else { &clean_leaf },
+                        ext
+                    );
                     let out_path = covers_dir.join(&file_name);
                     if !out_path.exists() {
                         let _ = std::fs::write(&out_path, &buf);
@@ -291,7 +308,7 @@ pub fn parse_epub(file_path: &Path, default_title: &str, default_author: &str, c
                                     let mut hasher = Sha256::new();
                                     hasher.update(&bytes);
                                     let h = hex::encode(hasher.finalize());
-                                    let fname = format!("epub_b64_{}.png", &h[..12]);
+                                    let fname = format!("epub_b64_{}_{}.png", prefix_stem, &h[..12]);
                                     let p = covers_dir.join(&fname);
                                     let _ = std::fs::write(&p, &bytes);
                                     return Some(format!("/data/covers/{}", fname));

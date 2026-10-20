@@ -67,9 +67,9 @@ export const bookshelfApi = {
     return data.book
   },
 
-  async uploadBookChunk(bookId: string, chunkIndex: number, totalChunks: number, chunkBlob: Blob): Promise<BookSummary | undefined> {
+  async uploadBookChunk(bookId: string, chunkIndex: number, totalChunks: number, chunkBlob: Blob, offset?: number): Promise<BookSummary | undefined> {
     const data = await apiClient.post<BookUploadChunkResponse>('/api/books/upload/chunk', chunkBlob, {
-      params: { book_id: bookId, chunk_index: chunkIndex, total_chunks: totalChunks },
+      params: { book_id: bookId, chunk_index: chunkIndex, total_chunks: totalChunks, offset },
       headers: { 'Content-Type': 'application/octet-stream' },
       timeoutMs: 60000,
     })

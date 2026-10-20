@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -9,6 +9,30 @@ use serde_json::Value;
 use crate::error::AppResult;
 use crate::transport::state::AppState;
 
+pub fn verify_admin_auth(headers: &HeaderMap) -> AppResult<()> {
+    if let Ok(expected) = std::env::var("ADMIN_TOKEN") {
+        let expected = expected.trim();
+        if !expected.is_empty() {
+            let provided = headers
+                .get("x-admin-token")
+                .and_then(|h| h.to_str().ok())
+                .or_else(|| {
+                    headers
+                        .get(header::AUTHORIZATION)
+                        .and_then(|h| h.to_str().ok())
+                        .and_then(|h| h.strip_prefix("Bearer "))
+                });
+            if provided != Some(expected) {
+                return Err(crate::error::DomainError::Unauthorized(
+                    "缺少有效的管理员授权令牌 (ADMIN_TOKEN)".to_string(),
+                )
+                .into());
+            }
+        }
+    }
+    Ok(())
+}
+
 pub async fn get_health(
     State(state): State<AppState>,
 ) -> AppResult<Json<Value>> {
@@ -16,21 +40,24 @@ pub async fn get_health(
     Ok(Json(stats))
 }
 
-pub async fn admin_reload() -> Json<Value> {
+pub async fn admin_reload(headers: HeaderMap) -> AppResult<Json<Value>> {
+    verify_admin_auth(&headers)?;
     let current = crate::config::current_config();
     if current.config_file.exists() {
         let reloaded = crate::config::AppConfig::load();
         crate::config::set_global_config(reloaded);
     }
-    Json(serde_json::json!({
+    Ok(Json(serde_json::json!({
         "ok": true,
         "reloaded_at": Local::now().to_rfc3339()
-    }))
+    })))
 }
 
 pub async fn admin_reparse_all(
+    headers: HeaderMap,
     State(state): State<AppState>,
 ) -> AppResult<Json<Value>> {
+    verify_admin_auth(&headers)?;
     let res = state.book_service.reparse_all_books().await?;
     Ok(Json(res))
 }
@@ -240,12 +267,21 @@ pub async fn get_system_config() -> Json<Value> {
             "request_timeout_secs": cfg.request_timeout_secs,
         },
         "endpoints": cfg.endpoints,
+        "ai": {
+            "api_key": if cfg.ai.api_key.is_empty() { "" } else { "******" },
+            "api_base_url": cfg.ai.api_base_url,
+            "model": cfg.ai.model,
+            "temperature": cfg.ai.temperature,
+            "max_tokens": cfg.ai.max_tokens,
+        },
     }))
 }
 
 pub async fn update_system_config(
+    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> AppResult<Json<Value>> {
+    verify_admin_auth(&headers)?;
     let updated = crate::config::update_global_config(&payload)
         .map_err(crate::error::DomainError::ValidationError)?;
     Ok(Json(serde_json::json!({
@@ -266,13 +302,22 @@ pub async fn update_system_config(
             "request_timeout_secs": updated.request_timeout_secs,
         },
         "endpoints": updated.endpoints,
+        "ai": {
+            "api_key": if updated.ai.api_key.is_empty() { "" } else { "******" },
+            "api_base_url": updated.ai.api_base_url,
+            "model": updated.ai.model,
+            "temperature": updated.ai.temperature,
+            "max_tokens": updated.ai.max_tokens,
+        },
         "updated_at": Local::now().to_rfc3339(),
     })))
 }
 
 pub async fn clear_system_cache(
+    headers: HeaderMap,
     State(state): State<AppState>,
 ) -> AppResult<Json<Value>> {
+    verify_admin_auth(&headers)?;
     let cfg = crate::config::current_config();
     let cfg_clone = cfg.clone();
     let _ = tokio::task::spawn_blocking(move || {
@@ -284,14 +329,13 @@ pub async fn clear_system_cache(
     })
     .await;
 
-    if let Ok(db) = crate::infra::db::DbContext::new(&cfg.db_path) {
-        let _ = db
-            .interact(|conn| {
-                let _ = conn.execute("DELETE FROM tts_audio_cache", []);
-                Ok(())
-            })
-            .await;
-    }
+    let _ = state
+        .db
+        .interact(|conn| {
+            let _ = conn.execute("DELETE FROM tts_audio_cache", []);
+            Ok(())
+        })
+        .await;
 
     let _ = state
         .book_service

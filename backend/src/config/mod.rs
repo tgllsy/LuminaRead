@@ -134,7 +134,7 @@ impl AppConfig {
                 .map(|p| p.join("data").exists() || p.join("config.toml").exists() || p.join("frontend").exists())
                 .unwrap_or(false)
         {
-            cur.parent().unwrap().to_path_buf()
+            cur.parent().unwrap_or(&cur).to_path_buf()
         } else {
             cur
         };
@@ -732,7 +732,11 @@ impl AppConfig {
         if let Some(v) = get_str(ep, "libgen_url") { self.endpoints.libgen_url = v; }
 
         let ai = patch.get("ai").unwrap_or(patch);
-        if let Some(v) = get_str(ai, "api_key") { self.ai.api_key = v; }
+        if let Some(v) = get_str(ai, "api_key") {
+            if v != "******" {
+                self.ai.api_key = v;
+            }
+        }
         if let Some(v) = get_str(ai, "api_base_url") { self.ai.api_base_url = v.trim_end_matches('/').to_string(); }
         if let Some(v) = get_str(ai, "model") { self.ai.model = v; }
         if let Some(v) = ai.get("temperature").and_then(|v| v.as_f64()) { self.ai.temperature = v as f32; }

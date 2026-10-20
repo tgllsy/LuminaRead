@@ -9,7 +9,7 @@ interface PdfCanvasPageProps {
   fitMode: 'page' | 'width'
   isDouble?: boolean
   pdfFilterStyle?: React.CSSProperties
-  onRenderSuccess?: (dataUrl: string) => void
+  onRenderSuccess?: () => void
 }
 
 export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
@@ -85,13 +85,13 @@ export const PdfCanvasPage: React.FC<PdfCanvasPageProps> = ({
         currentRenderTask = page.render(renderContext)
         await currentRenderTask.promise
 
+        try {
+          page.cleanup()
+        } catch {}
+
         if (!cancelled) {
           setLoading(false)
-          if (onRenderSuccess) {
-            try {
-              onRenderSuccess(canvas.toDataURL('image/jpeg', 0.85))
-            } catch {}
-          }
+          onRenderSuccess?.()
         }
       } catch (err: any) {
         if (err?.name === 'RenderingCancelledException' || cancelled) {

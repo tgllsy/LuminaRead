@@ -152,6 +152,17 @@ pub fn parse_mobi(file_path: &Path, default_title: &str, default_author: &str, c
     let mut image_map: HashMap<usize, String> = HashMap::new();
     let mut cover_url = None;
 
+    let book_stem = file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("book");
+    let clean_stem: String = book_stem
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .take(16)
+        .collect();
+    let prefix_stem = if clean_stem.is_empty() { "bk" } else { &clean_stem };
+
     if first_image_index > 0 && first_image_index < records.len() {
         let _ = std::fs::create_dir_all(covers_dir);
         let end_idx = records.len();
@@ -164,7 +175,7 @@ pub fn parse_mobi(file_path: &Path, default_title: &str, default_author: &str, c
                 let mut hasher = Sha256::new();
                 hasher.update(img);
                 let hash_hex = hex::encode(hasher.finalize());
-                let file_name = format!("mobi_img_{}_{}.{}", &hash_hex[..12], rec_idx, ext);
+                let file_name = format!("mobi_img_{}_{}_rec{}.{}", prefix_stem, &hash_hex[..12], rec_idx, ext);
                 let out_path = covers_dir.join(&file_name);
                 if !out_path.exists() {
                     let _ = std::fs::write(&out_path, img);

@@ -3,6 +3,7 @@ import type { BookSummary, UploadAlertItem } from '../types'
 import { bookshelfApi } from '../api'
 import { uploadFilesWithWorkers } from '../helpers/bookUploadPipeline'
 import { invalidateBookCache } from '../../../utils/bookCache'
+import { clearPdfDocumentCache } from '../../reader/helpers/pdfDocumentLoader'
 
 export function useBookOperations(
   onBooksChanged: () => void,
@@ -20,6 +21,7 @@ export function useBookOperations(
       setUploadAlerts((prev) => prev.filter((a) => a.bookId !== bookId))
       onCloseBookTab?.(bookId)
       invalidateBookCache(bookId)
+      clearPdfDocumentCache(bookId)
       await bookshelfApi.deleteBook(bookId)
       await refreshLibraries(); onBooksChanged()
     },

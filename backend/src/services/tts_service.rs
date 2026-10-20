@@ -42,18 +42,19 @@ impl TtsServiceImpl {
     }
 }
 
-fn is_fake_stub_mp3(path: &Path) -> bool {
-    if let Ok(meta) = std::fs::metadata(path) {
+async fn is_fake_stub_mp3(path: &Path) -> bool {
+    if let Ok(meta) = tokio::fs::metadata(path).await {
         if meta.len() < 200 {
             return true;
         }
         if meta.len() == 104_250 {
-            if let Ok(bytes) = std::fs::read(path) {
-                if bytes.len() >= 10
-                    && bytes[0..4] == [0xff, 0xfb, 0x90, 0x64]
-                    && bytes[4..10] == [0, 1, 2, 3, 4, 5]
-                {
-                    return true;
+            if let Ok(mut file) = tokio::fs::File::open(path).await {
+                use tokio::io::AsyncReadExt;
+                let mut buf = [0u8; 10];
+                if file.read_exact(&mut buf).await.is_ok() {
+                    if buf[0..4] == [0xff, 0xfb, 0x90, 0x64] && buf[4..10] == [0, 1, 2, 3, 4, 5] {
+                        return true;
+                    }
                 }
             }
         }
@@ -107,58 +108,6 @@ fn get_silent_mp3_buffer() -> Vec<u8> {
         buf.extend_from_slice(&frame);
     }
     buf
-}
-
-static LAST_TTS_PRUNE: AtomicI64 = AtomicI64::new(0);
-
-fn prune_tts_cache_async(cache_dir: PathBuf, max_bytes: u64) {
-    tokio::task::spawn_blocking(move || {
-        let entries = match std::fs::read_dir(&cache_dir) {
-            Ok(e) => e,
-            Err(_) => return,
-        };
-        let mut files = Vec::new();
-        let mut total_size: u64 = 0;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("mp3") {
-                if let Ok(meta) = entry.metadata() {
-                    let len = meta.len();
-                    total_size += len;
-                    let mtime = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-                    files.push((path, len, mtime));
-                }
-            }
-        }
-        if total_size > max_bytes {
-            files.sort_by_key(|f| f.2);
-            let target_size = (max_bytes as f64 * 0.75) as u64;
-            let mut current = total_size;
-            for (p, size, _) in files {
-                if current <= target_size {
-                    break;
-                }
-                if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
-                    if name.starts_with("silent_guard") {
-                        continue;
-                    }
-                }
-                if std::fs::remove_file(&p).is_ok() {
-                    current = current.saturating_sub(size);
-                }
-            }
-        }
-    });
-}
-
-fn trigger_tts_cache_maintenance(cache_dir: &Path) {
-    let now = chrono::Utc::now().timestamp();
-    let last = LAST_TTS_PRUNE.load(Ordering::Relaxed);
-    if now - last > 600 {
-        LAST_TTS_PRUNE.store(now, Ordering::Relaxed);
-        let dir = cache_dir.to_path_buf();
-        prune_tts_cache_async(dir, 1024 * 1024 * 1024);
-    }
 }
 
 fn strip_citation_markers(input: &str) -> String {
@@ -862,7 +811,7 @@ impl TtsService for TtsServiceImpl {
 
         let mp3_path = self.config.tts_cache_dir.join(format!("{}.mp3", cache_key));
 
-        if mp3_path.exists() && is_fake_stub_mp3(&mp3_path) {
+        if mp3_path.exists() && is_fake_stub_mp3(&mp3_path).await {
             let _ = tokio::fs::remove_file(&mp3_path).await;
         }
 
@@ -884,7 +833,7 @@ impl TtsService for TtsServiceImpl {
 
             if !is_primary {
                 notify.notified().await;
-                is_cached = mp3_path.exists() && !is_fake_stub_mp3(&mp3_path);
+                is_cached = mp3_path.exists() && !is_fake_stub_mp3(&mp3_path).await;
             } else {
                 let chunks = split_text_into_tts_chunks(&normalized, 260);
                 let client = &self.http_client;
@@ -912,7 +861,6 @@ impl TtsService for TtsServiceImpl {
                 if all_chunks_ok && is_valid_mp3_buffer(&combined_mp3) {
                     let _ = tokio::fs::write(&mp3_path, &combined_mp3).await;
                     is_cached = true;
-                    trigger_tts_cache_maintenance(&self.config.tts_cache_dir);
                 } else {
                     // Check if any cached audio for same text_hash and voice exists in tts_audio_cache
                     let fallback_key = self
@@ -936,7 +884,7 @@ impl TtsService for TtsServiceImpl {
 
                     if let Some(fk) = fallback_key {
                         let fk_path = self.config.tts_cache_dir.join(format!("{}.mp3", fk));
-                        if fk_path.exists() && !is_fake_stub_mp3(&fk_path) {
+                        if fk_path.exists() && !is_fake_stub_mp3(&fk_path).await {
                             let _ = tokio::fs::copy(&fk_path, &mp3_path).await;
                             is_cached = true;
                         }
@@ -1058,7 +1006,7 @@ impl TtsService for TtsServiceImpl {
         let cache_key = hex::encode(key_hasher.finalize());
 
         let mp3_path = self.config.tts_cache_dir.join(format!("{}.mp3", cache_key));
-        if mp3_path.exists() && is_fake_stub_mp3(&mp3_path) {
+        if mp3_path.exists() && is_fake_stub_mp3(&mp3_path).await {
             let _ = tokio::fs::remove_file(&mp3_path).await;
         }
 
@@ -1080,7 +1028,7 @@ impl TtsService for TtsServiceImpl {
 
             if !is_primary {
                 notify.notified().await;
-                is_cached = mp3_path.exists() && !is_fake_stub_mp3(&mp3_path);
+                is_cached = mp3_path.exists() && !is_fake_stub_mp3(&mp3_path).await;
             } else {
                 let mut tasks = Vec::new();
                 for seg in &raw_segments {
@@ -1120,7 +1068,6 @@ impl TtsService for TtsServiceImpl {
                 if all_chunks_ok && is_valid_mp3_buffer(&combined_mp3) {
                     let _ = tokio::fs::write(&mp3_path, &combined_mp3).await;
                     is_cached = true;
-                    trigger_tts_cache_maintenance(&self.config.tts_cache_dir);
                 }
 
                 {
@@ -1208,7 +1155,7 @@ impl TtsService for TtsServiceImpl {
             return Ok(None);
         }
         let p = self.config.tts_cache_dir.join(format!("{}.mp3", clean));
-        if p.exists() && !is_fake_stub_mp3(&p) {
+        if p.exists() && !is_fake_stub_mp3(&p).await {
             Ok(Some(p))
         } else {
             Ok(None)
