@@ -185,9 +185,9 @@ export const ReaderArticleCanvas: React.FC<ReaderArticleCanvasProps> = ({
               <div className="flex flex-wrap items-center gap-1.5">
                 {(
                   [
-                    { id: 'hybrid', label: '图文融合' },
+                    { id: 'hybrid', label: '图文重排' },
                     { id: 'page_canvas', label: '原版书页' },
-                    { id: 'text_only', label: '纯文本重排' },
+                    { id: 'text_only', label: '极简纯文本' },
                   ] as const
                 ).map((m) => (
                   <button

@@ -62,7 +62,7 @@ export const PdfMobileControls: React.FC<PdfMobileControlsProps> = ({
           <span
             onClick={(e) => {
               e.stopPropagation()
-              onSwitchPdfMode('text_only')
+              onSwitchPdfMode('hybrid')
             }}
             className="pl-1.5 border-l border-white/20 text-blue-300 font-sans text-[10px]"
           >
@@ -90,10 +90,10 @@ export const PdfMobileControls: React.FC<PdfMobileControlsProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              onSwitchPdfMode('text_only')
+              onSwitchPdfMode('hybrid')
             }}
             className="px-2 py-0.5 rounded-full bg-blue-500/25 hover:bg-blue-500/40 text-blue-300 text-[11px] font-sans font-medium flex items-center gap-1 active:scale-95 transition-all"
-            title="切换到文本重排模式"
+            title="切换到图文融合重排模式"
           >
             <FileText className="w-3 h-3" />
             <span>转重排</span>

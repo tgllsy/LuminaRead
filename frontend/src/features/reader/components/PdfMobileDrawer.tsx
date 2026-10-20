@@ -80,6 +80,21 @@ export const PdfMobileDrawer: React.FC<PdfMobileDrawerProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  onSwitchPdfMode('hybrid')
+                  onClose()
+                }}
+                className={`py-2 px-2 rounded-xl text-xs font-semibold border flex flex-col items-center gap-1 transition-all ${
+                  pdfMode === 'hybrid'
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-xs'
+                    : 'bg-white/5 border-white/10 text-white/80'
+                }`}
+              >
+                <Sliders className="w-4 h-4 text-emerald-400" />
+                <span>图文重排</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   onSwitchPdfMode('page_canvas')
                   onClose()
                 }}
@@ -89,7 +104,7 @@ export const PdfMobileDrawer: React.FC<PdfMobileDrawerProps> = ({
                     : 'bg-white/5 border-white/10 text-white/80'
                 }`}
               >
-                <BookOpen className="w-4 h-4" />
+                <BookOpen className="w-4 h-4 text-blue-400" />
                 <span>原版影印</span>
               </button>
               <button
@@ -104,23 +119,8 @@ export const PdfMobileDrawer: React.FC<PdfMobileDrawerProps> = ({
                     : 'bg-white/5 border-white/10 text-white/80'
                 }`}
               >
-                <FileText className="w-4 h-4" />
-                <span>文本重排</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onSwitchPdfMode('hybrid')
-                  onClose()
-                }}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold border flex flex-col items-center gap-1 transition-all ${
-                  pdfMode === 'hybrid'
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-xs'
-                    : 'bg-white/5 border-white/10 text-white/80'
-                }`}
-              >
-                <Sliders className="w-4 h-4" />
-                <span>图文融合</span>
+                <FileText className="w-4 h-4 text-amber-400" />
+                <span>极简文本</span>
               </button>
             </div>
           </div>

@@ -26,36 +26,8 @@ export const PdfPageFigure: React.FC<PdfPageFigureProps> = ({
   onSelectPdfCanvasPage,
   onOpenLightbox,
 }) => {
+  const [collapsed, setCollapsed] = React.useState(false)
   const pageImgUrl = `/api/books/${encodeURIComponent(book.id)}/pdf-page/${pdfPageNum}`
-
-  if (pdfMode === 'text_only') {
-    return (
-      <div
-        key={itemKey}
-        data-para-index={pIdx}
-        data-no-hud-toggle="true"
-        className="break-inside-avoid my-6 flex items-center justify-center gap-3 select-none text-[11px] font-mono opacity-40 hover:opacity-90 transition-opacity group"
-      >
-        <span className="h-px bg-current/20 flex-1 max-w-[80px]" />
-        <span className="px-2.5 py-0.5 rounded-full bg-current/5 border border-current/10 flex items-center gap-1.5">
-          <span>原书 P.{pdfPageNum}</span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onSelectPdfCanvasPage(pdfPageNum)
-              onSwitchPdfMode('page_canvas')
-            }}
-            className="hover:text-blue-500 underline ml-1 cursor-pointer font-sans"
-            title="查看原书扫描版面"
-          >
-            看原版
-          </button>
-        </span>
-        <span className="h-px bg-current/20 flex-1 max-w-[80px]" />
-      </div>
-    )
-  }
 
   return (
     <figure
@@ -63,51 +35,60 @@ export const PdfPageFigure: React.FC<PdfPageFigureProps> = ({
       data-para-index={pIdx}
       data-no-hud-toggle="true"
       onClick={(e) => e.stopPropagation()}
-      className="reader-block-contain break-inside-avoid my-5 rounded-2xl border border-current/15 bg-current/[0.025] shadow-md overflow-hidden"
+      className="reader-block-contain break-inside-avoid my-4 sm:my-6 rounded-2xl border border-current/15 bg-current/[0.02] shadow-sm overflow-hidden"
     >
-      <figcaption className="px-4 py-2.5 border-b border-current/10 flex flex-wrap items-center justify-between gap-2 text-xs font-sans">
+      <figcaption className="px-3.5 py-2 border-b border-current/10 flex flex-wrap items-center justify-between gap-2 text-xs font-sans bg-current/[0.03]">
         <span className="px-2 py-0.5 rounded-md bg-blue-600/15 text-blue-600 dark:text-blue-400 font-mono font-bold">
-          原版第 {pdfPageNum} / {totalPdfPages} 页
+          原书第 {pdfPageNum} / {totalPdfPages} 页插图
         </span>
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            className="px-2 py-1 rounded-lg border border-current/15 hover:bg-current/10 text-[11px] opacity-80 transition-colors"
+          >
+            {collapsed ? '展开插图' : '收起插图'}
+          </button>
           <button
             type="button"
             onClick={() => {
               onSelectPdfCanvasPage(pdfPageNum)
               onSwitchPdfMode('page_canvas')
             }}
-            className="px-2.5 py-1 rounded-lg border border-current/15 hover:bg-current/10 font-semibold"
+            className="px-2 py-1 rounded-lg border border-current/15 hover:bg-current/10 text-[11px] font-semibold transition-colors"
           >
-            📖 画布连读
+            📖 原版排版
           </button>
           <button
             type="button"
             onClick={() =>
               onOpenLightbox(pageImgUrl, `《${book.title}》 · 原书第 ${pdfPageNum} 页`, pdfPageNum)
             }
-            className="px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500 font-semibold flex items-center gap-1"
+            className="px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-500 text-[11px] font-semibold flex items-center gap-1 shadow-xs transition-colors"
           >
             <ZoomIn className="w-3 h-3" />
-            <span>放大</span>
+            <span>全屏查看</span>
           </button>
         </div>
       </figcaption>
-      <div
-        onClick={() => {
-          onSelectPdfCanvasPage(pdfPageNum)
-          onSwitchPdfMode('page_canvas')
-        }}
-        className="bg-current/[0.02] p-2 sm:p-3 flex items-center justify-center cursor-pointer"
-        title="点击进入全能画布阅读模式"
-      >
-        <PdfCanvasPage
-          bookId={book.id}
-          pageNum={pdfPageNum}
-          pdfZoom={100}
-          fitMode="width"
-          isDouble={false}
-        />
-      </div>
+
+      {!collapsed && (
+        <div
+          onClick={() =>
+            onOpenLightbox(pageImgUrl, `《${book.title}》 · 原书第 ${pdfPageNum} 页`, pdfPageNum)
+          }
+          className="bg-current/[0.01] p-1 sm:p-3 flex items-center justify-center cursor-zoom-in"
+          title="点击放大查看原图"
+        >
+          <PdfCanvasPage
+            bookId={book.id}
+            pageNum={pdfPageNum}
+            pdfZoom={100}
+            fitMode="width"
+            isDouble={false}
+          />
+        </div>
+      )}
     </figure>
   )
 }
