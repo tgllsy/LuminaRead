@@ -43,6 +43,21 @@ export function setBookInMemoryCache(
   saveOfflineToIdb(bookId, content)
 }
 
+export function updateBookProgressInMemoryCache(
+  bookId: string,
+  progress: NonNullable<BookFullContent['progress']>
+): void {
+  const hit = memoryLruMap.get(bookId)
+  if (!hit) return
+  memoryLruMap.set(bookId, {
+    ...hit,
+    progress: {
+      ...(hit.progress || {}),
+      ...progress,
+    },
+  })
+}
+
 async function fetchLiteContent(bookId: string, targetChapterIndex?: number): Promise<BookFullContent> {
   const params: Record<string, string | number> = { lite: 1 }
   if (targetChapterIndex !== undefined) {
@@ -158,8 +173,10 @@ export function prefetchBook(bookId: string, targetChapterIndex?: number): Promi
   return p
 }
 
-export function prewarmBooks(books: Array<{ id: string; progress?: { chapter_index?: number } }>): void {
-  const topBooks = books.slice(0, 3)
+export function prewarmBooks(books: Array<{ id: string; status?: string; progress?: { chapter_index?: number } }>): void {
+  const topBooks = books
+    .filter((b) => b.status !== 'importing' && b.status !== 'error' && b.status !== 'failed')
+    .slice(0, 3)
   for (const b of topBooks) {
     prefetchBook(b.id, b.progress?.chapter_index).catch(() => {})
   }
@@ -216,7 +233,7 @@ export async function getBookWithCache(
     }
     setBookInMemoryCache(bookId, data, !data.is_lite)
 
-    if (data.is_lite) {
+    if (data.is_lite && (data.chapters?.length ?? 0) <= 300) {
       scheduleIdlePrefetch(bookId, onFullHydrated)
     }
 

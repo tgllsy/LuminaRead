@@ -12,6 +12,21 @@ export interface UploadPipelineOptions {
   onError: (filename: string, message: string) => void
 }
 
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 600): Promise<T> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      if (attempt < retries - 1) {
+        await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)))
+      }
+    }
+  }
+  throw lastErr
+}
+
 async function uploadSingleFile(
   file: File,
   category: string,
@@ -20,20 +35,25 @@ async function uploadSingleFile(
   onBookCreated: (book: BookSummary) => void,
   onChunkProgress: (book: BookSummary) => void
 ): Promise<void> {
-  const initialBook = await bookshelfApi.initBookUpload({
-    filename: file.name,
-    fileSize: file.size,
-    category,
-    library_id: libraryId,
-  })
+  const initialBook = await withRetry(() =>
+    bookshelfApi.initBookUpload({
+      filename: file.name,
+      fileSize: file.size,
+      category,
+      library_id: libraryId,
+    })
+  )
   onBookCreated(initialBook)
 
   const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize))
+  let allChunksUploaded = false
   try {
     for (let i = 0; i < totalChunks; i++) {
       const start = i * chunkSize
       const blob = file.slice(start, Math.min(file.size, start + chunkSize))
-      const updated = await bookshelfApi.uploadBookChunk(initialBook.id, i, totalChunks, blob)
+      const updated = await withRetry(() =>
+        bookshelfApi.uploadBookChunk(initialBook.id, i, totalChunks, blob)
+      )
       const pct = Math.min(80, Math.round(((i + 1) / totalChunks) * 80))
       onChunkProgress(
         updated || {
@@ -44,17 +64,27 @@ async function uploadSingleFile(
       )
     }
 
+    allChunksUploaded = true
     onChunkProgress({
       ...initialBook,
       import_progress: 85,
       import_step: '正在提取章节与封面...',
     })
 
-    const completedBook = await bookshelfApi.completeBookUpload(initialBook.id)
+    const completedBook = await withRetry(() => bookshelfApi.completeBookUpload(initialBook.id), 2, 1000)
     if (completedBook) {
       onChunkProgress(completedBook)
     }
   } catch (err) {
+    if (allChunksUploaded) {
+      onChunkProgress({
+        ...initialBook,
+        status: 'importing',
+        import_progress: 88,
+        import_step: '正在后台解析章节与索引...',
+      })
+      return
+    }
     const msg = err instanceof Error ? err.message : '上传或解析失败'
     onChunkProgress({
       ...initialBook,
@@ -72,7 +102,7 @@ export async function uploadFilesWithWorkers(options: UploadPipelineOptions): Pr
     files,
     defaultCategory,
     defaultLibId,
-    chunkSize = 4 * 1024 * 1024,
+    chunkSize = 1024 * 1024,
     concurrency = 2,
     onBookCreated,
     onChunkProgress,

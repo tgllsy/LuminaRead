@@ -17,6 +17,7 @@ export const BookshelfHeroCard: React.FC<BookshelfHeroCardProps> = ({
   onOpenNotesHub,
 }) => {
   const triggerResumeTts = useTtsStore((s) => s.triggerResumeTts)
+  const triggerOpenTtsModal = useTtsStore((s) => s.triggerOpenTtsModal)
 
   // 优先选取最近阅读过的书籍（按阅读时间/更新时间倒序），其次回退至书架第一本书
   const heroBook = React.useMemo(() => {
@@ -56,9 +57,17 @@ export const BookshelfHeroCard: React.FC<BookshelfHeroCardProps> = ({
   const handleContinueListening = () => {
     if (onOpenTts) {
       onOpenTts(heroBook.id)
-    } else {
-      triggerResumeTts(heroBook.id)
+      return
     }
+    onOpenBook({
+      bookId: heroBook.id,
+      chapterIndex: heroBook.progress?.chapter_index,
+      paragraphIndex: typeof heroBook.progress?.scroll_offset === 'number'
+        ? Math.floor(heroBook.progress.scroll_offset)
+        : undefined,
+    })
+    triggerOpenTtsModal()
+    triggerResumeTts(heroBook.id)
   }
 
   return (

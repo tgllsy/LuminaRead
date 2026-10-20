@@ -55,7 +55,7 @@ fn is_ad_line(line: &str) -> bool {
         || (t.starts_with("ps：") && t.contains("求推荐"))
 }
 
-fn reflow_smart_paragraphs(lines: &[String]) -> Vec<String> {
+fn reflow_smart_paragraphs(lines: &[String], check_headings: bool) -> Vec<String> {
     let mut paras = Vec::new();
     let mut current = String::new();
 
@@ -63,13 +63,12 @@ fn reflow_smart_paragraphs(lines: &[String]) -> Vec<String> {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             if !current.is_empty() {
-                paras.push(current.clone());
-                current.clear();
+                paras.push(std::mem::take(&mut current));
             }
             continue;
         }
 
-        let is_heading = is_chapter_heading(trimmed);
+        let is_heading = check_headings && is_chapter_heading(trimmed);
         let is_divider = trimmed.starts_with("---") || trimmed.starts_with("***") || trimmed.starts_with("___");
         let is_quote = trimmed.starts_with('>');
         let is_list = trimmed.starts_with("• ") || trimmed.starts_with("- ") || trimmed.starts_with("* ");
@@ -77,8 +76,7 @@ fn reflow_smart_paragraphs(lines: &[String]) -> Vec<String> {
 
         if is_heading || is_divider || is_quote || is_list || is_img {
             if !current.is_empty() {
-                paras.push(current.clone());
-                current.clear();
+                paras.push(std::mem::take(&mut current));
             }
             paras.push(trimmed.to_string());
             continue;
@@ -89,19 +87,17 @@ fn reflow_smart_paragraphs(lines: &[String]) -> Vec<String> {
         if current.is_empty() {
             current.push_str(trimmed);
         } else if has_indent {
-            paras.push(current.clone());
-            current.clear();
+            paras.push(std::mem::take(&mut current));
             current.push_str(trimmed);
         } else {
             let ends_sentence = current.ends_with(['。', '！', '？', '.', '!', '?', '…', '”', '"', '’', '\'']);
 
-            if ends_sentence && current.chars().count() >= 32 {
-                paras.push(current.clone());
-                current.clear();
+            if ends_sentence && current.len() >= 90 {
+                paras.push(std::mem::take(&mut current));
                 current.push_str(trimmed);
             } else {
-                let prev_ascii = current.chars().last().map(|c| c.is_ascii_alphanumeric()).unwrap_or(false);
-                let next_ascii = trimmed.chars().next().map(|c| c.is_ascii_alphanumeric()).unwrap_or(false);
+                let prev_ascii = current.as_bytes().last().map(|b| b.is_ascii_alphanumeric()).unwrap_or(false);
+                let next_ascii = trimmed.as_bytes().first().map(|b| b.is_ascii_alphanumeric()).unwrap_or(false);
                 if prev_ascii && next_ascii {
                     current.push(' ');
                 }
@@ -155,7 +151,7 @@ fn extract_chapters_from_text(text: &str, is_markdown: bool) -> Vec<serde_json::
         for line in line_iter {
             if is_chapter_heading(&line) {
                 if !cur_paras.is_empty() {
-                    let reflowed = reflow_smart_paragraphs(&cur_paras);
+                    let reflowed = reflow_smart_paragraphs(&cur_paras, false);
                     let content = reflowed.join("\n\n");
                     let wc = content.chars().count();
                     chapters.push(serde_json::json!({
@@ -174,7 +170,7 @@ fn extract_chapters_from_text(text: &str, is_markdown: bool) -> Vec<serde_json::
             }
         }
         if !cur_paras.is_empty() {
-            let reflowed = reflow_smart_paragraphs(&cur_paras);
+            let reflowed = reflow_smart_paragraphs(&cur_paras, false);
             let content = reflowed.join("\n\n");
             let wc = content.chars().count();
             chapters.push(serde_json::json!({
@@ -193,7 +189,7 @@ fn extract_chapters_from_text(text: &str, is_markdown: bool) -> Vec<serde_json::
         for line in line_iter {
             let line_chars = line.chars().count();
             if !cur_paras.is_empty() && cur_chars + line_chars > target_chunk_chars {
-                let reflowed = reflow_smart_paragraphs(&cur_paras);
+                let reflowed = reflow_smart_paragraphs(&cur_paras, false);
                 let content = reflowed.join("\n\n");
                 let wc = content.chars().count();
                 chapters.push(serde_json::json!({
@@ -212,7 +208,7 @@ fn extract_chapters_from_text(text: &str, is_markdown: bool) -> Vec<serde_json::
         }
 
         if !cur_paras.is_empty() {
-            let reflowed = reflow_smart_paragraphs(&cur_paras);
+            let reflowed = reflow_smart_paragraphs(&cur_paras, false);
             let content = reflowed.join("\n\n");
             let wc = content.chars().count();
             let title = if ch_idx == 1 {

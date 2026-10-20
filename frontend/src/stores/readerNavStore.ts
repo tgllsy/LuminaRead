@@ -247,10 +247,12 @@ export const useReaderNavStore = create<ReaderNavState>((set, get) => {
 
     setChapterIndex: (chIdx, replaceHistory = true) => {
       const { activeBookId, chapterIndex, jumpTarget } = get()
-      if (chIdx === chapterIndex && !jumpTarget && activeBookId && get().tabChapters[activeBookId] === chIdx) return
+      if (chIdx === chapterIndex && activeBookId && get().tabChapters[activeBookId] === chIdx) {
+        if (!jumpTarget || jumpTarget.chapterIndex === chIdx) return
+      }
       set((state) => ({
         chapterIndex: chIdx,
-        jumpTarget: null,
+        jumpTarget: state.jumpTarget && state.jumpTarget.chapterIndex === chIdx ? state.jumpTarget : null,
         tabChapters: activeBookId ? { ...state.tabChapters, [activeBookId]: chIdx } : state.tabChapters,
       }))
       if (activeBookId) {

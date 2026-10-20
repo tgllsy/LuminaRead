@@ -39,7 +39,7 @@ export function resolveSentenceVoice(
   baseVoice: string,
   enableMultiRole: boolean = true
 ): string {
-  if (!enableMultiRole) return baseVoice
+  if (!enableMultiRole || baseVoice.startsWith('drama-')) return baseVoice
 
   const isDialogue = isDialogueSentence(sentenceText)
   if (!isDialogue) return baseVoice

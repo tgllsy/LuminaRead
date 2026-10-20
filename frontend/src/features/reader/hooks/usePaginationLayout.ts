@@ -86,7 +86,9 @@ export function usePaginationLayout({
   const [spreadIndex, setSpreadIndex] = useState(0)
   const spreadIndexRef = useRef(spreadIndex)
   spreadIndexRef.current = spreadIndex
-  const prevFocusParaRef = useRef<number | null | undefined>(focusParaIndex)
+  const focusParaRef = useRef<number | null | undefined>(focusParaIndex)
+  focusParaRef.current = focusParaIndex
+  const prevFocusParaRef = useRef<number | null | undefined>(undefined)
   const [fontLoadedTick, setFontLoadedTick] = useState(0)
 
   useEffect(() => {
@@ -122,7 +124,10 @@ export function usePaginationLayout({
     const paragraphsChanged = prevParagraphsRef.current !== paragraphs
     prevParagraphsRef.current = paragraphs
     const shouldTurnToLast = paragraphsChanged && turnToLastSpreadRef.current
-    if (paragraphsChanged) turnToLastSpreadRef.current = false
+    if (paragraphsChanged) {
+      turnToLastSpreadRef.current = false
+      prevFocusParaRef.current = undefined
+    }
 
     const immediate = computePaginationSpreads(
       {
@@ -139,14 +144,31 @@ export function usePaginationLayout({
       },
       (asyncSpreads) => {
         setPaginatedSpreads(asyncSpreads)
-        if (shouldTurnToLast) setSpreadIndex(Math.max(0, asyncSpreads.length - 1))
+        if (shouldTurnToLast) {
+          setSpreadIndex(Math.max(0, asyncSpreads.length - 1))
+        } else if (focusParaRef.current != null && focusParaRef.current > 0) {
+          const targetIdx = findTargetSpreadIndex(asyncSpreads, focusParaRef.current, paragraphs)
+          if (targetIdx >= 0) {
+            prevFocusParaRef.current = focusParaRef.current
+            setSpreadIndex(targetIdx)
+          }
+        }
       }
     )
     setPaginatedSpreads(immediate)
     if (shouldTurnToLast) {
       setSpreadIndex(Math.max(0, immediate.length - 1))
     } else if (paragraphsChanged) {
-      setSpreadIndex(0)
+      const targetIdx =
+        focusParaRef.current != null && focusParaRef.current > 0
+          ? findTargetSpreadIndex(immediate, focusParaRef.current, paragraphs)
+          : -1
+      if (targetIdx >= 0) {
+        prevFocusParaRef.current = focusParaRef.current
+        setSpreadIndex(targetIdx)
+      } else {
+        setSpreadIndex(0)
+      }
     }
   }, [enabled, paragraphs, typography.fontSize, typography.lineHeight, typography.pageWidth, typography.firstLineIndent, typography.bilingualMode, typography.layoutMode, typography.fontFamily, fontLoadedTick, activeWidth, activeHeight, isSingleCol, pdfMode])
 
@@ -154,11 +176,11 @@ export function usePaginationLayout({
 
   useEffect(() => {
     if (!enabled || focusParaIndex === null || focusParaIndex === undefined) return
+    if (paginatedSpreads.length === 0) return
 
     const paraChanged = prevFocusParaRef.current !== focusParaIndex
-    prevFocusParaRef.current = focusParaIndex
 
-    // Only auto-turn if TTS is actively playing OR focusParaIndex just changed (e.g. jump/seek/search flash)
+    // Only auto-turn if TTS is actively playing OR focusParaIndex just changed (e.g. jump/seek/search flash/initial restore)
     if (!isTtsPlaying && !paraChanged) return
 
     const targetIdx = findTargetSpreadIndex(
@@ -168,8 +190,11 @@ export function usePaginationLayout({
       isTtsPlaying ? activeSentence : undefined
     )
 
-    if (targetIdx >= 0 && targetIdx !== spreadIndexRef.current) {
-      setSpreadIndex(targetIdx)
+    if (targetIdx >= 0) {
+      prevFocusParaRef.current = focusParaIndex
+      if (targetIdx !== spreadIndexRef.current) {
+        setSpreadIndex(targetIdx)
+      }
     }
   }, [enabled, focusParaIndex, activeSentence, isTtsPlaying, paginatedSpreads, paragraphs])
 

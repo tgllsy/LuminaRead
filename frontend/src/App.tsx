@@ -74,6 +74,30 @@ function useAppTtsSlice() {
   return { audioStatus, checkpoint, resumeTtsNonce, toggleTtsPlayPauseNonce, openTtsModalNonce, listeningCapsuleDismissed, setAudioStatus, setCheckpoint, triggerResumeTts, triggerTogglePlayPause, triggerOpenTtsModal, setListeningCapsuleDismissed }
 }
 
+function resolveListeningTarget(
+  books: ReturnType<typeof useBooksStore.getState>['books'],
+  activeBookId: string | null,
+  checkpoint: ReturnType<typeof loadGlobalTtsCheckpoint>
+): JumpTarget | null {
+  const readCandidates = books
+    .filter((b) => b.status !== 'importing' && b.status !== 'error' && Boolean(b.last_read_at || (b.progress?.percentage ?? 0) > 0))
+    .sort((a, b) => (b.last_read_at || b.progress?.updated_at || '').localeCompare(a.last_read_at || a.progress?.updated_at || ''))
+  const recentBook = readCandidates.find((b) => b.status !== 'finished') || readCandidates[0] || books[0]
+  const targetBookId = activeBookId || recentBook?.id || checkpoint?.bookId
+  if (!targetBookId) return null
+  const targetBook = books.find((b) => b.id === targetBookId)
+  const bookProgressCh = targetBook?.progress?.chapter_index
+  const bookProgressPara = typeof targetBook?.progress?.scroll_offset === 'number'
+    ? Math.floor(targetBook.progress.scroll_offset)
+    : undefined
+  const useCp = checkpoint?.bookId === targetBookId && bookProgressCh === undefined
+  return {
+    bookId: targetBookId,
+    chapterIndex: useCp ? checkpoint.chapterIndex : (bookProgressCh ?? checkpoint?.chapterIndex ?? 0),
+    paragraphIndex: useCp ? checkpoint.paragraphIndex : (bookProgressPara ?? checkpoint?.paragraphIndex),
+  }
+}
+
 function useAppActions() {
   const books = useBooksStore((s) => s.books)
   const fetchBooks = useBooksStore((s) => s.fetchBooks)
@@ -111,33 +135,45 @@ function useAppActions() {
   }, [fetchBooks, nav.openBook])
 
   const handleResumeGlobalListening = useCallback((openReaderModal: boolean) => {
-    if (tts.audioStatus.active && nav.activeBookId) {
+    const activeTtsBookId = tts.audioStatus.bookId || nav.activeBookId
+    if (tts.audioStatus.active && activeTtsBookId) {
       if (openReaderModal) {
-        nav.openBook({ bookId: nav.activeBookId, chapterIndex: nav.chapterIndex })
+        nav.openBook({
+          bookId: activeTtsBookId,
+          chapterIndex: tts.audioStatus.chapterIndex ?? nav.chapterIndex,
+          paragraphIndex: tts.audioStatus.paragraphIndex ?? undefined,
+        })
         tts.triggerOpenTtsModal()
       } else {
         tts.triggerTogglePlayPause()
       }
       return
     }
-    const cp = tts.checkpoint || loadGlobalTtsCheckpoint()
-    const fallbackBookId = cp?.bookId || nav.activeBookId || books[0]?.id
-    if (!fallbackBookId) return
-    nav.openBook({
-      bookId: fallbackBookId,
-      chapterIndex: cp?.bookId === fallbackBookId ? cp.chapterIndex : 0,
-      paragraphIndex: cp?.bookId === fallbackBookId ? cp.paragraphIndex : undefined,
-    })
+    const target = resolveListeningTarget(books, nav.activeBookId, tts.checkpoint || loadGlobalTtsCheckpoint())
+    if (!target) {
+      if (openReaderModal) nav.setActivePage('tts')
+      return
+    }
+    nav.openBook(target)
+    tts.setListeningCapsuleDismissed(false)
     if (openReaderModal) tts.triggerOpenTtsModal()
-    tts.triggerResumeTts(fallbackBookId)
+    tts.triggerResumeTts(target.bookId)
   }, [tts, nav, books])
+
+  const handleSelectNavPage = useCallback((page: AppNavPage) => {
+    if (page === 'tts') {
+      handleResumeGlobalListening(true)
+      return
+    }
+    nav.setActivePage(page)
+  }, [handleResumeGlobalListening, nav.setActivePage])
 
   const handleOpenGlobalSearch = useCallback((q = '') => {
     setGlobalSearchInitQuery(q)
     nav.setActivePage('search')
   }, [nav.setActivePage])
 
-  return { books, fetchBooks, nav, tts, globalSearchInitQuery, handleBookDownloaded, handleResumeGlobalListening, handleOpenGlobalSearch }
+  return { books, fetchBooks, nav, tts, globalSearchInitQuery, handleBookDownloaded, handleResumeGlobalListening, handleSelectNavPage, handleOpenGlobalSearch }
 }
 
 const AppPageRouter: React.FC<{
@@ -207,7 +243,7 @@ const AppPageRouter: React.FC<{
 }
 
 export const App: React.FC = () => {
-  const { books, fetchBooks, nav, tts, globalSearchInitQuery, handleBookDownloaded, handleResumeGlobalListening, handleOpenGlobalSearch } = useAppActions()
+  const { books, fetchBooks, nav, tts, globalSearchInitQuery, handleBookDownloaded, handleResumeGlobalListening, handleSelectNavPage, handleOpenGlobalSearch } = useAppActions()
   const handleChapterChange = useCallback((ch: number) => nav.setChapterIndex(ch, true), [nav.setChapterIndex])
   const handleBackToShelf = useCallback(() => { nav.closeReader(true); fetchBooks(true) }, [nav.closeReader, fetchBooks])
   const handleOpenDiscoveryFromReader = useCallback(() => { nav.closeReader(true); nav.setActivePage('discovery') }, [nav.closeReader, nav.setActivePage])
@@ -215,7 +251,14 @@ export const App: React.FC = () => {
   const handleDismissCapsule = useCallback(() => {
     if (tts.audioStatus.playing) tts.triggerTogglePlayPause()
     tts.setListeningCapsuleDismissed(true)
-  }, [tts.audioStatus.playing, tts.triggerTogglePlayPause, tts.setListeningCapsuleDismissed])
+    tts.setAudioStatus({
+      active: false,
+      playing: false,
+      paused: false,
+      loading: false,
+      ambientActive: false,
+    })
+  }, [tts.audioStatus.playing, tts.triggerTogglePlayPause, tts.setListeningCapsuleDismissed, tts.setAudioStatus])
 
   const triggerGlobalFileUpload = useCallback(() => {
     if (nav.activePage !== 'shelf') {
@@ -241,8 +284,8 @@ export const App: React.FC = () => {
         </React.Suspense>
       )}
       <div className={nav.isReaderOpen ? 'hidden' : 'min-h-dvh bg-[#f7f8fa] flex flex-col'}>
-        <DesktopHeader activePage={nav.activePage as NavPage} onSelectPage={nav.setActivePage} onOpenSearch={() => handleOpenGlobalSearch('')} onTriggerUpload={triggerGlobalFileUpload} />
-        <MobileAppBar activePage={nav.activePage as NavPage} onSelectPage={nav.setActivePage} onOpenSearch={() => handleOpenGlobalSearch('')} onTriggerUpload={triggerGlobalFileUpload} />
+        <DesktopHeader activePage={nav.activePage as NavPage} onSelectPage={handleSelectNavPage} onOpenSearch={() => handleOpenGlobalSearch('')} onTriggerUpload={triggerGlobalFileUpload} />
+        <MobileAppBar activePage={nav.activePage as NavPage} onSelectPage={handleSelectNavPage} onOpenSearch={() => handleOpenGlobalSearch('')} onTriggerUpload={triggerGlobalFileUpload} />
         <main
           className={`flex-1 flex flex-col w-full min-w-0 overflow-x-hidden ${
             !tts.listeningCapsuleDismissed && tts.audioStatus.active
@@ -254,17 +297,17 @@ export const App: React.FC = () => {
             <AppPageRouter
               activePage={nav.activePage} books={books} openTabBookIds={nav.openTabBookIds}
               globalSearchInitQuery={globalSearchInitQuery} onOpenBook={nav.openBook}
-              onSelectPage={nav.setActivePage} onOpenGlobalSearch={handleOpenGlobalSearch}
+              onSelectPage={handleSelectNavPage} onOpenGlobalSearch={handleOpenGlobalSearch}
               onBooksChanged={handleBooksChanged} onBookDownloaded={handleBookDownloaded} onCloseBookTab={nav.closeBookTab}
             />
           </ErrorBoundary>
         </main>
-        <MobileBottomNav activePage={nav.activePage as NavPage} onSelectPage={nav.setActivePage} onOpenSearch={() => handleOpenGlobalSearch('')} onTriggerUpload={triggerGlobalFileUpload} />
+        <MobileBottomNav activePage={nav.activePage as NavPage} onSelectPage={handleSelectNavPage} onOpenSearch={() => handleOpenGlobalSearch('')} onTriggerUpload={triggerGlobalFileUpload} />
         {!tts.listeningCapsuleDismissed && tts.audioStatus.active && (
           <GlobalListeningCapsule
             status={tts.audioStatus} checkpoint={tts.checkpoint} bookTitle={books.find((b) => b.id === (tts.audioStatus.bookId || nav.activeBookId))?.title}
             dismissed={tts.listeningCapsuleDismissed} onResumeListening={handleResumeGlobalListening}
-            onTogglePlayPause={tts.triggerTogglePlayPause} onDismiss={handleDismissCapsule} onOpenTheater={() => nav.setActivePage('tts')}
+            onTogglePlayPause={tts.triggerTogglePlayPause} onDismiss={handleDismissCapsule} onOpenTheater={() => handleResumeGlobalListening(true)}
           />
         )}
       </div>

@@ -15,6 +15,7 @@ import type { BookSummary } from '../../bookshelf/types'
 export interface BlackGoldTheaterModalProps {
   isOpen: boolean
   onClose: () => void
+  onExitListening?: () => void
   onOpenReader?: (bookId: string) => void
   onLocateOriginalText?: () => void
   books?: BookSummary[]
@@ -94,7 +95,7 @@ function useSwipeDownHide(onClose: () => void) {
 }
 
 export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
-  isOpen, onClose, onOpenReader, onLocateOriginalText, books = [],
+  isOpen, onClose, onExitListening, onOpenReader, onLocateOriginalText, books = [],
   bookId: propBookId, bookTitle: propBookTitle, bookAuthor: propBookAuthor,
   coverUrl: propCoverUrl, coverColor: propCoverColor, chapterTitle: propChapterTitle,
   paragraphs: propParagraphs, currentParagraphIndex: propCurrentParaIdx,
@@ -166,6 +167,22 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
     else if (targetBookId && onOpenReader) onOpenReader(targetBookId)
     else onClose()
   }
+  const handleExit = () => {
+    if (onExitListening) {
+      onExitListening()
+      return
+    }
+    fallbackAmb.stopAmbientAudio()
+    useTtsStore.getState().setListeningCapsuleDismissed(true)
+    useTtsStore.getState().setAudioStatus({
+      active: false,
+      playing: false,
+      paused: false,
+      loading: false,
+      ambientActive: false,
+    })
+    onClose()
+  }
 
   return (
     <div
@@ -176,7 +193,7 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
       className="fixed inset-0 h-dvh pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] z-50 bg-[#0c0d14] text-white flex flex-col select-none overflow-hidden transition-transform duration-200 ease-out animate-in fade-in-0"
     >
       <div className="hidden lg:block">
-        <TheaterHeader title={title} chapterTitle={chapterTitle} onReturnToReader={handleReturnToReader} onClose={onClose} />
+        <TheaterHeader title={title} chapterTitle={chapterTitle} onReturnToReader={handleReturnToReader} onExitListening={handleExit} onClose={onClose} />
       </div>
 
       {/* 移动端：音乐播放器样式（支持下滑隐藏与黑胶/词幕切换） */}
@@ -187,6 +204,7 @@ export const BlackGoldTheaterModal: React.FC<BlackGoldTheaterModalProps> = ({
         sleepRemainingText={sleepRemainingText} internalSleepMinutes={internalSleepMinutes}
         activeVoiceLabel={activeVoiceLabel} isAmbientActive={effectiveAmbientEnabled && effectiveIsAmbientActive}
         ambientPreset={effectiveAmbientPreset} onClose={onClose} onReturnToReader={handleReturnToReader}
+        onExitListening={handleExit}
         onSelectParagraph={onSelectParagraph || (() => {})}
         onSeekBySeconds={onSeekBySeconds} onStepPrev={onStepPrev} onStepNext={onStepNext}
         onTogglePlay={handleTogglePlay} onSelectSpeed={handleSpeedChange}

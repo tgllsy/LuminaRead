@@ -116,6 +116,7 @@ function useTtsResumeListener({
 
   useEffect(() => {
     if (resumeRequestNonce > lastResumeNonceRef.current) {
+      if (paragraphsLength <= 0) return
       lastResumeNonceRef.current = resumeRequestNonce
       const storeState = useTtsStore.getState()
       const targetId = storeState.resumeTargetBookId
@@ -127,7 +128,7 @@ function useTtsResumeListener({
 
       useTtsStore.getState().clearResumeRequest()
       const cp = loadBookTtsCheckpoint(bookId) || loadGlobalTtsCheckpoint()
-      if (cp && (!cp.bookId || cp.bookId === bookId)) {
+      if (cp && (!cp.bookId || cp.bookId === bookId) && cp.chapterIndex === chapterIndex) {
         onResumeCheckpointRef.current(cp)
       } else if (paragraphsLength > 0 && targetId === bookId) {
         onPlayParagraphRef.current(activeParagraphIndex ?? 0, chapterIndex)

@@ -34,11 +34,6 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
   const handleOpenAmbientTtsModal = useCallback(() => overlays.setShowAmbientTTS(true), [overlays.setShowAmbientTTS])
   const tts = useReaderTtsState({ activeBookId, openTtsModalNonce, onOpenAmbientTtsModal: handleOpenAmbientTtsModal })
 
-  const getCurrentParaIndex = useCallback(
-    () => getVisibleParagraphIndex(paragraphRefs, tts.ttsActivePara, tts.focusedPara, bc.chapterIndex),
-    [paragraphRefs, tts.ttsActivePara, tts.focusedPara, bc.chapterIndex]
-  )
-
   const activeChapterObj = bc.contentData?.chapters[bc.chapterIndex] || bc.contentData?.chapters[0] || { id: 'ch_1', title: '正文', content: '', wordCount: 0, order: 0 }
   const paragraphs = useMemo(() => String(activeChapterObj.content || '').split(/\n{2,}|\n/).map((p) => p.trim()).filter(Boolean), [activeChapterObj.content])
 
@@ -49,6 +44,15 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
     paragraphs, typography: typo.typography, windowWidth: Math.max(480, vp.windowWidth - dockedSidebarWidth - dockedCopilotWidth),
     windowHeight: vp.windowHeight, focusParaIndex: tts.ttsActivePara ?? overlays.flashedParaIndex, pdfMode: pdf.pdfMode, enabled: !isContinuousSingleScroll,
   })
+
+  const getCurrentParaIndex = useCallback(() => {
+    if (tts.ttsActivePara !== null && tts.ttsActivePara >= 0) return tts.ttsActivePara
+    if (!isContinuousSingleScroll) {
+      const spreadFirstPara = pag.paginatedSpreads[pag.clampedSpreadIndex]?.left?.[0]?.pIdx
+      if (spreadFirstPara !== undefined && spreadFirstPara >= 0) return spreadFirstPara
+    }
+    return getVisibleParagraphIndex(paragraphRefs, tts.ttsActivePara, tts.focusedPara, bc.chapterIndex)
+  }, [isContinuousSingleScroll, pag.paginatedSpreads, pag.clampedSpreadIndex, paragraphRefs, tts.ttsActivePara, tts.focusedPara, bc.chapterIndex])
 
   const { reportProgress, syncCurrentProgress } = useReadingProgressSync({
     activeBookId, chapterIndex: bc.chapterIndex, clampedSpreadIndex: pag.clampedSpreadIndex, totalSpreads: pag.paginatedSpreads.length,
@@ -73,13 +77,13 @@ function useReaderCoreData(props: ReaderWorkspaceProps) {
     reportProgress(nextChIdx, 0, Math.round(((nextChIdx + 1) / total) * 100), 15).catch(() => {})
   }
 
-  return { bc, vp, openTabBooks, typo, pdf, overlays, paragraphRefs, articleRef, bottomSentinelRef, chapterStreamRefs, lastWheelTurnRef, bil, tts, activeChapterObj, isContinuousSingleScroll, stream, paragraphs, pag, handleSelectChapter, syncCurrentProgress, reportProgress }
+  return { bc, vp, openTabBooks, typo, pdf, overlays, paragraphRefs, articleRef, bottomSentinelRef, chapterStreamRefs, lastWheelTurnRef, bil, tts, activeChapterObj, isContinuousSingleScroll, stream, paragraphs, pag, getCurrentParaIndex, handleSelectChapter, syncCurrentProgress, reportProgress }
 }
 
 function useReaderWorkspaceController(props: ReaderWorkspaceProps) {
   const { activeBookId, isHidden = false, onBookStateUpdated } = props
   const core = useReaderCoreData(props)
-  const { bc, typo, pdf, overlays, paragraphRefs, tts, activeChapterObj, paragraphs, pag, handleSelectChapter } = core
+  const { bc, typo, pdf, overlays, tts, activeChapterObj, paragraphs, pag, getCurrentParaIndex, handleSelectChapter } = core
 
   const totalPdfPages = pdf.pdfMeta?.total_pages || pdf.pdfMeta?.totalPages || bc.contentData?.chapters[bc.contentData.chapters.length - 1]?.pageEnd || 1
   const { handlePageTurnScreen } = useReaderScreenTurn({
@@ -109,7 +113,6 @@ function useReaderWorkspaceController(props: ReaderWorkspaceProps) {
     bookId: activeBookId, chapterIndex: bc.chapterIndex, currentChapterTitle: activeChapterObj.title, contentData: bc.contentData,
     setContentData: bc.setContentData, selectionState: overlays.selectionState, setSelectionState: overlays.setSelectionState, onBookStateUpdated,
   })
-  const getCurrentParaIndex = () => getVisibleParagraphIndex(paragraphRefs, tts.ttsActivePara, tts.focusedPara, bc.chapterIndex)
   const bm = useReaderBookmarks({
     bookId: activeBookId, chapterIndex: bc.chapterIndex, currentChapterTitle: activeChapterObj.title, contentData: bc.contentData,
     setContentData: bc.setContentData, getCurrentVisibleParagraphIndex: getCurrentParaIndex, paragraphs,

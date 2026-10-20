@@ -94,8 +94,10 @@ export function useAmbientAndTtsController(props: AmbientAndTTSBarProps) {
   }, [ctrl.stopTTS, amb.stopAmbientAudio, amb.setAmbientPreset, onActiveParagraphChange])
 
   useEffect(() => {
-    if (listeningCapsuleDismissed && amb.ambientPreset !== 'off') { amb.stopAmbientAudio(); amb.setAmbientPreset('off') }
-  }, [listeningCapsuleDismissed, amb.ambientPreset, amb.stopAmbientAudio, amb.setAmbientPreset])
+    if (listeningCapsuleDismissed) {
+      handleStopTtsAndClear()
+    }
+  }, [listeningCapsuleDismissed, handleStopTtsAndClear])
 
   const stopAmbientRef = useRef(amb.stopAmbientAudio)
   stopAmbientRef.current = amb.stopAmbientAudio

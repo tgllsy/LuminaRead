@@ -44,6 +44,7 @@ export async function synthesizeSpeech(
     },
     {
       rawResponse: true,
+      timeoutMs: 30000,
       headers: {
         Accept: 'audio/mpeg, application/json',
       },
@@ -59,6 +60,7 @@ export async function synthesizeSpeech(
     }
     const audioRes = await apiClient.get<Response>(json.audio_url, {
       rawResponse: true,
+      timeoutMs: 30000,
       headers: { Accept: 'audio/mpeg' },
     })
     const blob = await audioRes.blob()

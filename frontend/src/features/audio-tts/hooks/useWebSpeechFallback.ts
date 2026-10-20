@@ -60,12 +60,27 @@ export function useWebSpeechFallback(ttsRate: number, selectedVoice = '') {
           utter.lang = hasCjk ? 'zh-CN' : 'en-US'
           if (matchedSysVoice) utter.voice = matchedSysVoice
           utter.rate = ttsRate
+          let finished = false
+          const maxWaitMs = Math.max(2500, Math.round((sent.length * 260) / Math.max(0.5, ttsRate)))
+          const watchdog = setTimeout(() => {
+            if (finished || isCancelledRef.current || sessionId !== getActiveSession()) return
+            finished = true
+            try { window.speechSynthesis.cancel() } catch { /* ignore */ }
+            sIdx += 1
+            speakNextSentence()
+          }, maxWaitMs)
           utter.onend = () => {
+            if (finished) return
+            finished = true
+            clearTimeout(watchdog)
             if (isCancelledRef.current || sessionId !== getActiveSession()) return
             sIdx += 1
             speakNextSentence()
           }
           utter.onerror = (e) => {
+            if (finished) return
+            finished = true
+            clearTimeout(watchdog)
             if (isCancelledRef.current || sessionId !== getActiveSession()) return
             if (e.error === 'canceled' || e.error === 'interrupted') return
             sIdx += 1

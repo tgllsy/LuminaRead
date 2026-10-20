@@ -18,34 +18,37 @@ function buildUrl(endpoint: string, params?: RequestOptions['params']): string {
 
 async function parseResponse<T>(res: Response): Promise<T> {
   const contentType = res.headers.get('content-type') || ''
+  const rawText = await res.text()
+
   if (!res.ok) {
     let errorMsg = `HTTP ${res.status}`
-    try {
-      if (contentType.includes('application/json')) {
-        const body = await res.json()
-        errorMsg = body.error || body.message || errorMsg
-      } else {
-        const text = await res.text()
-        if (text) errorMsg = text.slice(0, 100)
+    if (rawText) {
+      try {
+        if (contentType.includes('application/json') || rawText.trimStart().startsWith('{')) {
+          const body = JSON.parse(rawText)
+          errorMsg = body.error || body.message || errorMsg
+        } else {
+          errorMsg = rawText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || errorMsg
+        }
+      } catch {
+        errorMsg = rawText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100) || errorMsg
       }
-    } catch {
-      // fallback to status
     }
     throw AppError.fromHttp(res.status, errorMsg)
   }
 
-  if (res.status === 204) {
-    return undefined as unknown as T
+  if (res.status === 204 || !rawText.trim()) {
+    return { ok: true } as unknown as T
   }
 
-  if (contentType.includes('application/json')) {
+  if (contentType.includes('application/json') || rawText.trimStart().startsWith('{') || rawText.trimStart().startsWith('[')) {
     try {
-      return (await res.json()) as T
+      return JSON.parse(rawText) as T
     } catch (parseErr) {
       throw AppError.parse(parseErr)
     }
   }
-  return (await res.text()) as unknown as T
+  return rawText as unknown as T
 }
 
 interface LuminaRuntimeConfig {

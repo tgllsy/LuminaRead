@@ -315,45 +315,65 @@ impl BookRepository for SqliteBookRepository {
         cover_color: &str,
         paragraphs: &[(usize, usize, i64, String, String)],
     ) -> AppResult<()> {
-        let bid = book_id.to_string();
-        let btitle = title.to_string();
-        let bauthor = author.to_string();
-        let bcolor = cover_color.to_string();
-        let data = paragraphs.to_vec();
-
+        let bid_del = book_id.to_string();
         self.db.interact(move |conn| {
             let tx = conn.transaction()?;
-            tx.execute("DELETE FROM book_paragraphs WHERE book_id = ?", params![&bid])?;
-            tx.execute("DELETE FROM book_fts WHERE book_id = ?", params![&bid])?;
-
-            {
-                let mut ins_para = tx.prepare(
-                    "INSERT INTO book_paragraphs 
-                     (id, book_id, book_title, book_author, cover_color, chapter_index, chapter_title, paragraph_index, char_offset, content)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                )?;
-                let mut ins_fts = tx.prepare(
-                    "INSERT INTO book_fts 
-                     (paragraph_id, book_id, chapter_index, paragraph_index, book_title, chapter_title, content)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)"
-                )?;
-
-                for (ch_idx, p_idx, offset, text, ch_title) in &data {
-                    let para_id = format!("{}_c{}_p{}", bid, ch_idx, p_idx);
-                    ins_para.execute(params![
-                        &para_id, &bid, &btitle, &bauthor, &bcolor,
-                        *ch_idx as i64, ch_title, *p_idx as i64, *offset, text
-                    ])?;
-                    ins_fts.execute(params![
-                        &para_id, &bid, ch_idx.to_string(), p_idx.to_string(),
-                        &btitle, ch_title, text
-                    ])?;
-                }
-            }
-
+            tx.execute("DELETE FROM book_paragraphs WHERE book_id = ?", params![&bid_del])?;
+            tx.execute("DELETE FROM book_fts WHERE book_id = ?", params![&bid_del])?;
             tx.commit()?;
             Ok(())
-        }).await
+        }).await?;
+
+        for chunk in paragraphs.chunks(3000) {
+            let bid = book_id.to_string();
+            let btitle = title.to_string();
+            let bauthor = author.to_string();
+            let bcolor = cover_color.to_string();
+            let data = chunk.to_vec();
+
+            self.db.interact(move |conn| {
+                // Abort if the book was deleted while indexing in background
+                let exists: bool = conn
+                    .query_row("SELECT 1 FROM books WHERE id = ? LIMIT 1", params![&bid], |_| Ok(true))
+                    .optional()?
+                    .unwrap_or(false);
+                if !exists {
+                    return Ok(());
+                }
+
+                let tx = conn.transaction()?;
+                {
+                    let mut ins_para = tx.prepare_cached(
+                        "INSERT OR REPLACE INTO book_paragraphs 
+                         (id, book_id, book_title, book_author, cover_color, chapter_index, chapter_title, paragraph_index, char_offset, content)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    )?;
+                    let mut ins_fts = tx.prepare_cached(
+                        "INSERT INTO book_fts 
+                         (paragraph_id, book_id, chapter_index, paragraph_index, book_title, chapter_title, content)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
+                    )?;
+
+                    for (ch_idx, p_idx, offset, text, ch_title) in &data {
+                        let para_id = format!("{}_c{}_p{}", bid, ch_idx, p_idx);
+                        ins_para.execute(params![
+                            &para_id, &bid, &btitle, &bauthor, &bcolor,
+                            *ch_idx as i64, ch_title, *p_idx as i64, *offset, text
+                        ])?;
+                        ins_fts.execute(params![
+                            &para_id, &bid, ch_idx.to_string(), p_idx.to_string(),
+                            &btitle, ch_title, text
+                        ])?;
+                    }
+                }
+                tx.commit()?;
+                Ok(())
+            }).await?;
+
+            tokio::task::yield_now().await;
+        }
+
+        Ok(())
     }
 
     async fn count_all(&self) -> AppResult<(i64, i64)> {

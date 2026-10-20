@@ -3,6 +3,7 @@ import type { AmbientAndTTSBarProps } from '../types'
 import { stepChapterSeconds } from '../helpers/chapterTimeHelper'
 import { useAmbientAndTtsController } from '../hooks/useAmbientAndTtsController'
 import { BlackGoldTheaterModal } from './BlackGoldTheaterModal'
+import { useTtsStore } from '../../../stores/ttsStore'
 
 export const AmbientAndTTSBar: React.FC<AmbientAndTTSBarProps> = (props) => {
   const {
@@ -36,12 +37,29 @@ export const AmbientAndTTSBar: React.FC<AmbientAndTTSBarProps> = (props) => {
     onClose()
   }, [props.onSelectChapter, chapterIndex, currentParaIdx, onClose])
 
+  const handleExitListening = useCallback(() => {
+    ctrl.stopTTS()
+    amb.stopAmbientAudio()
+    amb.setAmbientPreset('off')
+    props.onActiveParagraphChange(null)
+    useTtsStore.getState().setListeningCapsuleDismissed(true)
+    useTtsStore.getState().setAudioStatus({
+      active: false,
+      playing: false,
+      paused: false,
+      loading: false,
+      ambientActive: false,
+    })
+    onClose()
+  }, [ctrl, amb, props.onActiveParagraphChange, onClose])
+
   if (!isOpen) return null
 
   return (
     <BlackGoldTheaterModal
       isOpen={isOpen}
       onClose={onClose}
+      onExitListening={handleExitListening}
       onLocateOriginalText={handleLocateOriginalText}
       bookId={bookId}
       bookTitle={bookTitle}

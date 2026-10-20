@@ -43,9 +43,12 @@ function useMergedBooksAndPolling(
       const opt = optimisticBooksMap[b.id]
       if (!opt) return b
       if (b.status !== 'importing' && opt.status === 'importing') return b
+      const serverAhead = (b.import_progress ?? 0) >= (opt.import_progress ?? 0)
       return {
         ...b,
         ...opt,
+        status: serverAhead ? b.status : opt.status,
+        import_step: serverAhead ? (b.import_step || opt.import_step) : (opt.import_step || b.import_step),
         import_progress: Math.max(b.import_progress ?? 0, opt.import_progress ?? 0),
         cover_url: b.cover_url || opt.cover_url,
       }

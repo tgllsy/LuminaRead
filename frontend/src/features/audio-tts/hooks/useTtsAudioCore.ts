@@ -59,6 +59,7 @@ function initParagraphState(
   state.setDurationSec(0)
   state.setActiveSentenceSnippet(snippet)
   useTtsStore.getState().setActiveSentence(snippet)
+  useTtsStore.getState().setSentenceProgress(0)
   onActiveParagraphChange(idx)
 }
 

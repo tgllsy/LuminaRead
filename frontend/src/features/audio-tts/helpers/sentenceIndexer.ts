@@ -81,17 +81,19 @@ export function findSentenceRangeInText(
   const cleanSnippet = cleanTtsSpokenText(snippet)
 
   for (const s of sentences) {
+    const isCompleteSentence = /[。！？；…!?;]["'”’」』]*$/.test(s.text)
     if (
-      s.text.includes(snippet) ||
-      snippet.includes(s.text) ||
-      (cleanSnippet && s.cleanText === cleanSnippet)
+      s.text === snippet ||
+      (cleanSnippet && s.cleanText === cleanSnippet) ||
+      (snippet.length >= 4 && s.text.includes(snippet)) ||
+      (!isCompleteSentence && s.text.length >= 4 && snippet.includes(s.text))
     ) {
       return { start: s.startChar, end: s.endChar }
     }
   }
 
   const trimmedSnippet = snippet.slice(0, Math.min(8, snippet.length))
-  if (trimmedSnippet.length >= 3) {
+  if (trimmedSnippet.length >= 4) {
     const fuzzyIdx = text.indexOf(trimmedSnippet)
     if (fuzzyIdx >= 0) {
       return { start: fuzzyIdx, end: Math.min(text.length, fuzzyIdx + snippet.length) }

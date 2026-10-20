@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { readerApi } from '../api'
 import { useBooksStore } from '../../../shared/stores/useBooksStore'
 import { useTtsStore } from '../../../stores/ttsStore'
+import { updateBookProgressInMemoryCache } from '../../../utils/bookCache'
 
 interface UseReadingProgressSyncOptions {
   activeBookId: string
@@ -86,7 +87,15 @@ export function useReadingProgressSync({
   const onUpdatedRef = useRef(onBookStateUpdated)
   onUpdatedRef.current = onBookStateUpdated
 
+  const isHiddenRef = useRef(isHidden)
+  isHiddenRef.current = isHidden
+
   const lastReportedRef = useRef<{ ch: number; para: number; spread?: number }>({ ch: -1, para: -1 })
+  const lastValidVisibleRef = useRef<{ bookId: string; ch: number; para: number }>({
+    bookId: activeBookId,
+    ch: chapterIndex,
+    para: 0,
+  })
   const getParaRef = useRef(getCurrentVisibleParagraphIndex)
   getParaRef.current = getCurrentVisibleParagraphIndex
 
@@ -95,8 +104,27 @@ export function useReadingProgressSync({
   const reportProgress = useCallback(
     async (chIdx: number, scrollOffset: number, percentage: number, delta: number = 0) => {
       if (!activeBookId) return null
+      const nowIso = new Date().toISOString()
+      const optimisticProgress = {
+        book_id: activeBookId,
+        chapter_index: chIdx,
+        scroll_offset: scrollOffset,
+        cfi: `para:${Math.max(0, Math.floor(scrollOffset))}`,
+        percentage,
+        device_name: 'Web-Reader',
+        updated_at: nowIso,
+      }
+      lastReportedRef.current = { ch: chIdx, para: scrollOffset, spread: clampedSpreadIndex }
+      lastValidVisibleRef.current = { bookId: activeBookId, ch: chIdx, para: scrollOffset }
+
+      // Synchronously update global store & memory cache so immediate return-to-shelf never reads stale progress
+      useBooksStore.getState().updateBookOptimistically(activeBookId, {
+        progress: optimisticProgress,
+        last_read_at: nowIso,
+      })
+      updateBookProgressInMemoryCache(activeBookId, optimisticProgress)
+
       try {
-        lastReportedRef.current = { ch: chIdx, para: scrollOffset, spread: clampedSpreadIndex }
         const res = await readerApi.updateReadingProgress(activeBookId, {
           chapter_index: chIdx,
           scroll_offset: scrollOffset,
@@ -106,13 +134,14 @@ export function useReadingProgressSync({
         if (res?.progress) {
           useBooksStore.getState().updateBookOptimistically(activeBookId, {
             progress: res.progress,
-            last_read_at: res.progress.updated_at || new Date().toISOString(),
+            last_read_at: res.progress.updated_at || nowIso,
           })
+          updateBookProgressInMemoryCache(activeBookId, res.progress)
           onUpdatedRef.current?.()
         }
-        return res.progress
+        return res?.progress ?? optimisticProgress
       } catch {
-        return null
+        return optimisticProgress
       }
     },
     [activeBookId, clampedSpreadIndex]
@@ -121,9 +150,22 @@ export function useReadingProgressSync({
   const syncCurrentProgress = useCallback(
     (force = false) => {
       if (!activeBookId) return
-      const paraIdx = getParaRef.current ? getParaRef.current() : 0
-      const prev = lastReportedRef.current
+      let paraIdx = 0
+      if (!isHiddenRef.current && getParaRef.current) {
+        paraIdx = getParaRef.current()
+        lastValidVisibleRef.current = { bookId: activeBookId, ch: chapterIndex, para: paraIdx }
+      } else if (
+        lastValidVisibleRef.current.bookId === activeBookId &&
+        lastValidVisibleRef.current.ch === chapterIndex
+      ) {
+        paraIdx = lastValidVisibleRef.current.para
+      } else if (lastReportedRef.current.ch === chapterIndex && lastReportedRef.current.para >= 0) {
+        paraIdx = lastReportedRef.current.para
+      } else {
+        return
+      }
 
+      const prev = lastReportedRef.current
       const isSameLocation =
         prev.ch === chapterIndex &&
         prev.para === paraIdx &&
@@ -149,23 +191,32 @@ export function useReadingProgressSync({
     if (isHidden || !activeBookId) return
     const timer = setTimeout(() => {
       syncCurrentProgress(false)
-    }, 800)
+    }, 500)
     return () => clearTimeout(timer)
   }, [clampedSpreadIndex, chapterIndex, isHidden, activeBookId, syncCurrentProgress])
 
-  // Scroll & visibility listeners
+  // Scroll & visibility listeners (do NOT depend on isHidden so re-opening reader does not trigger cleanup overwrite)
   useEffect(() => {
     if (!activeBookId) return
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
     const onScroll = () => {
-      if (isHidden) return
+      if (isHiddenRef.current) return
+      if (getParaRef.current) {
+        lastValidVisibleRef.current = {
+          bookId: activeBookId,
+          ch: chapterIndex,
+          para: getParaRef.current(),
+        }
+      }
       if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => syncCurrentProgress(false), 1000)
+      debounceTimer = setTimeout(() => syncCurrentProgress(false), 800)
     }
 
     const onVisibilityOrUnload = () => {
-      if (document.visibilityState === 'hidden') syncCurrentProgress(true)
+      if (document.visibilityState === 'hidden' && !isHiddenRef.current) {
+        syncCurrentProgress(true)
+      }
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -175,10 +226,8 @@ export function useReadingProgressSync({
       if (debounceTimer) clearTimeout(debounceTimer)
       window.removeEventListener('scroll', onScroll)
       document.removeEventListener('visibilitychange', onVisibilityOrUnload)
-      // Force sync on cleanup (switching tabs, closing reader)
-      syncCurrentProgress(true)
     }
-  }, [activeBookId, isHidden, syncCurrentProgress])
+  }, [activeBookId, chapterIndex, syncCurrentProgress])
 
   return { reportProgress, syncCurrentProgress }
 }

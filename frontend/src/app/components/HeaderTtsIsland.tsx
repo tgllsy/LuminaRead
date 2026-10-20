@@ -33,7 +33,7 @@ export const HeaderTtsIsland: React.FC<HeaderTtsIslandProps> = ({
     }
   }, [isPlaying])
 
-  if ((!isActive && !bookTitle) || localDismissed || isGlobalDismissed) {
+  if (!isActive || localDismissed || isGlobalDismissed) {
     return null
   }
 
@@ -46,6 +46,13 @@ export const HeaderTtsIsland: React.FC<HeaderTtsIslandProps> = ({
     e.stopPropagation()
     setLocalDismissed(true)
     setListeningCapsuleDismissed(true)
+    useTtsStore.getState().setAudioStatus({
+      active: false,
+      playing: false,
+      paused: false,
+      loading: false,
+      ambientActive: false,
+    })
     onClose?.()
   }
 

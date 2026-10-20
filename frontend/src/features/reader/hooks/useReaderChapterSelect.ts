@@ -4,22 +4,31 @@ import { readerApi } from '../api'
 import { setBookInMemoryCache, prefetchUpcomingChapters } from '../../../utils/bookCache'
 
 function useChapterJumpAndRestoreTarget({
-  contentData, chapterIndex, jumpTarget,
+  contentData, chapterIndex, jumpTarget, isHidden,
   pendingScrollTargetRef, setScrollRequestNonce,
   setFlashedParaIndex, setHighlightKeyword,
 }: Pick<
   UseReaderChapterSelectOptions,
-  'contentData' | 'chapterIndex' | 'jumpTarget' | 'setFlashedParaIndex' | 'setHighlightKeyword'
+  'contentData' | 'chapterIndex' | 'jumpTarget' | 'isHidden' | 'setFlashedParaIndex' | 'setHighlightKeyword'
 > & {
   pendingScrollTargetRef: React.MutableRefObject<ScrollTarget>
   setScrollRequestNonce: React.Dispatch<React.SetStateAction<number>>
 }) {
   const lastConsumedJumpRef = useRef<JumpTarget | null>(null)
   const restoredBookIdRef = useRef<string | null>(null)
+  const prevIsHiddenRef = useRef(isHidden)
 
-  // 1. Explicit jump target (TOC, notes, bookmarks, search results)
   useEffect(() => {
-    if (!contentData || !jumpTarget || jumpTarget.bookId !== contentData.book.id) return
+    if (prevIsHiddenRef.current && !isHidden) {
+      // Book was re-opened from bookshelf; allow progress restoration if jumpTarget has no explicit paragraph
+      restoredBookIdRef.current = null
+    }
+    prevIsHiddenRef.current = isHidden
+  }, [isHidden])
+
+  // 1. Explicit jump target (TOC, notes, bookmarks, search results, bookshelf open)
+  useEffect(() => {
+    if (isHidden || !contentData || !jumpTarget || jumpTarget.bookId !== contentData.book.id) return
     const maxCh = Math.max(0, contentData.chapters.length - 1)
     const targetCh = jumpTarget.chapterIndex !== undefined
       ? Math.max(0, Math.min(jumpTarget.chapterIndex, maxCh))
@@ -28,19 +37,26 @@ function useChapterJumpAndRestoreTarget({
     if (lastConsumedJumpRef.current === jumpTarget) return
     lastConsumedJumpRef.current = jumpTarget
     if (jumpTarget.highlightKeyword !== undefined) setHighlightKeyword(jumpTarget.highlightKeyword)
-    if (jumpTarget.paragraphIndex !== undefined) {
-      pendingScrollTargetRef.current = { type: 'para', index: jumpTarget.paragraphIndex }
-      setFlashedParaIndex(jumpTarget.paragraphIndex)
+    const fallbackSavedPara =
+      contentData.progress?.chapter_index === targetCh
+        ? Math.round(contentData.progress?.scroll_offset ?? 0)
+        : 0
+    const targetPara = jumpTarget.paragraphIndex ?? (fallbackSavedPara > 0 ? fallbackSavedPara : undefined)
+    if (targetPara !== undefined) {
+      restoredBookIdRef.current = contentData.book.id
+      pendingScrollTargetRef.current = { type: 'para', index: targetPara }
+      setFlashedParaIndex(targetPara)
       setScrollRequestNonce((n) => n + 1)
     } else if (jumpTarget.scrollOffset !== undefined && jumpTarget.scrollOffset > 0) {
+      restoredBookIdRef.current = contentData.book.id
       pendingScrollTargetRef.current = { type: 'offset', top: jumpTarget.scrollOffset }
       setScrollRequestNonce((n) => n + 1)
     }
-  }, [contentData, chapterIndex, jumpTarget, pendingScrollTargetRef, setFlashedParaIndex, setHighlightKeyword, setScrollRequestNonce])
+  }, [isHidden, contentData, chapterIndex, jumpTarget, pendingScrollTargetRef, setFlashedParaIndex, setHighlightKeyword, setScrollRequestNonce])
 
   // 2. Restore saved paragraph from backend reading progress on initial book open
   useEffect(() => {
-    if (!contentData) return
+    if (isHidden || !contentData) return
     const bookId = contentData.book.id
     if (restoredBookIdRef.current === bookId) return
 
@@ -62,7 +78,7 @@ function useChapterJumpAndRestoreTarget({
     } else if (contentData.chapters?.[chapterIndex]?.content) {
       restoredBookIdRef.current = bookId
     }
-  }, [contentData, chapterIndex, jumpTarget, pendingScrollTargetRef, setFlashedParaIndex, setScrollRequestNonce])
+  }, [isHidden, contentData, chapterIndex, jumpTarget, pendingScrollTargetRef, setFlashedParaIndex, setScrollRequestNonce])
 }
 
 function useChapterScrollExecutor({
@@ -237,6 +253,7 @@ export function useReaderChapterSelect(opts: UseReaderChapterSelectOptions) {
     contentData: opts.contentData,
     chapterIndex: opts.chapterIndex,
     jumpTarget: opts.jumpTarget,
+    isHidden: opts.isHidden,
     pendingScrollTargetRef,
     setScrollRequestNonce,
     setFlashedParaIndex: opts.setFlashedParaIndex,

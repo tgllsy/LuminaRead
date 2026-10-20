@@ -104,10 +104,22 @@ impl UploadService {
             self.write_pdf_meta_cache(&book_id, &book.title, &parsed.chapters);
         }
 
-        let paras = extract_paragraphs_for_index(&parsed.chapters);
-        if !paras.is_empty() {
-            self.repo.batch_index_paragraphs(&book_id, &book.title, &book.author, &book.cover_color, &paras).await?;
-        }
+        let repo_bg = Arc::clone(&self.repo);
+        let bid_bg = book_id.clone();
+        let title_bg = book.title.clone();
+        let author_bg = book.author.clone();
+        let color_bg = book.cover_color.clone();
+        let chapters_bg = parsed.chapters;
+        tokio::spawn(async move {
+            let paras = tokio::task::spawn_blocking(move || extract_paragraphs_for_index(&chapters_bg))
+                .await
+                .unwrap_or_default();
+            if !paras.is_empty() {
+                let _ = repo_bg
+                    .batch_index_paragraphs(&bid_bg, &title_bg, &author_bg, &color_bg, &paras)
+                    .await;
+            }
+        });
 
         Ok(serde_json::json!({ "ok": true, "book": book }))
     }
@@ -188,12 +200,26 @@ impl UploadService {
             .map_err(InfraError::Io)?;
 
         let current_len = file.metadata().await.map(|m| m.len()).unwrap_or(0);
-        let default_chunk_size: u64 = 4 * 1024 * 1024;
-        let expected_std_offset = (chunk_index.max(0) as u64) * default_chunk_size;
+        let chunk_len = chunk.len() as u64;
         let offset = if chunk_index <= 0 {
+            if current_len > 0 {
+                let _ = file.set_len(0).await;
+            }
             0
-        } else if current_len == expected_std_offset {
-            expected_std_offset
+        } else if chunk_index + 1 < total_chunks && chunk_len > 0 {
+            let exact_offset = (chunk_index as u64) * chunk_len;
+            if current_len >= exact_offset {
+                exact_offset
+            } else {
+                current_len
+            }
+        } else if book.file_size > 0 && (book.file_size as u64) >= chunk_len {
+            let tail_offset = (book.file_size as u64) - chunk_len;
+            if current_len >= tail_offset {
+                tail_offset
+            } else {
+                current_len
+            }
         } else {
             current_len
         };
@@ -215,78 +241,132 @@ impl UploadService {
     }
 
     pub async fn complete_upload(&self, book_id: &str) -> AppResult<Value> {
-        let book = self.repo.find_by_id(book_id).await?.ok_or_else(|| DomainError::BookNotFound(book_id.to_string()))?;
+        let mut book = self.repo.find_by_id(book_id).await?.ok_or_else(|| DomainError::BookNotFound(book_id.to_string()))?;
         let path = PathBuf::from(&book.file_path);
 
-        let _ = self.repo.update_import_status(book_id, 85, "正在提取章节与封面...", "importing", "").await;
+        book.import_progress = 85;
+        book.import_step = "正在提取章节与封面...".into();
+        let _ = self.repo.update_import_status(book_id, 85, &book.import_step, "importing", "").await;
 
-        let path_clone = path.clone();
-        let covers_dir = self.config.covers_dir.clone();
-        let original_title = book.title.clone();
-        let original_author = book.author.clone();
-        let parsed_res = tokio::task::spawn_blocking(move || {
-            parse_book_file_with_meta(&path_clone, &original_title, &original_author, &covers_dir)
-        })
-        .await
-        .map_err(InfraError::JoinError)?;
+        let repo_clone = Arc::clone(&self.repo);
+        let config_clone = self.config.clone();
+        let book_clone = book.clone();
+        let bid_owned = book_id.to_string();
 
-        let parsed = match parsed_res {
-            Ok(p) => p,
-            Err(e) => {
-                let err_msg = format!("解析失败: {}", e);
-                let _ = self.repo.update_import_status(book_id, 0, "解析失败", "failed", &err_msg).await;
-                return Err(DomainError::ValidationError(err_msg).into());
+        let (tx, rx) = tokio::sync::oneshot::channel::<AppResult<Book>>();
+
+        tokio::spawn(async move {
+            let path_clone = path.clone();
+            let covers_dir = config_clone.covers_dir.clone();
+            let original_title = book_clone.title.clone();
+            let original_author = book_clone.author.clone();
+
+            let parsed_res = tokio::task::spawn_blocking(move || {
+                parse_book_file_with_meta(&path_clone, &original_title, &original_author, &covers_dir)
+            })
+            .await;
+
+            let parsed = match parsed_res {
+                Ok(Ok(p)) => p,
+                Ok(Err(e)) => {
+                    let err_msg = format!("解析失败: {}", e);
+                    let _ = repo_clone.update_import_status(&bid_owned, 0, "解析失败", "failed", &err_msg).await;
+                    let _ = tx.send(Err(DomainError::ValidationError(err_msg).into()));
+                    return;
+                }
+                Err(join_err) => {
+                    let err_msg = format!("解析任务异常: {}", join_err);
+                    let _ = repo_clone.update_import_status(&bid_owned, 0, "解析失败", "failed", &err_msg).await;
+                    let _ = tx.send(Err(InfraError::JoinError(join_err).into()));
+                    return;
+                }
+            };
+
+            if repo_clone.find_by_id(&bid_owned).await.ok().flatten().is_none() {
+                let _ = tx.send(Err(DomainError::BookNotFound(bid_owned).into()));
+                return;
             }
-        };
 
-        // Ensure book wasn't deleted while parsing in background
-        if self.repo.find_by_id(book_id).await?.is_none() {
-            return Err(DomainError::BookNotFound(book_id.to_string()).into());
-        }
+            let meta_len = tokio::fs::metadata(&path).await.map(|m| m.len() as i64).unwrap_or(book_clone.file_size);
+            let mut updated = book_clone;
+            if !parsed.title.is_empty() { updated.title = parsed.title; }
+            if !parsed.author.is_empty() && parsed.author != "未知作者" { updated.author = parsed.author; }
+            if let Some(cover) = parsed.cover_url {
+                if !cover.is_empty() { updated.cover_url = cover; }
+            }
+            if let Some(desc) = parsed.description {
+                if !desc.is_empty() { updated.description = desc; }
+            }
+            if let Some(isbn) = parsed.isbn {
+                if !isbn.is_empty() { updated.isbn = isbn; }
+            }
+            if let Some(publisher) = parsed.publisher {
+                if !publisher.is_empty() { updated.publisher = publisher; }
+            }
+            updated.file_size = meta_len;
+            updated.word_count = parsed.word_count as i64;
+            updated.status = BookStatus::Unread;
+            updated.import_progress = 100;
+            updated.import_step = "导入完成".into();
+            updated.import_error = "".into();
+            updated.chapters_count = parsed.chapters.len();
 
-        let _ = self.repo.update_import_status(book_id, 95, "正在构建全文检索索引...", "importing", "").await;
+            let ch_json = serde_json::to_string(&parsed.chapters).unwrap_or_else(|_| "[]".into());
+            if let Err(e) = repo_clone.save(&updated, &ch_json).await {
+                let _ = tx.send(Err(e));
+                return;
+            }
 
-        let meta = tokio::fs::metadata(&path).await.map_err(InfraError::Io)?;
-        let mut updated = book.clone();
-        if !parsed.title.is_empty() { updated.title = parsed.title; }
-        if !parsed.author.is_empty() && parsed.author != "未知作者" { updated.author = parsed.author; }
-        if let Some(cover) = parsed.cover_url {
-            if !cover.is_empty() { updated.cover_url = cover; }
-        }
-        if let Some(desc) = parsed.description {
-            if !desc.is_empty() { updated.description = desc; }
-        }
-        if let Some(isbn) = parsed.isbn {
-            if !isbn.is_empty() { updated.isbn = isbn; }
-        }
-        if let Some(publisher) = parsed.publisher {
-            if !publisher.is_empty() { updated.publisher = publisher; }
-        }
-        updated.file_size = meta.len() as i64;
-        updated.word_count = parsed.word_count as i64;
-        updated.status = BookStatus::Unread;
-        updated.import_progress = 100;
-        updated.import_step = "导入完成".into();
-        updated.import_error = "".into();
-        updated.chapters_count = parsed.chapters.len();
+            if updated.format.as_str() == "pdf" {
+                let dir = config_clone.pdf_cache_dir.join(&bid_owned);
+                if std::fs::create_dir_all(&dir).is_ok() {
+                    let mut meta = crate::infra::parser::pdf::build_pdf_meta_json(&bid_owned, &parsed.chapters);
+                    if let Some(obj) = meta.as_object_mut() {
+                        obj.insert("title".to_string(), Value::String(updated.title.clone()));
+                        if let Some(cnt) = obj.get("page_count").cloned() {
+                            obj.insert("total_pages".to_string(), cnt.clone());
+                            obj.insert("totalPages".to_string(), cnt);
+                        }
+                    }
+                    if let Ok(json_str) = serde_json::to_string_pretty(&meta) {
+                        let _ = std::fs::write(dir.join("meta.json"), json_str);
+                    }
+                }
+            }
 
-        let ch_json = serde_json::to_string(&parsed.chapters).unwrap_or_else(|_| "[]".into());
-        self.repo.save(&updated, &ch_json).await?;
-        if updated.format.as_str() == "pdf" {
-            self.write_pdf_meta_cache(book_id, &updated.title, &parsed.chapters);
-        }
+            let updated_ret = updated.clone();
+            let _ = tx.send(Ok(updated_ret));
 
-        let paras = extract_paragraphs_for_index(&parsed.chapters);
-        if !paras.is_empty() {
-            self.repo.batch_index_paragraphs(book_id, &updated.title, &updated.author, &updated.cover_color, &paras).await?;
-        }
+            // Build FTS5 full-text search index asynchronously in background
+            let chapters_for_idx = parsed.chapters;
+            let paras = tokio::task::spawn_blocking(move || extract_paragraphs_for_index(&chapters_for_idx))
+                .await
+                .unwrap_or_default();
+            if !paras.is_empty() {
+                let _ = repo_clone
+                    .batch_index_paragraphs(&bid_owned, &updated.title, &updated.author, &updated.cover_color, &paras)
+                    .await;
+            }
+        });
 
-        Ok(serde_json::json!({ "ok": true, "book": updated }))
+        match tokio::time::timeout(std::time::Duration::from_millis(4000), rx).await {
+            Ok(Ok(Ok(completed_book))) => Ok(serde_json::json!({ "ok": true, "book": completed_book })),
+            Ok(Ok(Err(e))) => Err(e),
+            Ok(Err(_)) | Err(_) => {
+                // Background task is still parsing a very large file; return current importing state
+                // so the mobile HTTP request completes cleanly and bookshelf polling tracks completion.
+                Ok(serde_json::json!({ "ok": true, "book": book }))
+            }
+        }
     }
 
     pub async fn fail_upload(&self, book_id: &str, error: &str) -> AppResult<()> {
         if let Ok(Some(book)) = self.repo.find_by_id(book_id).await {
-            if !book.file_path.is_empty() && book.status == BookStatus::Importing {
+            // Do not abort or delete if all chunks were already received and background parsing is active or finished
+            if book.status != BookStatus::Importing || book.import_progress >= 85 {
+                return Ok(());
+            }
+            if !book.file_path.is_empty() {
                 let _ = tokio::fs::remove_file(&book.file_path).await;
             }
         }

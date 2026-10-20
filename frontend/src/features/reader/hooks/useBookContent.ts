@@ -63,16 +63,16 @@ export function useBookContent({
     if (!contentData || contentData.book.id !== activeBookId) return
     const maxIdx = Math.max(0, (contentData.chapters?.length || 1) - 1)
 
-    if (userSelectedBookRef.current === activeBookId) {
-      setChapterIndex((prev) => Math.max(0, Math.min(prev, maxIdx)))
-      return
-    }
-
     const jt = jumpTargetRef.current
     if (jt && jt !== consumedJumpTargetRef.current && jt.bookId === activeBookId && jt.chapterIndex !== undefined) {
       consumedJumpTargetRef.current = jt
       const resolved = Math.max(0, Math.min(jt.chapterIndex, maxIdx))
       setChapterIndex((prev) => (prev === resolved ? prev : resolved))
+      return
+    }
+
+    if (userSelectedBookRef.current === activeBookId) {
+      setChapterIndex((prev) => Math.max(0, Math.min(prev, maxIdx)))
       return
     }
 

@@ -471,8 +471,11 @@ fn resolve_dual_role_voices<'a>(
     if raw_v == "drama-yunxi-xiaoxiao" {
         return ("zh-CN-YunxiNeural", "zh-CN-XiaoxiaoNeural");
     }
-    if raw_v == "drama-yunjian-xiaoxiao" {
+    if raw_v == "drama-yunjian-xiaoxiao" || raw_v == "drama-cn-classic" {
         return ("zh-CN-YunjianNeural", "zh-CN-XiaoxiaoNeural");
+    }
+    if raw_v.starts_with("drama-") {
+        return ("zh-CN-YunxiNeural", "zh-CN-XiaoxiaoNeural");
     }
 
     let narration = if raw_v.is_empty() {
@@ -481,7 +484,7 @@ fn resolve_dual_role_voices<'a>(
         raw_v
     };
 
-    let dialogue = if raw_d.is_empty() {
+    let dialogue = if raw_d.is_empty() || raw_d.starts_with("drama-") {
         if narration == "zh-CN-YunxiNeural" || narration == "zh-CN-YunjianNeural" {
             "zh-CN-XiaoxiaoNeural"
         } else {
@@ -574,10 +577,10 @@ async fn synthesize_via_edge_tts(
     let cfg_app = crate::config::current_config();
     let configured_ws = cfg_app.endpoints.edge_tts_ws_url.trim();
 
-    // 候选端点列表：优先微软官方全新 api.msedgeservices.com，备用官方 bing 端点
+    // 候选端点列表：优先实测稳定的官方 bing 端点，备用 api.msedgeservices.com
     let mut candidate_urls: Vec<(&str, bool)> = vec![
-        ("wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1", true),
         ("wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1", false),
+        ("wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1", true),
     ];
     if !configured_ws.is_empty()
         && !configured_ws.contains("api.msedgeservices.com")
@@ -708,7 +711,7 @@ async fn synthesize_via_edge_tts(
             }
         };
 
-        if tokio::time::timeout(std::time::Duration::from_secs(6), timeout_task)
+        if tokio::time::timeout(std::time::Duration::from_secs(12), timeout_task)
             .await
             .is_ok()
             && is_valid_mp3_buffer(&audio_bytes)
@@ -833,8 +836,8 @@ impl TtsService for TtsServiceImpl {
             let _ = tokio::fs::remove_file(&mp3_path).await;
         }
 
-        // Also check if another voice already cached the exact same text_hash on disk
-        let mut is_cached = mp3_path.exists();
+        let was_cached = mp3_path.exists();
+        let mut is_cached = was_cached;
         let mut engine_used = "edge-neural".to_string();
 
         if !is_cached {
@@ -853,15 +856,25 @@ impl TtsService for TtsServiceImpl {
                 notify.notified().await;
                 is_cached = mp3_path.exists() && !is_fake_stub_mp3(&mp3_path);
             } else {
-                let chunks = split_text_into_tts_chunks(&normalized, 380);
+                let chunks = split_text_into_tts_chunks(&normalized, 260);
+                let client = &self.http_client;
                 let mut combined_mp3 = Vec::new();
                 let mut all_chunks_ok = !chunks.is_empty();
-                for chunk in &chunks {
-                    if let Some((buf, eng)) = synthesize_chunk_mp3(chunk, voice_name, Some(&self.http_client)).await {
-                        combined_mp3.extend_from_slice(&buf);
-                        engine_used = eng.to_string();
-                    } else {
-                        all_chunks_ok = false;
+                for batch in chunks.chunks(4) {
+                    let batch_futs = batch.iter().map(|chunk| {
+                        synthesize_chunk_mp3(chunk, voice_name, Some(client))
+                    });
+                    let batch_results = futures_util::future::join_all(batch_futs).await;
+                    for res in batch_results {
+                        if let Some((buf, eng)) = res {
+                            combined_mp3.extend_from_slice(&buf);
+                            engine_used = eng.to_string();
+                        } else {
+                            all_chunks_ok = false;
+                            break;
+                        }
+                    }
+                    if !all_chunks_ok {
                         break;
                     }
                 }
@@ -936,7 +949,7 @@ impl TtsService for TtsServiceImpl {
         let _ = self
             .db
             .interact(move |conn| {
-                if is_cached {
+                if was_cached {
                     let _ = conn.execute(
                         "UPDATE tts_audio_cache SET hit_count = hit_count + 1, last_accessed_at = ? WHERE cache_key = ?",
                         rusqlite::params![now_str, ck_db],
@@ -969,7 +982,7 @@ impl TtsService for TtsServiceImpl {
             "duration_estimate_sec": duration_sec,
             "voice": voice_name,
             "engine": engine_used,
-            "cached": is_cached,
+            "cached": was_cached,
             "cache_key": cache_key,
         }))
     }
@@ -1019,7 +1032,8 @@ impl TtsService for TtsServiceImpl {
             let _ = tokio::fs::remove_file(&mp3_path).await;
         }
 
-        let mut is_cached = mp3_path.exists();
+        let was_cached = mp3_path.exists();
+        let mut is_cached = was_cached;
         let mut engine_used = "edge-neural".to_string();
 
         if !is_cached {
@@ -1045,7 +1059,7 @@ impl TtsService for TtsServiceImpl {
                         continue;
                     }
                     let seg_voice = if seg.is_dialogue { d_voice } else { n_voice };
-                    let chunks = split_text_into_tts_chunks(&seg_clean, 380);
+                    let chunks = split_text_into_tts_chunks(&seg_clean, 260);
                     for chunk in chunks {
                         tasks.push((chunk, seg_voice));
                     }
@@ -1054,7 +1068,7 @@ impl TtsService for TtsServiceImpl {
                 let client = &self.http_client;
                 let mut combined_mp3 = Vec::new();
                 let mut all_chunks_ok = !tasks.is_empty();
-                for pair in tasks.chunks(2) {
+                for pair in tasks.chunks(4) {
                     let batch_futs = pair.iter().map(|(chunk, voice)| {
                         synthesize_chunk_mp3(chunk, voice, Some(client))
                     });
@@ -1114,7 +1128,7 @@ impl TtsService for TtsServiceImpl {
         let _ = self
             .db
             .interact(move |conn| {
-                if is_cached {
+                if was_cached {
                     let _ = conn.execute(
                         "UPDATE tts_audio_cache SET hit_count = hit_count + 1, last_accessed_at = ? WHERE cache_key = ?",
                         rusqlite::params![now_str, ck_db],
@@ -1150,7 +1164,7 @@ impl TtsService for TtsServiceImpl {
             "dialogue_voice": d_voice,
             "is_dual_role": true,
             "engine": engine_used,
-            "cached": is_cached,
+            "cached": was_cached,
             "cache_key": cache_key,
         }))
     }
