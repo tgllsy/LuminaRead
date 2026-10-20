@@ -51,6 +51,10 @@ export const bookshelfApi = {
     await apiClient.delete(`/api/books/${encodeURIComponent(bookId)}`)
   },
 
+  async fetchBookById(bookId: string): Promise<BookSummary> {
+    return await apiClient.get<BookSummary>(`/api/books/${encodeURIComponent(bookId)}`)
+  },
+
   async reparseBook(bookId: string): Promise<BookSummary> {
     const data = await apiClient.post<{ ok: boolean; book: BookSummary }>(
       `/api/books/${encodeURIComponent(bookId)}/reparse`

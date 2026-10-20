@@ -229,7 +229,9 @@ impl UploadService {
 
         let progress = (((chunk_index + 1) as f64 / total_chunks.max(1) as f64) * 80.0).round() as i64;
         let step = format!("正在上传文件 ({}%)...", progress);
-        self.repo.update_import_status(book_id, progress, &step, "importing", "").await?;
+        if progress % 10 == 0 || chunk_index + 1 >= total_chunks {
+            let _ = self.repo.update_import_status(book_id, progress, &step, "importing", "").await;
+        }
 
         Ok(serde_json::json!({
             "ok": true,

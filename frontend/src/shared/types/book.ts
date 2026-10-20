@@ -40,6 +40,7 @@ export interface PdfBookMeta {
   text_page_count: number
   image_page_count: number
   is_scanned_or_hybrid: boolean
+  is_scanned_book?: boolean
   pages: PdfPageMetaItem[]
 }
 

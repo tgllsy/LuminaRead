@@ -1,9 +1,10 @@
 use axum::{
     extract::{Path, Query, State},
-    http::{header, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
+use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use serde_json::Value;
 use crate::domain::entities::book::Book;
 use crate::domain::traits::BookFilter;
@@ -216,6 +217,12 @@ fn render_pdf_page_svg(title: &str, page: usize, total_pages: usize, text: &str)
         y += 30;
     }
 
+    if text_nodes.trim().is_empty() {
+        text_nodes = r##"<rect x="200" y="480" width="400" height="100" rx="16" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+  <text x="400" y="528" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#475569">原版影印扫描页面</text>
+  <text x="400" y="556" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#94a3b8">请在阅读器中开启【原版书页】高保真浏览</text>"##.to_string();
+    }
+
     let safe_title = xml_escape(title);
     let svg = format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1120" viewBox="0 0 800 1120">
@@ -237,4 +244,113 @@ pub async fn reparse_book(
 ) -> AppResult<Json<Value>> {
     let book = state.book_service.reparse_book(&id).await?;
     Ok(Json(serde_json::json!({ "ok": true, "book": book })))
+}
+
+pub async fn get_book_file(
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Response {
+    if id.contains('/') || id.contains('\\') || id.contains("..") {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    let book = match state.book_service.get_book_details(&id).await {
+        Ok(b) => b,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    if book.file_path.is_empty() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    let file_path = std::path::Path::new(&book.file_path);
+    if !file_path.exists() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    let mut file = match tokio::fs::File::open(file_path).await {
+        Ok(f) => f,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let metadata = match file.metadata().await {
+        Ok(m) => m,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let total_len = metadata.len();
+    let content_type = match book.format {
+        crate::domain::entities::book::BookFormat::Pdf => "application/pdf",
+        crate::domain::entities::book::BookFormat::Epub => "application/epub+zip",
+        crate::domain::entities::book::BookFormat::Mobi => "application/x-mobipocket-ebook",
+        crate::domain::entities::book::BookFormat::Azw3 => "application/vnd.amazon.ebook",
+        crate::domain::entities::book::BookFormat::Txt | crate::domain::entities::book::BookFormat::Md => {
+            "text/plain; charset=utf-8"
+        }
+    };
+
+    // Support HTTP Range Requests (essential for PDF.js page streaming)
+    if let Some(range_header) = headers.get(header::RANGE).and_then(|v| v.to_str().ok()) {
+        if let Some(range_spec) = range_header.strip_prefix("bytes=") {
+            let parts: Vec<&str> = range_spec.split('-').collect();
+            let start = parts.first().and_then(|s| s.parse::<u64>().ok());
+            let end = parts.get(1).and_then(|s| s.parse::<u64>().ok());
+
+            let (range_start, range_end) = match (start, end) {
+                (Some(s), Some(e)) if s <= e && s < total_len => (s, e.min(total_len - 1)),
+                (Some(s), None) if s < total_len => (s, total_len - 1),
+                (None, Some(suffix_len)) if suffix_len > 0 => {
+                    let s = total_len.saturating_sub(suffix_len);
+                    (s, total_len - 1)
+                }
+                _ => {
+                    return (
+                        StatusCode::RANGE_NOT_SATISFIABLE,
+                        [(header::CONTENT_RANGE, format!("bytes */{}", total_len))],
+                    )
+                        .into_response();
+                }
+            };
+
+            let chunk_len = range_end - range_start + 1;
+            if (file.seek(std::io::SeekFrom::Start(range_start)).await).is_err() {
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+
+            let stream = tokio_util::io::ReaderStream::new(file.take(chunk_len));
+            let body = axum::body::Body::from_stream(stream);
+
+            return (
+                StatusCode::PARTIAL_CONTENT,
+                [
+                    (header::CONTENT_TYPE, content_type),
+                    (header::ACCEPT_RANGES, "bytes"),
+                    (header::CONTENT_LENGTH, chunk_len.to_string().as_str()),
+                    (
+                        header::CONTENT_RANGE,
+                        format!("bytes {}-{}/{}", range_start, range_end, total_len).as_str(),
+                    ),
+                    (header::CACHE_CONTROL, "public, max-age=86400"),
+                ],
+                body,
+            )
+                .into_response();
+        }
+    }
+
+    let stream = tokio_util::io::ReaderStream::new(file);
+    let body = axum::body::Body::from_stream(stream);
+
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::ACCEPT_RANGES, "bytes"),
+            (header::CONTENT_LENGTH, total_len.to_string().as_str()),
+            (header::CACHE_CONTROL, "public, max-age=86400"),
+        ],
+        body,
+    )
+        .into_response()
 }

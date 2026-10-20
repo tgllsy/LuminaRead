@@ -71,9 +71,25 @@ async function uploadSingleFile(
       import_step: '正在提取章节与封面...',
     })
 
-    const completedBook = await withRetry(() => bookshelfApi.completeBookUpload(initialBook.id), 2, 1000)
-    if (completedBook) {
-      onChunkProgress(completedBook)
+    const completedBook = await withRetry(() => bookshelfApi.completeBookUpload(initialBook.id), 3, 1000)
+    let currentBook = completedBook
+    if (currentBook) {
+      onChunkProgress(currentBook)
+    }
+
+    // Actively poll until background extraction is finished
+    for (let p = 0; p < 25; p++) {
+      if (!currentBook || currentBook.status === 'importing') {
+        await new Promise((r) => setTimeout(r, 800))
+        const poll = await bookshelfApi.fetchBookById(initialBook.id).catch(() => null)
+        if (poll) {
+          currentBook = poll
+          onChunkProgress(poll)
+          if (poll.status !== 'importing') break
+        }
+      } else {
+        break
+      }
     }
   } catch (err) {
     if (allChunksUploaded) {
@@ -102,7 +118,7 @@ export async function uploadFilesWithWorkers(options: UploadPipelineOptions): Pr
     files,
     defaultCategory,
     defaultLibId,
-    chunkSize = 1024 * 1024,
+    chunkSize = 4 * 1024 * 1024,
     concurrency = 2,
     onBookCreated,
     onChunkProgress,

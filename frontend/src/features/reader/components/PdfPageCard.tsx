@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ZoomIn } from 'lucide-react'
 import type { BookSummary, ReaderTypography, HighlightItem, PdfSpreadMode } from '../types'
+import { PdfCanvasPage } from './PdfCanvasPage'
 
 export interface PdfPageCardProps {
   pNum: number
@@ -39,7 +40,13 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
   onOpenLightbox,
   onTextMouseUp,
 }) => {
-  const imgUrl = `/api/books/${encodeURIComponent(book.id)}/pdf-page/${pNum}`
+  const [renderedDataUrl, setRenderedDataUrl] = useState<string | null>(null)
+  const isDouble = pdfSpreadMode === 'double'
+
+  const handleLightbox = () => {
+    const url = renderedDataUrl || `/api/books/${encodeURIComponent(book.id)}/file`
+    onOpenLightbox(url, `《${book.title}》 · 第 ${pNum} 页`, pNum)
+  }
 
   return (
     <div
@@ -52,52 +59,46 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
           📄 第 {pNum} / {effectiveTotalPages} 页
         </span>
         <div className="flex items-center gap-2">
-          {!highPerformanceMode && pageParas.length > 0 && (
+          {!highPerformanceMode && pageParas.length > 0 ? (
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium hidden sm:inline">
               ✨ 下方文本层支持划词高亮/批注
+            </span>
+          ) : (
+            <span className="text-[11px] opacity-60 font-medium hidden sm:inline">
+              🎨 矢量高保真渲染
             </span>
           )}
           <button
             type="button"
-            onClick={() => onOpenLightbox(imgUrl, `《${book.title}》 · 第 ${pNum} 页`, pNum)}
+            onClick={handleLightbox}
             className="px-2.5 py-1 rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white font-semibold transition-colors flex items-center gap-1 shrink-0"
           >
             <ZoomIn className="w-3 h-3" />
-            <span>全屏高清细看</span>
+            <span>全屏细看</span>
           </button>
         </div>
       </div>
 
-      <div className="relative bg-current/[0.02] flex items-center justify-center min-h-[180px]">
-        <img
-          src={imgUrl}
-          alt={`《${book.title}》第 ${pNum} 页`}
-          loading="eager"
-          decoding="async"
-          style={{
-            ...pdfFilterStyle,
-            transform: 'translateZ(0)',
-            ...(fitMode === 'page'
-              ? {
-                  maxHeight: `calc((100vh - 14rem) * ${Math.max(0.5, pdfZoom / 100)})`,
-                }
-              : {}),
-          }}
-          className={`${
-            fitMode === 'page'
-              ? 'max-w-full w-auto h-auto object-contain select-none transition-all mx-auto'
-              : 'w-full h-auto object-contain select-none transition-all'
-          }`}
+      <div className="relative bg-current/[0.02] flex items-center justify-center min-h-[220px] p-1 sm:p-2">
+        <PdfCanvasPage
+          bookId={book.id}
+          pageNum={pNum}
+          pdfZoom={pdfZoom}
+          fitMode={fitMode}
+          isDouble={isDouble}
+          pdfFilterStyle={pdfFilterStyle}
+          onRenderSuccess={(dataUrl) => setRenderedDataUrl(dataUrl)}
         />
+
         <div
           onClick={() => onJumpToPdfPage(pdfCanvasPage - (pdfSpreadMode === 'double' ? 2 : 1))}
           title="点击左侧翻上一页"
-          className="absolute inset-y-0 left-0 w-1/4 cursor-w-resize"
+          className="absolute inset-y-0 left-0 w-1/4 cursor-w-resize z-20"
         />
         <div
           onClick={() => onJumpToPdfPage(pdfCanvasPage + (pdfSpreadMode === 'double' ? 2 : 1))}
           title="点击右侧翻下一页"
-          className="absolute inset-y-0 right-0 w-1/4 cursor-e-resize"
+          className="absolute inset-y-0 right-0 w-1/4 cursor-e-resize z-20"
         />
       </div>
 

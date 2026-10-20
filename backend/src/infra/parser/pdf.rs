@@ -1,18 +1,16 @@
-use flate2::read::{DeflateDecoder, ZlibDecoder};
-use sha2::{Digest, Sha256};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process::Command;
 use crate::infra::parser::epub::ParsedBook;
-use crate::infra::parser::security::MAX_DECOMPRESSED_BYTES;
 
-pub fn parse_pdf(file_path: &Path, default_title: &str, default_author: &str, covers_dir: &Path) -> Result<ParsedBook, String> {
-    let mut raw_bytes = Vec::new();
-    let mut f = File::open(file_path).map_err(|e| format!("Failed to read PDF: {}", e))?;
-    f.read_to_end(&mut raw_bytes).map_err(|e| format!("Failed to read bytes: {}", e))?;
-
-    let (info_title, info_author, info_pages) = extract_pdfinfo_meta(file_path, &raw_bytes);
+pub fn parse_pdf(
+    file_path: &Path,
+    default_title: &str,
+    default_author: &str,
+    covers_dir: &Path,
+) -> Result<ParsedBook, String> {
+    let (info_title, info_author, info_pages) = extract_pdf_meta_streamed(file_path);
     let title = info_title
         .filter(|t| !t.trim().is_empty() && !t.eq_ignore_ascii_case("untitled"))
         .unwrap_or_else(|| default_title.to_string());
@@ -20,26 +18,14 @@ pub fn parse_pdf(file_path: &Path, default_title: &str, default_author: &str, co
         .filter(|a| !a.trim().is_empty() && !a.eq_ignore_ascii_case("unknown"))
         .unwrap_or_else(|| default_author.to_string());
 
-    let mut page_texts = extract_pages_with_pdftotext(file_path);
-    let has_non_empty_pdftotext = page_texts.iter().any(|p| !p.trim().is_empty());
-    if !has_non_empty_pdftotext {
-        let fallback_pages = extract_pages_from_pdf_streams(&raw_bytes);
-        if fallback_pages.iter().any(|p| !p.trim().is_empty()) {
-            page_texts = fallback_pages;
-        }
-    }
-
+    // 1. Streamed text extraction via pdftotext CLI (fast, zero memory bloat)
+    let page_texts = extract_pages_with_pdftotext(file_path);
     let total_pages = page_texts.len().max(info_pages).max(1);
-    if page_texts.len() < total_pages {
-        page_texts.resize(total_pages, String::new());
-    }
 
-    let file_stem = file_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("doc");
-    let images_by_page = extract_embedded_pdf_images(file_path, &raw_bytes, covers_dir, file_stem, total_pages);
+    // 2. Extract 1st page cover efficiently without scanning full file
+    let cover_url = extract_pdf_cover_first_page(file_path, covers_dir);
 
+    // 3. Fast generation of chapters and semantic markers
     let mut chapters = Vec::new();
     let mut total_words = 0usize;
     let pages_per_chapter = if total_pages <= 12 { total_pages } else { 8 };
@@ -53,7 +39,8 @@ pub fn parse_pdf(file_path: &Path, default_title: &str, default_author: &str, co
 
         for page_idx in chunk_start..chunk_end {
             let page_num = page_idx + 1;
-            let clean_paras = normalize_pdf_page_paragraphs(&page_texts[page_idx]);
+            let raw_text = page_texts.get(page_idx).map(|s| s.as_str()).unwrap_or("");
+            let clean_paras = normalize_pdf_page_paragraphs(raw_text);
 
             if detected_heading.is_none() {
                 if let Some(first_para) = clean_paras.first() {
@@ -63,23 +50,10 @@ pub fn parse_pdf(file_path: &Path, default_title: &str, default_author: &str, co
                 }
             }
 
-            // Insert real embedded illustrations extracted from this page
-            if let Some(imgs) = images_by_page.get(&page_idx) {
-                for img_url in imgs {
-                    chapter_blocks.push(format!("[[BOOK_IMAGE:{}]]", img_url));
-                }
-            }
-
             chapter_blocks.push(format!("[[PDF_PAGE:{}]]", page_num));
-            if clean_paras.is_empty() {
-                // Scanned / graphic page without text: render page canvas
-                chapter_blocks.push(format!("《{}》第 {} 页版面内容。", title, page_num));
-            } else {
-                // Pure or mixed text page: flow paragraphs naturally
-                for p in clean_paras {
-                    total_words += p.chars().count();
-                    chapter_blocks.push(p);
-                }
+            for p in clean_paras {
+                total_words += p.chars().count();
+                chapter_blocks.push(p);
             }
         }
 
@@ -113,24 +87,6 @@ pub fn parse_pdf(file_path: &Path, default_title: &str, default_author: &str, co
             .sum::<u64>() as usize;
     }
 
-    let mut cover_url = None;
-    let _ = std::fs::create_dir_all(covers_dir);
-    let cover_prefix_name = format!("cover_pdf_{}", chrono::Utc::now().timestamp_millis());
-    let prefix = covers_dir.join(&cover_prefix_name);
-    if let (Some(fp_str), Some(pref_str)) = (file_path.to_str(), prefix.to_str()) {
-        if let Ok(out) = Command::new("pdftoppm")
-            .args(["-jpeg", "-r", "150", "-f", "1", "-l", "1", "-singlefile", fp_str, pref_str])
-            .output()
-        {
-            if out.status.success() {
-                let candidate = covers_dir.join(format!("{}.jpg", cover_prefix_name));
-                if candidate.exists() {
-                    cover_url = Some(format!("/data/covers/{}.jpg", cover_prefix_name));
-                }
-            }
-        }
-    }
-
     Ok(ParsedBook {
         title,
         author,
@@ -146,6 +102,8 @@ pub fn parse_pdf(file_path: &Path, default_title: &str, default_author: &str, co
 
 pub fn build_pdf_meta_json(book_id: &str, chapters: &[serde_json::Value]) -> serde_json::Value {
     let mut pages = Vec::new();
+    let mut scanned_count = 0usize;
+
     for (ch_idx, ch) in chapters.iter().enumerate() {
         let content = ch.get("content").and_then(|v| v.as_str()).unwrap_or("");
         let mut cur_page_num: Option<usize> = None;
@@ -156,12 +114,17 @@ pub fn build_pdf_meta_json(book_id: &str, chapters: &[serde_json::Value]) -> ser
             if let Some(num_str) = trimmed.strip_prefix("[[PDF_PAGE:").and_then(|s| s.strip_suffix("]]")) {
                 if let Some(prev_num) = cur_page_num {
                     let page_text = cur_paras.join("\n\n");
+                    let is_scanned = !is_valid_natural_text(&page_text);
+                    if is_scanned {
+                        scanned_count += 1;
+                    }
                     pages.push(serde_json::json!({
                         "page_num": prev_num,
                         "chapter_index": ch_idx,
-                        "text": page_text,
-                        "char_count": page_text.chars().count(),
+                        "text": if is_scanned { "" } else { &page_text },
+                        "char_count": if is_scanned { 0 } else { page_text.chars().count() },
                         "has_image": true,
+                        "is_scanned": is_scanned,
                     }));
                     cur_paras.clear();
                 }
@@ -173,12 +136,17 @@ pub fn build_pdf_meta_json(book_id: &str, chapters: &[serde_json::Value]) -> ser
 
         if let Some(last_num) = cur_page_num {
             let page_text = cur_paras.join("\n\n");
+            let is_scanned = !is_valid_natural_text(&page_text);
+            if is_scanned {
+                scanned_count += 1;
+            }
             pages.push(serde_json::json!({
                 "page_num": last_num,
                 "chapter_index": ch_idx,
-                "text": page_text,
-                "char_count": page_text.chars().count(),
+                "text": if is_scanned { "" } else { &page_text },
+                "char_count": if is_scanned { 0 } else { page_text.chars().count() },
                 "has_image": true,
+                "is_scanned": is_scanned,
             }));
         }
     }
@@ -189,30 +157,99 @@ pub fn build_pdf_meta_json(book_id: &str, chapters: &[serde_json::Value]) -> ser
             .and_then(|c| c.get("content"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
+        let is_scanned = !is_valid_natural_text(first_text);
+        if is_scanned {
+            scanned_count += 1;
+        }
         pages.push(serde_json::json!({
             "page_num": 1,
             "chapter_index": 0,
-            "text": first_text,
-            "char_count": first_text.chars().count(),
+            "text": if is_scanned { "" } else { first_text },
+            "char_count": if is_scanned { 0 } else { first_text.chars().count() },
             "has_image": true,
+            "is_scanned": is_scanned,
         }));
     }
+
+    let is_scanned_book = !pages.is_empty() && (scanned_count * 10 >= pages.len() * 7);
 
     serde_json::json!({
         "book_id": book_id,
         "page_count": pages.len(),
         "pages": pages,
+        "is_scanned_book": is_scanned_book,
     })
 }
 
+pub fn is_valid_natural_text(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let mut cjk_count = 0usize;
+    let mut alpha_count = 0usize;
+    let mut digit_count = 0usize;
+    let mut punctuation_count = 0usize;
+    let mut total_chars = 0usize;
+
+    for c in trimmed.chars() {
+        total_chars += 1;
+        if c == '\u{FFFD}' {
+            return false;
+        }
+        if ('\u{4E00}'..='\u{9FFF}').contains(&c)
+            || ('\u{3400}'..='\u{4DBF}').contains(&c)
+            || ('\u{20000}'..='\u{2A6DF}').contains(&c)
+        {
+            cjk_count += 1;
+        } else if c.is_ascii_alphabetic() {
+            alpha_count += 1;
+        } else if c.is_ascii_digit() {
+            digit_count += 1;
+        } else if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+            // whitespace
+        } else if "，。！？；：“”‘’（）《》、—…,.!?;:'\"()-/·[]{}<>".contains(c) {
+            punctuation_count += 1;
+        }
+    }
+
+    if total_chars == 0 {
+        return false;
+    }
+
+    if cjk_count > 0 {
+        let valid = cjk_count + alpha_count + digit_count + punctuation_count;
+        return (valid as f32 / total_chars as f32) >= 0.75;
+    }
+
+    if alpha_count >= 15 {
+        let valid = alpha_count + digit_count + punctuation_count;
+        if (valid as f32 / total_chars as f32) < 0.75 {
+            return false;
+        }
+        let words: Vec<&str> = trimmed.split_whitespace().collect();
+        let long_words = words.iter().filter(|w| w.len() >= 3).count();
+        return long_words >= 2;
+    }
+
+    false
+}
+
 fn normalize_pdf_page_paragraphs(raw_page: &str) -> Vec<String> {
+    if !is_valid_natural_text(raw_page) {
+        return Vec::new();
+    }
+
     let mut paras = Vec::new();
     let mut current = String::new();
     for line in raw_page.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             if !current.is_empty() {
-                paras.push(current.clone());
+                if is_valid_natural_text(&current) {
+                    paras.push(current.clone());
+                }
                 current.clear();
             }
             continue;
@@ -230,7 +267,9 @@ fn normalize_pdf_page_paragraphs(raw_page: &str) -> Vec<String> {
                 || current.ends_with('"')
                 || crate::infra::parser::security::is_chapter_heading(trimmed);
             if ends_sentence && current.chars().count() >= 28 {
-                paras.push(current.clone());
+                if is_valid_natural_text(&current) {
+                    paras.push(current.clone());
+                }
                 current.clear();
                 current.push_str(trimmed);
             } else {
@@ -243,47 +282,59 @@ fn normalize_pdf_page_paragraphs(raw_page: &str) -> Vec<String> {
             }
         }
     }
-    if !current.is_empty() {
+    if !current.is_empty() && is_valid_natural_text(&current) {
         paras.push(current);
     }
     paras
 }
 
-fn extract_pdfinfo_meta(file_path: &Path, raw_bytes: &[u8]) -> (Option<String>, Option<String>, usize) {
+fn extract_pdf_meta_streamed(file_path: &Path) -> (Option<String>, Option<String>, usize) {
     let mut title = None;
     let mut author = None;
     let mut pages = 0usize;
 
+    // 1. Try fast CLI pdfinfo
     if let Ok(output) = Command::new("pdfinfo").arg(file_path).output() {
         if output.status.success() {
             let info_str = String::from_utf8_lossy(&output.stdout);
             for line in info_str.lines() {
                 if let Some(rest) = line.strip_prefix("Title:") {
                     let t = rest.trim();
-                    if !t.is_empty() {
-                        title = Some(t.to_string());
-                    }
+                    if !t.is_empty() { title = Some(t.to_string()); }
                 } else if let Some(rest) = line.strip_prefix("Author:") {
                     let a = rest.trim();
-                    if !a.is_empty() {
-                        author = Some(a.to_string());
-                    }
+                    if !a.is_empty() { author = Some(a.to_string()); }
                 } else if let Some(rest) = line.strip_prefix("Pages:") {
-                    if let Ok(n) = rest.trim().parse::<usize>() {
-                        pages = n;
-                    }
+                    if let Ok(n) = rest.trim().parse::<usize>() { pages = n; }
                 }
             }
         }
     }
 
+    // 2. Pure Rust streaming fallback for page count without reading full file
     if pages == 0 {
-        let count_pattern = |needle: &[u8]| -> usize {
-            raw_bytes.windows(needle.len()).filter(|w| *w == needle).count()
-        };
-        let count = count_pattern(b"/Type /Page").saturating_sub(count_pattern(b"/Type /Pages"));
-        let compact_count = count_pattern(b"/Type/Page").saturating_sub(count_pattern(b"/Type/Pages"));
-        pages = count.max(compact_count).max(1);
+        if let Ok(mut f) = File::open(file_path) {
+            if let Ok(meta) = f.metadata() {
+                let len = meta.len();
+                // Read last 64KB for /Count /Pages catalog
+                let tail_read_len = len.min(65536) as usize;
+                if f.seek(SeekFrom::End(-(tail_read_len as i64))).is_ok() {
+                    let mut tail_buf = vec![0u8; tail_read_len];
+                    if f.read_exact(&mut tail_buf).is_ok() {
+                        let tail_str = String::from_utf8_lossy(&tail_buf);
+                        for line in tail_str.lines() {
+                            if let Some(pos) = line.find("/Count") {
+                                let sub = &line[pos + 6..];
+                                let num_str: String = sub.chars().skip_while(|c| c.is_whitespace()).take_while(|c| c.is_ascii_digit()).collect();
+                                if let Ok(n) = num_str.parse::<usize>() {
+                                    if n > pages { pages = n; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     (title, author, pages)
@@ -309,230 +360,25 @@ pub fn extract_pages_with_pdftotext(file_path: &Path) -> Vec<String> {
     pages
 }
 
-fn extract_pages_from_pdf_streams(raw_bytes: &[u8]) -> Vec<String> {
-    let mut streams_text = Vec::new();
-    let stream_tag = b"stream\n";
-    let stream_tag_crlf = b"stream\r\n";
-    let endstream_tag = b"endstream";
-
-    let mut pos = 0usize;
-    while pos < raw_bytes.len() {
-        let stream_start = match (
-            find_subslice(&raw_bytes[pos..], stream_tag).map(|p| (p, stream_tag.len())),
-            find_subslice(&raw_bytes[pos..], stream_tag_crlf).map(|p| (p, stream_tag_crlf.len())),
-        ) {
-            (Some((p1, l1)), Some((p2, l2))) => {
-                if p1 <= p2 {
-                    pos + p1 + l1
-                } else {
-                    pos + p2 + l2
-                }
-            }
-            (Some((p1, l1)), None) => pos + p1 + l1,
-            (None, Some((p2, l2))) => pos + p2 + l2,
-            (None, None) => break,
-        };
-
-        if let Some(stream_len) = find_subslice(&raw_bytes[stream_start..], endstream_tag) {
-            let slice = &raw_bytes[stream_start..stream_start + stream_len];
-            let decoded = decompress_pdf_stream(slice).unwrap_or_else(|| slice.to_vec());
-            let dec_str = String::from_utf8_lossy(&decoded);
-            let mut page_out = String::new();
-            extract_pdf_tj_strings(&dec_str, &mut page_out);
-            if !page_out.trim().is_empty() {
-                streams_text.push(page_out.trim().to_string());
-            }
-            pos = stream_start + stream_len + endstream_tag.len();
-        } else {
-            break;
-        }
-    }
-
-    streams_text
-}
-
-fn decompress_pdf_stream(mut data: &[u8]) -> Option<Vec<u8>> {
-    while data.last() == Some(&b'\n') || data.last() == Some(&b'\r') {
-        data = &data[..data.len() - 1];
-    }
-    let max_stream = MAX_DECOMPRESSED_BYTES.min(32 * 1024 * 1024);
-    let mut out = Vec::new();
-    if ZlibDecoder::new(data).take(max_stream).read_to_end(&mut out).is_ok() && !out.is_empty() {
-        return Some(out);
-    }
-    out.clear();
-    if DeflateDecoder::new(data).take(max_stream).read_to_end(&mut out).is_ok() && !out.is_empty() {
-        return Some(out);
-    }
-    None
-}
-
-fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|w| w == needle)
-}
-
-fn extract_pdf_tj_strings(source: &str, out: &mut String) {
-    let mut i = 0;
-    let chars: Vec<char> = source.chars().collect();
-    while i < chars.len() {
-        if chars[i] == '(' {
-            let mut j = i + 1;
-            let mut str_val = String::new();
-            while j < chars.len() && chars[j] != ')' {
-                if chars[j] == '\\' && j + 1 < chars.len() {
-                    j += 1;
-                    match chars[j] {
-                        'n' => str_val.push('\n'),
-                        'r' => {}
-                        't' => str_val.push(' '),
-                        other => str_val.push(other),
-                    }
-                } else {
-                    str_val.push(chars[j]);
-                }
-                j += 1;
-            }
-            if str_val.chars().all(|c| !c.is_control() || c == '\n' || c == '\t') && !str_val.trim().is_empty() {
-                out.push_str(str_val.trim());
-                out.push('\n');
-            }
-            i = j;
-        }
-        i += 1;
-    }
-}
-
-fn extract_embedded_pdf_images(
-    file_path: &Path,
-    raw_bytes: &[u8],
-    covers_dir: &Path,
-    stem: &str,
-    total_pages: usize,
-) -> std::collections::HashMap<usize, Vec<String>> {
-    let mut map: std::collections::HashMap<usize, Vec<String>> = std::collections::HashMap::new();
+fn extract_pdf_cover_first_page(file_path: &Path, covers_dir: &Path) -> Option<String> {
     let _ = std::fs::create_dir_all(covers_dir);
+    let cover_prefix_name = format!("cover_pdf_{}", chrono::Utc::now().timestamp_millis());
+    let prefix = covers_dir.join(&cover_prefix_name);
 
-    let mut hasher = Sha256::new();
-    hasher.update(&raw_bytes[..raw_bytes.len().min(65536)]);
-    let short_hash = &hex::encode(hasher.finalize())[..8];
-    let safe_stem: String = stem
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-        .take(24)
-        .collect();
-    let unique_stem = format!("{}_{}", if safe_stem.is_empty() { "doc" } else { &safe_stem }, short_hash);
-
-    // 1. Try pdfimages CLI with -p (outputs page number in filename: prefix-page-num.ext)
-    let prefix_name = format!("pdf_img_{}", unique_stem);
-    let prefix = covers_dir.join(&prefix_name);
     if let (Some(fp_str), Some(pref_str)) = (file_path.to_str(), prefix.to_str()) {
-        if let Ok(out) = Command::new("pdfimages")
-            .args(["-png", "-j", "-p", fp_str, pref_str])
+        if let Ok(out) = Command::new("pdftoppm")
+            .args(["-jpeg", "-r", "150", "-f", "1", "-l", "1", "-singlefile", fp_str, pref_str])
             .output()
         {
             if out.status.success() {
-                if let Ok(entries) = std::fs::read_dir(covers_dir) {
-                    let mut found = Vec::new();
-                    let match_prefix = format!("{}-", prefix_name);
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if let Some(fname) = path.file_name().and_then(|s| s.to_str()) {
-                            if fname.starts_with(&match_prefix) {
-                                found.push(fname.to_string());
-                            }
-                        }
-                    }
-                    if !found.is_empty() {
-                        found.sort();
-                        let found_len = found.len();
-                        for (idx, fname) in found.into_iter().enumerate() {
-                            // Parse page number from `{prefix_name}-{page}-{seq}.{ext}`
-                            let rest = fname.strip_prefix(&match_prefix).unwrap_or("");
-                            let parsed_page = rest
-                                .split('-')
-                                .next()
-                                .and_then(|s| s.parse::<usize>().ok())
-                                .map(|p| p.saturating_sub(1));
-
-                            let p_idx = match parsed_page {
-                                Some(p) if total_pages > 0 => p.min(total_pages.saturating_sub(1)),
-                                _ if total_pages > 0 && found_len > 0 => {
-                                    ((idx * total_pages) / found_len).min(total_pages.saturating_sub(1))
-                                }
-                                _ => 0,
-                            };
-                            map.entry(p_idx).or_default().push(format!("/data/covers/{}", fname));
-                        }
-                        return map;
-                    }
+                let candidate = covers_dir.join(format!("{}.jpg", cover_prefix_name));
+                if candidate.exists() {
+                    return Some(format!("/data/covers/{}.jpg", cover_prefix_name));
                 }
             }
         }
     }
-
-    // 2. Pure Rust fallback: scan stream chunks for JPEG SOI/EOI
-    let stream_tag = b"stream\n";
-    let stream_tag_crlf = b"stream\r\n";
-    let endstream_tag = b"endstream";
-    let jpeg_soi = [0xFF, 0xD8, 0xFF];
-    let jpeg_eoi = [0xFF, 0xD9];
-
-    let mut pos = 0usize;
-    let mut img_count = 0usize;
-
-    while pos < raw_bytes.len() && img_count < 100 {
-        let stream_start = match (
-            find_subslice(&raw_bytes[pos..], stream_tag).map(|p| (p, stream_tag.len())),
-            find_subslice(&raw_bytes[pos..], stream_tag_crlf).map(|p| (p, stream_tag_crlf.len())),
-        ) {
-            (Some((p1, l1)), Some((p2, l2))) => {
-                if p1 <= p2 { pos + p1 + l1 } else { pos + p2 + l2 }
-            }
-            (Some((p1, l1)), None) => pos + p1 + l1,
-            (None, Some((p2, l2))) => pos + p2 + l2,
-            (None, None) => break,
-        };
-
-        if let Some(stream_len) = find_subslice(&raw_bytes[stream_start..], endstream_tag) {
-            let slice = &raw_bytes[stream_start..stream_start + stream_len];
-            let maybe_jpeg: Option<Vec<u8>> = if slice.starts_with(&jpeg_soi) {
-                Some(slice.to_vec())
-            } else if let Some(decompressed) = decompress_pdf_stream(slice) {
-                if decompressed.starts_with(&jpeg_soi) {
-                    Some(decompressed)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            if let Some(bytes) = maybe_jpeg {
-                if let Some(eoi_pos) = find_subslice(&bytes, &jpeg_eoi) {
-                    let valid_jpeg = &bytes[..eoi_pos + 2];
-                    if valid_jpeg.len() >= 4096 {
-                        img_count += 1;
-                        let out_name = format!("pdf_img_{}_{}.jpg", unique_stem, img_count);
-                        let out_path = covers_dir.join(&out_name);
-                        if std::fs::write(&out_path, valid_jpeg).is_ok() {
-                            let approx_page = if total_pages > 0 && !raw_bytes.is_empty() {
-                                ((pos * total_pages) / raw_bytes.len()).min(total_pages.saturating_sub(1))
-                            } else {
-                                0
-                            };
-                            map.entry(approx_page).or_default().push(format!("/data/covers/{}", out_name));
-                        }
-                    }
-                }
-            }
-
-            pos = stream_start + stream_len + endstream_tag.len();
-        } else {
-            break;
-        }
-    }
-
-    map
+    None
 }
 
 #[cfg(test)]

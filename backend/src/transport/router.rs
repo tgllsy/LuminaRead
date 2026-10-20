@@ -27,6 +27,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/books", get(list_books))
         .route("/books/:id", get(get_book).put(update_book).delete(delete_book))
         .route("/books/:id/reparse", post(reparse_book))
+        .route("/books/:id/file", get(get_book_file))
         .route("/books/:id/content", get(get_book_content))
         .route("/books/:id/chapters/:index", get(get_book_chapter))
         .route("/books/:id/pdf-meta", get(get_pdf_meta))

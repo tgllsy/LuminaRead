@@ -1,6 +1,7 @@
 import React from 'react'
 import { ZoomIn } from 'lucide-react'
 import type { BookSummary, BookChapter } from '../types'
+import { PdfCanvasPage } from './PdfCanvasPage'
 
 interface PdfPageFigureProps {
   book: BookSummary
@@ -92,16 +93,19 @@ export const PdfPageFigure: React.FC<PdfPageFigureProps> = ({
         </div>
       </figcaption>
       <div
-        onClick={() =>
-          onOpenLightbox(pageImgUrl, `《${book.title}》 · 原书第 ${pdfPageNum} 页`, pdfPageNum)
-        }
-        className="bg-current/[0.02] p-2 sm:p-3 flex items-center justify-center cursor-zoom-in"
+        onClick={() => {
+          onSelectPdfCanvasPage(pdfPageNum)
+          onSwitchPdfMode('page_canvas')
+        }}
+        className="bg-current/[0.02] p-2 sm:p-3 flex items-center justify-center cursor-pointer"
+        title="点击进入全能画布阅读模式"
       >
-        <img
-          src={pageImgUrl}
-          alt={`《${book.title}》第 ${pdfPageNum} 页`}
-          loading="lazy"
-          className="w-full h-auto max-h-[1350px] object-contain rounded-lg select-none"
+        <PdfCanvasPage
+          bookId={book.id}
+          pageNum={pdfPageNum}
+          pdfZoom={100}
+          fitMode="width"
+          isDouble={false}
         />
       </div>
     </figure>

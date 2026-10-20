@@ -39,7 +39,12 @@ export function useReaderPdfState(activeBookId: string, isPdf: boolean) {
     if (!isPdf) return
     let cancelled = false
     readerApi.getPdfMeta(activeBookId).then((meta) => {
-      if (!cancelled && meta) setPdfMeta(meta)
+      if (!cancelled && meta) {
+        setPdfMeta(meta)
+        if (meta.is_scanned_book || meta.is_scanned_or_hybrid) {
+          setPdfModeState('page_canvas')
+        }
+      }
     })
     return () => {
       cancelled = true
