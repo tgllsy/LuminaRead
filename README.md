@@ -8,6 +8,60 @@
 ![SQLite](https://img.shields.io/badge/sqlite-FTS5-green)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS%20%7C%20Android-lightgrey)
 
+<p align="center">
+  <img src="images/1.png" alt="LuminaRead 桌面端沉浸书架首页" width="100%" />
+</p>
+
+---
+
+## 界面概览 (Visual Showcase)
+
+### 🖥️ 桌面端·沉浸书架与出版级阅读体验
+
+<p align="center">
+  <img src="images/2.png" alt="出版级排版阅读器" width="100%" />
+</p>
+
+* **出版级排版引擎**：仿生宣纸与羊皮纸质感、正文字形微调、首字下沉设计、章末预估时长与全能浮动阅读胶囊。
+* **双模伴读**：随时呼出 AI 深度苏格拉底式伴读对话或切换至 Edge Neural TTS 听书模式，沉浸不被打断。
+
+<p align="center">
+  <img src="images/9.png" alt="跨书笔记与 AI 智库工作台" width="100%" />
+</p>
+
+* **AI 跨书智库工作台**：全书库划线、批注与书签集中汇聚，支持全文与跨书互文考据；深度接入大模型智能对谈与思想梳理。
+
+---
+
+### 📱 移动端·极致随身阅读与黑金听书剧场
+
+针对手机与平板竖屏进行深度人机工效学重构，专为拇指热区与随行听读优化：
+
+<table align="center" style="margin: 0 auto; text-align: center;">
+  <tr>
+    <td align="center" valign="top" width="33.3%">
+      <img src="images/6.png" alt="移动端自适应书架" width="100%" />
+      <br />
+      <b>📱 移动端自适应书架</b>
+      <p><i>单手拇指热区布局 · 极简双列书架 · 横向滑动分类 · 快捷居中听书入口</i></p>
+    </td>
+    <td align="center" valign="top" width="33.3%">
+      <img src="images/7.png" alt="黑金流光听书剧场" width="100%" />
+      <br />
+      <b>🎧 黑金流光听书剧场</b>
+      <p><i>黑胶唱片视觉动效 · KTV 逐字流光字幕 · 自然多音色演播 · 白噪音环境混音</i></p>
+    </td>
+    <td align="center" valign="top" width="33.3%">
+      <img src="images/8.png" alt="多主题排版抽屉" width="100%" />
+      <br />
+      <b>🎨 出版排版与调色抽屉</b>
+      <p><i>出版级楷宋字体切换 · 6大仿生纸质主题（宣纸/羊皮纸/豆沙绿/墨水屏）</i></p>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 功能特性
 
 **书城与书库**
