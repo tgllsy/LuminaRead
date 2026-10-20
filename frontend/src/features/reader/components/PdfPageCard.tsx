@@ -21,6 +21,11 @@ export interface PdfPageCardProps {
   onOpenLightbox: (url: string, title: string, pageNum: number) => void
   onTextMouseUp: (pIdx: number) => void
   onToggleControls?: () => void
+  isContinuous?: boolean
+  isVisible?: boolean
+  estimatedHeight?: number
+  onHeightReport?: (pageNum: number, height: number) => void
+  itemRef?: (el: HTMLElement | null) => void
 }
 
 export const PdfPageCard: React.FC<PdfPageCardProps> = ({
@@ -41,20 +46,42 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
   onOpenLightbox,
   onTextMouseUp,
   onToggleControls,
+  isContinuous = false,
+  isVisible = true,
+  estimatedHeight,
+  onHeightReport,
+  itemRef,
 }) => {
   const [renderedDataUrl, setRenderedDataUrl] = useState<string | null>(null)
-  const isDouble = pdfSpreadMode === 'double'
+  const isDouble = !isContinuous && pdfSpreadMode === 'double'
 
   const handleLightbox = () => {
     const url = renderedDataUrl || `/api/books/${encodeURIComponent(book.id)}/file`
     onOpenLightbox(url, `《${book.title}》 · 第 ${pNum} 页`, pNum)
   }
 
+  if (isContinuous && !isVisible) {
+    return (
+      <div
+        ref={itemRef}
+        id={`pdf-page-${pNum}`}
+        data-pdf-page={pNum}
+        style={{ minHeight: `${estimatedHeight || 550}px` }}
+        className="w-full max-w-full flex flex-col items-center justify-center bg-current/[0.02] border-b border-current/5 transition-opacity py-16"
+      >
+        <span className="text-xs font-mono opacity-40">第 {pNum} / {effectiveTotalPages} 页</span>
+      </div>
+    )
+  }
+
   return (
     <div
+      ref={itemRef}
+      id={`pdf-page-${pNum}`}
+      data-pdf-page={pNum}
       className={`group rounded-none sm:rounded-2xl border-0 sm:border border-current/15 bg-transparent sm:bg-current/[0.025] shadow-none sm:shadow-lg overflow-hidden relative transition-all ${
         fitMode === 'page' ? 'w-fit max-w-full mx-auto' : 'w-full'
-      }`}
+      } ${isContinuous ? 'mb-4 sm:mb-8' : ''}`}
     >
       {/* Desktop Card Header: Hidden on mobile to maximize viewport area */}
       <div className="hidden sm:flex px-3.5 py-2 border-b border-current/10 items-center justify-between text-xs bg-current/[0.04] gap-2">
@@ -90,7 +117,13 @@ export const PdfPageCard: React.FC<PdfPageCardProps> = ({
           fitMode={fitMode}
           isDouble={isDouble}
           pdfFilterStyle={pdfFilterStyle}
-          onRenderSuccess={(dataUrl) => setRenderedDataUrl(dataUrl)}
+          onRenderSuccess={(dataUrl) => {
+            setRenderedDataUrl(dataUrl)
+            const el = document.getElementById(`pdf-page-${pNum}`)
+            if (el && el.clientHeight > 50) {
+              onHeightReport?.(pNum, el.clientHeight)
+            }
+          }}
         />
 
         {/* Left 25% click zone: previous page */}

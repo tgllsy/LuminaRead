@@ -221,6 +221,20 @@ const MobileFloatingNavbar: React.FC<ReaderTopNavbarProps & { isDark: boolean; o
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {book.format === 'pdf' && (
+              <button
+                type="button"
+                onClick={onTogglePdfMode}
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-transform active:scale-95 ${
+                  pdfMode === 'page_canvas'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-emerald-600 text-white shadow-xs'
+                }`}
+                title="一键切换原版影印/文本重排"
+              >
+                {pdfMode === 'page_canvas' ? '📄原版' : '📝重排'}
+              </button>
+            )}
             <button type="button" onClick={onOpenSearch} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform active:scale-[0.97] ${btnCls}`} title="书内全文搜索">
               <Search className="w-4 h-4 stroke-[1.9]" />
             </button>
