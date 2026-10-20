@@ -444,7 +444,37 @@ pub fn parse_dialogue_segments(text: &str) -> Vec<TtsRoleSegment> {
         });
     }
 
-    segments
+    // Distinguish real spoken dialogue from inline quoted terms/idioms (e.g. “洋鬼子”, “为富不仁”)
+    for idx in 0..segments.len() {
+        if segments[idx].is_dialogue {
+            let t = segments[idx].text.trim();
+            let char_len = t.chars().count();
+            let ends_with_sentence_punct = t.ends_with(['。', '！', '？', '!', '?', '…', '~', '.']);
+            let prev_ends_with_colon = idx > 0 && {
+                let prev = segments[idx - 1].text.trim();
+                prev.ends_with(['：', ':'])
+            };
+            let is_real_dialogue =
+                ends_with_sentence_punct || prev_ends_with_colon || char_len >= 15;
+            if !is_real_dialogue {
+                segments[idx].is_dialogue = false;
+            }
+        }
+    }
+
+    // Merge consecutive segments with the same role to avoid fragmented TTS synthesis
+    let mut merged: Vec<TtsRoleSegment> = Vec::with_capacity(segments.len());
+    for seg in segments {
+        if let Some(last) = merged.last_mut() {
+            if last.is_dialogue == seg.is_dialogue {
+                last.text.push_str(&seg.text);
+                continue;
+            }
+        }
+        merged.push(seg);
+    }
+
+    merged
 }
 
 fn is_matching_close_quote(open: char, close: char) -> bool {
@@ -860,7 +890,7 @@ impl TtsService for TtsServiceImpl {
                 let client = &self.http_client;
                 let mut combined_mp3 = Vec::new();
                 let mut all_chunks_ok = !chunks.is_empty();
-                for batch in chunks.chunks(4) {
+                for batch in chunks.chunks(6) {
                     let batch_futs = batch.iter().map(|chunk| {
                         synthesize_chunk_mp3(chunk, voice_name, Some(client))
                     });
@@ -1068,7 +1098,7 @@ impl TtsService for TtsServiceImpl {
                 let client = &self.http_client;
                 let mut combined_mp3 = Vec::new();
                 let mut all_chunks_ok = !tasks.is_empty();
-                for pair in tasks.chunks(4) {
+                for pair in tasks.chunks(6) {
                     let batch_futs = pair.iter().map(|(chunk, voice)| {
                         synthesize_chunk_mp3(chunk, voice, Some(client))
                     });
