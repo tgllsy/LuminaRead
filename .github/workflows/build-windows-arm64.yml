@@ -60,10 +60,12 @@ jobs:
         with:
           workspaces: backend
 
-      # 构建 Windows ARM64 原生可执行程序
+      # 构建 Windows ARM64 原生可执行程序（静态链接 MSVC CRT，零 DLL 依赖）
       - name: Build Backend Binary
         shell: pwsh
         working-directory: backend
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
         run: cargo build --release --target aarch64-pc-windows-msvc --bin luminaread
 
       # 打包可分发压缩包 (包含二进制文件、配置文件与使用说明)

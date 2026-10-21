@@ -1,8 +1,9 @@
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 fn guess_mime(path: &Path) -> &'static str {
     match path
@@ -105,21 +106,23 @@ fn main() {
         let mut use_gz = false;
         let is_media = mime.starts_with("audio/") || mime.starts_with("video/");
         if !is_media {
-            if let Ok(out) = Command::new("gzip")
-                .args(["-9", "-n", "-c"])
-                .arg(abs_path)
-                .output()
-            {
-                if out.status.success() && (out.stdout.len() as u64) < raw_len {
-                    if fs::write(&gz_file, &out.stdout).is_ok() {
-                        use_gz = true;
+            if let Ok(raw_bytes) = fs::read(abs_path) {
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+                if encoder.write_all(&raw_bytes).is_ok() {
+                    if let Ok(compressed) = encoder.finish() {
+                        if (compressed.len() as u64) < raw_len && fs::write(&gz_file, &compressed).is_ok() {
+                            use_gz = true;
+                        }
                     }
                 }
             }
         }
 
         let embed_path = if use_gz { &gz_file } else { abs_path };
-        let embed_str = embed_path.to_string_lossy().replace('\\', "/");
+        let mut embed_str = embed_path.to_string_lossy().replace('\\', "/");
+        if embed_str.starts_with("//?/") {
+            embed_str = embed_str[4..].to_string();
+        }
         writeln!(
             f,
             "    EmbeddedAsset {{ path: {:?}, mime: {:?}, is_gzipped: {}, bytes: include_bytes!({:?}) }},",

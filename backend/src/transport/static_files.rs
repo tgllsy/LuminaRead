@@ -170,6 +170,12 @@ pub async fn handle_static_and_spa(
         }
     }
 
+    if clean_rel == "favicon.ico" {
+        if let Some(asset) = get_embedded_asset("favicon.svg") {
+            return serve_embedded_asset(asset, &headers, "public, max-age=86400");
+        }
+    }
+
     if !clean_rel.is_empty() && clean_rel != "index.html" {
         if let Some(asset) = get_embedded_asset(clean_rel) {
             return serve_embedded_asset(asset, &headers, cache_ctrl);

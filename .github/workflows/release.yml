@@ -40,11 +40,13 @@ jobs:
             target: x86_64-pc-windows-msvc
             platform: windows_amd64
             bin: luminaread.exe
+            rustflags: "-C target-feature=+crt-static"
           - os: windows-latest
             target: aarch64-pc-windows-msvc
             platform: windows_arm64
             bin: luminaread.exe
             msvc-arch: amd64_arm64
+            rustflags: "-C target-feature=+crt-static"
           - os: macos-latest
             target: aarch64-apple-darwin
             platform: darwin_arm64
@@ -89,6 +91,8 @@ jobs:
       - name: Build backend binary
         shell: pwsh
         working-directory: backend
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }} --bin luminaread
 
       - name: Package

@@ -50,3 +50,6 @@ strip = "symbols"
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
 
+[build-dependencies]
+flate2 = "1.0"
+
