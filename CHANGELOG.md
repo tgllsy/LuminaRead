@@ -4,6 +4,24 @@
 
 ---
 
+## [v2.0.3] - 2026-10-21
+
+### 🚀 平台生态扩展与单文件纯静态化
+
+#### 1. Windows on ARM64 (WoA) 原生架构支持
+* **Snapdragon / ARM64 原生可执行文件**：新增 `aarch64-pc-windows-msvc` 目标架构支持，完美适配华为 MateBook E、Surface Pro 等高通骁龙 850 / 8cx / X Elite 系列 ARM 轻薄本。
+* **独立自动打包与持续集成**：新增 `.github/workflows/build-windows-arm64.yml` 专属流水线，提交代码自动触发 ARM64 原生打包；同时纳入正式发布矩阵。
+
+#### 2. MSVC 静态 CRT 链接（彻底消除 DLL 依赖）
+* **MSVC 纯静态链接（`+crt-static`）**：Windows 目标全量开启 `-C target-feature=+crt-static`（`/MT` 模式），将 C 运行时与底层依赖静态内嵌进可执行文件。
+* **零依赖绿色运行**：彻底解决干净纯净系统因未安装 VC++ Redistributable 导致弹窗报 `找不到 VCRUNTIME140.dll` 的问题，实现真正的单文件解压即用。
+
+#### 3. 静态资源压缩引擎与网络健壮性优化
+* **跨平台纯 Rust Gzip 预压缩**：将构建期静态资源内嵌压缩由外部 `gzip` 命令重构为纯 Rust `flate2::write::GzEncoder`，解决 Windows runner 缺少 gzip 工具导致资源未压缩的问题，大幅缩减最终二进制体积。
+* **站点图标与 SPA 路由防误触**：内置 `favicon.svg`，显式配置 HTML 站点图标链接，并对浏览器自动发起的 `/favicon.ico` 请求添加直接拦截回退，防止误触 SPA fallback 下发多余 HTML 文本。
+
+---
+
 ## [v2.0.2] - 2026-10-20
 
 ### 🛡️ 安全加固与并发稳定性升级
