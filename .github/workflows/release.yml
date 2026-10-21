@@ -18,10 +18,11 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # 桌面三平台：各跑在真实系统 runner 上，无交叉编译
-  #   linux   -> x86_64-unknown-linux-musl  (静态链接，零依赖)
-  #   windows -> x86_64-pc-windows-msvc     (runner 原生工具链)
-  #   macos   -> aarch64-apple-darwin      (Apple Silicon 原生)
+  # 桌面四平台：各跑在真实系统 runner 上
+  #   linux         -> x86_64-unknown-linux-musl  (静态链接，零依赖)
+  #   windows (x64) -> x86_64-pc-windows-msvc     (runner 原生工具链)
+  #   windows (arm) -> aarch64-pc-windows-msvc    (MSVC ARM64 交叉编译)
+  #   macos         -> aarch64-apple-darwin       (Apple Silicon 原生)
   # ------------------------------------------------------------------
   build-desktop:
     name: Desktop (${{ matrix.platform }})
@@ -39,6 +40,11 @@ jobs:
             target: x86_64-pc-windows-msvc
             platform: windows_amd64
             bin: luminaread.exe
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            platform: windows_arm64
+            bin: luminaread.exe
+            msvc-arch: amd64_arm64
           - os: macos-latest
             target: aarch64-apple-darwin
             platform: darwin_arm64
@@ -62,6 +68,12 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
 
+      - name: Setup MSVC for ARM64
+        if: matrix.msvc-arch != ''
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc-arch }}
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -75,7 +87,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Build backend binary
-        shell: bash
+        shell: pwsh
         working-directory: backend
         run: cargo build --release --target ${{ matrix.target }} --bin luminaread
 
@@ -239,6 +251,7 @@ jobs:
           - Android (ARM64 APK): luminaread_${VERSION}_android.apk
           - Linux (x86_64 静态 MUSL): luminaread_${VERSION}_linux_amd64.zip
           - Windows (x86_64 MSVC): luminaread_${VERSION}_windows_amd64.zip
+          - Windows (ARM64 MSVC): luminaread_${VERSION}_windows_arm64.zip
           - macOS (Apple Silicon arm64): luminaread_${VERSION}_darwin_arm64.zip
 
           ### 校验

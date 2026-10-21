@@ -1,0 +1,89 @@
+name: Build Windows ARM64
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-win-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  build-windows-arm64:
+    name: Windows ARM64 (Snapdragon / WoA)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # 前端静态资源必须先构建：backend/build.rs 将 ../frontend/dist 内嵌进二进制
+      - name: Build Frontend
+        shell: pwsh
+        run: |
+          Set-Location frontend
+          npm ci --no-audit --no-fund
+          npm run build
+
+      # 配置 MSVC ARM64 交叉编译环境变量 (Host: x64, Target: ARM64)
+      - name: Setup MSVC for ARM64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      # 构建 Windows ARM64 原生可执行程序
+      - name: Build Backend Binary
+        shell: pwsh
+        working-directory: backend
+        run: cargo build --release --target aarch64-pc-windows-msvc --bin luminaread
+
+      # 打包可分发压缩包 (包含二进制文件、配置文件与使用说明)
+      - name: Package Artifact
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pkg = "luminaread_windows_arm64"
+          New-Item -ItemType Directory -Force -Path "stage/$pkg" | Out-Null
+          Copy-Item "backend/target/aarch64-pc-windows-msvc/release/luminaread.exe" "stage/$pkg/"
+          Copy-Item "config.toml" "stage/$pkg/"
+          Copy-Item "README.md" "stage/$pkg/"
+          Compress-Archive -Path "stage/$pkg" -DestinationPath "stage/$pkg.zip" -CompressionLevel Optimal
+          Remove-Item -Recurse -Force "stage/$pkg"
+          Get-ChildItem "stage"
+
+      # 上传构建产物，推送代码后即可在 Actions 页面直接下载
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luminaread_windows_arm64
+          path: stage/*.zip
+          if-no-files-found: error
